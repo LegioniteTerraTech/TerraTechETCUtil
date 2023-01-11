@@ -8,6 +8,57 @@ using System.Reflection;
 
 namespace TerraTechETCUtil
 {
+    public class ManExtProj : MonoBehaviour
+    {
+        private static ManExtProj inst;
+        internal static readonly List<ProjBase> projPool = new List<ProjBase>();
+
+        private const float SlowUpdateTime = 0.6f;
+        private float SlowUpdate = 0;
+        public static void InsureInit()
+        {
+            if (inst)
+                return;
+            inst = new GameObject("ManExtProj").AddComponent<ManExtProj>();
+            Debug_TTExt.Log("TerraTechModExt: Created ManExtProj.");
+        }
+        public void Update()
+        {
+            if (SlowUpdate < Time.time)
+            {
+                SlowUpdate = Time.time + SlowUpdateTime;
+                UpdateSlow();
+            }
+        }
+
+        internal static void UpdateSlow()
+        {
+            string errorBreak = null;
+            foreach (var item in projPool)
+            {
+                try
+                {
+                    item.SlowUpdate();
+                }
+                catch
+                {
+                    try
+                    {
+                        errorBreak = item.name;
+                    }
+                    catch
+                    {
+                        errorBreak = "ITEM WAS NULL";
+                    }
+                    break;
+                }
+            }
+            Debug_TTExt.Assert(errorBreak != null, "A projectile errored out - " + errorBreak);
+        }
+
+    }
+
+
     // Please let me know if you want to use any of the method calls to the derived projectile modules.  
     //  I will make it public if needed.
 
@@ -66,8 +117,6 @@ namespace TerraTechETCUtil
     /// </summary>
     public class ProjBase : MonoBehaviour
     {
-        protected static readonly List<ProjBase> projPool = new List<ProjBase>();
-
         public Projectile project { get; internal set; }
         public Rigidbody rbody { get; internal set; }
         public ModuleWeapon launcher { get; internal set; }
@@ -138,6 +187,7 @@ namespace TerraTechETCUtil
 
         internal void Fire(FireData fireData, Tank shooter, ModuleWeapon firingPiece)
         {
+            ManExtProj.InsureInit();
             launcher = firingPiece;
             this.shooter = shooter;
             Debug_TTExt.Assert(!shooter, "TerraTechModExt: ProjBase was given NO SHOOTER, this may cause issues!");
@@ -146,7 +196,7 @@ namespace TerraTechETCUtil
             {
                 item.Fire(fireData);
             }
-            projPool.Add(this);
+            ManExtProj.projPool.Add(this);
         }
 
         internal void OnWorldRemoval()
@@ -155,7 +205,7 @@ namespace TerraTechETCUtil
             {
                 item.WorldRemoval();
             }
-            projPool.Remove(this);
+            ManExtProj.projPool.Remove(this);
         }
         internal void OnImpact(Collider other, Damageable damageable, Vector3 hitPoint, ref bool ForceDestroy)
         {
@@ -187,31 +237,6 @@ namespace TerraTechETCUtil
             }
         }
 
-
-        internal static void UpdateSlow()
-        {
-            string errorBreak = null;
-            foreach (var item in projPool)
-            {
-                try
-                {
-                    item.SlowUpdate();
-                }
-                catch
-                {
-                    try
-                    {
-                        errorBreak = item.name;
-                    }
-                    catch
-                    {
-                        errorBreak = "ITEM WAS NULL";
-                    }
-                    break;
-                }
-            }
-            Debug_TTExt.Assert(errorBreak != null, "A projectile errored out - " + errorBreak);
-        }
 
 
         internal static FieldInfo explode = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);

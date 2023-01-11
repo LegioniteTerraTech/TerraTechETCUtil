@@ -16,9 +16,9 @@ namespace TerraTechETCUtil
         public static void SubToBlockAttachConnected(this TankBlock TB, Action attachEvent, Action detachEvent)
         {
             if (attachEvent != null)
-                TB.AttachEvent.Subscribe(attachEvent);
+                TB.AttachedEvent.Subscribe(attachEvent);
             if (detachEvent != null)
-                TB.DetachEvent.Subscribe(detachEvent);
+                TB.DetachingEvent.Subscribe(detachEvent);
         }
         /// <summary>
         /// For block attachment updates when Tank is set to a valid reference
@@ -26,9 +26,9 @@ namespace TerraTechETCUtil
         public static void UnSubToBlockAttachConnected(this TankBlock TB, Action attachEvent, Action detachEvent)
         {
             if (attachEvent != null)
-                TB.AttachEvent.Unsubscribe(attachEvent);
+                TB.AttachedEvent.Unsubscribe(attachEvent);
             if (detachEvent != null)
-                TB.DetachEvent.Unsubscribe(detachEvent);
+                TB.DetachingEvent.Unsubscribe(detachEvent);
         }
 
         public static Transform HeavyObjectSearch(this Transform trans, string name)
