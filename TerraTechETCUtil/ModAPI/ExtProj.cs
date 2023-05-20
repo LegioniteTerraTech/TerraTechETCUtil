@@ -48,7 +48,7 @@ namespace TerraTechETCUtil
                     }
                     catch
                     {
-                        errorBreak = "ITEM WAS NULL";
+                        errorBreak = "ITEM NAME WAS NULL";
                     }
                     break;
                 }

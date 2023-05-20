@@ -428,7 +428,8 @@ namespace TerraTechETCUtil
             {
                 if (StringToBlockType(mem.t, out BlockTypes type))
                 {
-                    if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) || !TechDataAvailValidation.IsBlockAvailableInMode(type))
+                    if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) || 
+                        Singleton.Manager<ManSpawn>.inst.IsBlockUsageRestrictedInGameMode(type))
                     {
                         Debug.Log("TTETCUtil: InstantTech - Removed " + mem.t + " as it was invalidated");
                         continue;

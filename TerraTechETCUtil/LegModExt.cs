@@ -18,6 +18,16 @@ namespace TerraTechETCUtil
             if (patched)
                 return;
             harmonyInstance.MassPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt");
+            try
+            {
+                harmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
+                Debug_TTExt.Log("TerraTechETCUtil: Patched batch");
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("TerraTechETCUtil failed to boot: " + e);
+            }
+            UIHelpersExt.Init();
             patched = true;
         }
         public static void RemovePatches()
@@ -25,6 +35,15 @@ namespace TerraTechETCUtil
             if (!patched)
                 return;
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt");
+            try
+            {
+                harmonyInstance.UnpatchAll(harmonyInstance.Id);
+                Debug_TTExt.Log("TerraTechETCUtil: Unpatched batch");
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("TerraTechETCUtil failed to boot: " + e);
+            }
             patched = false;
         }
     }
@@ -43,7 +62,7 @@ namespace TerraTechETCUtil
             /// </summary>
             private static void OnPool_Postfix(Projectile __instance)
             {
-                //DebugRandAddi.Log("RandomAdditions: Patched Projectile OnPool(WeightedProjectile)");
+                //Debug_TTExt.Log("RandomAdditions: Patched Projectile OnPool(WeightedProjectile)");
                 if (ProjBase.PrePoolTryApplyThis(__instance))
                 {
                     var ModuleCheck = __instance.gameObject.GetComponent<ProjBase>();
@@ -66,7 +85,7 @@ namespace TerraTechETCUtil
             /// </summary>
             private static void HandleCollision_Prefix(Projectile __instance, ref Damageable damageable, ref Vector3 hitPoint, ref Collider otherCollider, ref bool ForceDestroy)//
             {
-                //DebugRandAddi.Log("RandomAdditions: Patched Projectile HandleCollision(KeepSeekingProjectile & OHKOProjectile)");
+                //Debug_TTExt.Log("RandomAdditions: Patched Projectile HandleCollision(KeepSeekingProjectile & OHKOProjectile)");
                 var ModuleCheckR = __instance.GetComponent<ProjBase>();
                 if (ModuleCheckR != null)
                 {
@@ -82,6 +101,23 @@ namespace TerraTechETCUtil
                 ProjBase.Insure(__instance).Fire(fireData, shooter, weapon);
             }
 
+        }
+    }
+    public class Patches
+    {
+        [HarmonyPatch(typeof(Localisation))]
+        [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(string), typeof(string), typeof(Localisation.GlyphInfo[]) })]//
+        private class ShoehornText
+        {
+            private static bool Prefix(UIScreenMultiplayerTechSelect __instance, ref string bank, ref string id, ref string __result)
+            {
+                if (id == "MOD")
+                {
+                    __result = bank;
+                    return false;
+                }
+                return true;
+            }
         }
     }
 }

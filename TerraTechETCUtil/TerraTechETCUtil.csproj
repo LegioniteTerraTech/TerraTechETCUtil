@@ -12,6 +12,16 @@
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <ShouldCreateLogs>True</ShouldCreateLogs>
+    <AdvancedSettingsExpanded>True</AdvancedSettingsExpanded>
+    <UpdateAssemblyVersion>True</UpdateAssemblyVersion>
+    <UpdateAssemblyFileVersion>True</UpdateAssemblyFileVersion>
+    <UpdateAssemblyInfoVersion>False</UpdateAssemblyInfoVersion>
+    <AssemblyVersionSettings>None.None.DayOfYearStamp.IncrementWithResetOnIncrease</AssemblyVersionSettings>
+    <UpdatePackageVersion>False</UpdatePackageVersion>
+    <AssemblyInfoVersionType>SettingsVersion</AssemblyInfoVersionType>
+    <InheritWinAppVersionFrom>None</InheritWinAppVersionFrom>
+    <AssemblyFileVersionSettings>None.None.DayOfYearStamp.IncrementWithResetOnIncrease</AssemblyFileVersionSettings>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -33,6 +43,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Steam|AnyCPU'">
     <OutputPath>bin\Steam\</OutputPath>
     <DefineConstants>STEAM</DefineConstants>
+    <DocumentationFile>bin\Steam\TerraTechETCUtil.xml</DocumentationFile>
+    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Ionic.Zlib">
@@ -181,22 +193,33 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BlockIndexer.cs" />
-    <Compile Include="AltUI.cs" />
+    <Compile Include="CursorChangeHelper.cs" />
+    <Compile Include="DebugExtUtilities.cs" />
+    <Compile Include="Helpers\GUILayoutHelpers.cs" />
+    <Compile Include="ModAPI\BlockIndexer.cs" />
+    <Compile Include="ModAPI\InvokeHelper.cs" />
+    <Compile Include="Helpers\SFXHelpers.cs" />
+    <Compile Include="UIChanges\AltUI.cs" />
     <Compile Include="ConfigConnect.cs" />
-    <Compile Include="ExtUsageHint.cs" />
-    <Compile Include="IChildModuleWeapon.cs" />
-    <Compile Include="ChildProjectile.cs" />
+    <Compile Include="ModAPI\ExtUsageHint.cs" />
+    <Compile Include="ModAPI\IChildModuleWeapon.cs" />
+    <Compile Include="ModAPI\ChildProjectile.cs" />
     <Compile Include="Debug_TTExt.cs" />
-    <Compile Include="ExtGimbalControl.cs" />
-    <Compile Include="ExtModule.cs" />
-    <Compile Include="BlockDebug.cs" />
-    <Compile Include="ExtProj.cs" />
+    <Compile Include="ModAPI\ExtGimbalControl.cs" />
+    <Compile Include="ModAPI\ExtModule.cs" />
+    <Compile Include="ModAPI\BlockDebug.cs" />
+    <Compile Include="ModAPI\ExtProj.cs" />
     <Compile Include="LegModExt.cs" />
+    <Compile Include="UIChanges\ManModGUI.cs" />
     <Compile Include="MassPatcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RawTechUtil.cs" />
+    <Compile Include="Helpers\ResourcesHelper.cs" />
+    <Compile Include="Helpers\SpawnHelper.cs" />
+    <Compile Include="UIChanges\UIHelpersExt.cs" />
     <Compile Include="Utilities.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>del *.pdb

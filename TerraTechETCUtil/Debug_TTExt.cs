@@ -12,7 +12,7 @@ namespace TerraTechETCUtil
 
         internal static bool LogAll = false;
         internal static bool ShouldLog = true;
-        private static bool LogDev = true;
+        private static bool LogDev = false;
 
         internal static void Info(string message)
         {
