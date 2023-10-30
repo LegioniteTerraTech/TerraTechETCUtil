@@ -5,10 +5,11 @@ using System.Text;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Networking;
 
 namespace TerraTechETCUtil
 {
-    public class UIHelpersExt
+    public static class UIHelpersExt
     {
         private static FieldInfo delay = typeof(ManHUD).GetField("m_RadialShowDelay", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo dist = typeof(ManHUD).GetField("m_RadialMouseDistanceThreshold", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -117,6 +118,7 @@ namespace TerraTechETCUtil
                 }
                 if (IO == null || IO.HasExpired())
                 {
+                    IOD.m_DissappearDelay = 4f;
                     IO = new InfoOverlay(IOD);
                     IO.Clear();
                     IO.Setup(vis);
@@ -130,6 +132,7 @@ namespace TerraTechETCUtil
                 else if (IO.Subject != vis)
                 {
                     ManOverlay.inst.RemoveWarningOverlay(IO);
+                    IOD.m_DissappearDelay = 4f;
                     IO = new InfoOverlay(IOD);
                     IO.Clear();
                     IO.Setup(vis);
@@ -140,6 +143,7 @@ namespace TerraTechETCUtil
                     IO.OverrideDataHook(GUIWarningPopup_Internal);
                     overlays.Invoke(ManOverlay.inst, new object[1] { IO });
                 }
+                IO.ResetDismissTimer();
                 LastWarnState = title;
                 LastWarnDesc = desc;
                 LastWarnType = typeDesc;
@@ -161,7 +165,7 @@ namespace TerraTechETCUtil
             IOD.m_DissappearDelay = 2.5f;
             IOD.m_Expandable = true;
             IOD.m_PanelMaxDisplayDistance = 750;
-            IOD.m_Priority = -2;
+            IOD.m_Priority = 9001;//-2;
             IOD.m_IconSprite = null;
             IOD.m_IconColour = data.m_Config.m_IconColour;
             IOD.m_LineMat = data.m_Config.m_LineMat;
@@ -193,18 +197,77 @@ namespace TerraTechETCUtil
             return data;
         }
 
+
+
+        public class NetBigMessage : MessageBase
+        {
+            public NetBigMessage() { }
+            public NetBigMessage(int team, string desc, bool noise)
+            {
+                Noise = noise;
+                Team = team;
+                Desc = desc;
+            }
+
+            public bool Noise;
+            public int Team;
+            public string Desc;
+        }
+        private static NetworkHook<NetBigMessage> netHook = new NetworkHook<NetBigMessage>(OnReceiveBigMessage, NetMessageType.FromClientToServerThenClients);
+
+        private static bool OnReceiveBigMessage(NetBigMessage command, bool isServer)
+        {
+            if (!isServer)
+            {
+                if (command.Team == 0)
+                {
+                    DoBigF5broningBanner(command.Desc, command.Noise);
+                }
+                else
+                {
+                    if (ManPlayer.inst.PlayerTeam == command.Team)
+                        DoBigF5broningBanner(command.Desc, command.Noise);
+                }
+                return true;
+            }
+            else
+                return true;
+            return false;
+        }
+
+        internal static void InsureNetHooks()
+        {
+            netHook.Register();
+        }
+
+
         /// <summary>
         /// The BigF5broningBanner is active and shown on the screen.
         /// </summary>
         public static bool BigF5broningBannerActive => bannerActive;
         private static UIMultiplayerHUD warningBanner;
         private static bool bannerActive = false;
+        private static bool subbed = false;
         /// <summary>
         /// Make a big, nice obvious warning on the screen that's nearly impossible to miss.
         /// </summary>
         /// <param name="Text">What text to show on the banner.  Set to nothing to hide immedeately.</param>
         /// <param name="startNoise">Play payload inbound warning SFX for duration of showing.</param>
         public static void BigF5broningBanner(string Text, bool startNoise = true)
+        {
+            if (netHook.CanBroadcast())
+                netHook.TryBroadcast(new NetBigMessage(0, Text, startNoise));
+            else
+                DoBigF5broningBanner(Text, startNoise);
+        }
+        public static void BigF5broningBanner(int team, string Text, bool startNoise = true)
+        {
+            if (netHook.CanBroadcast())
+                netHook.TryBroadcast(new NetBigMessage(team, Text, startNoise));
+            else
+                DoBigF5broningBanner(Text, startNoise);
+        }
+        private static void DoBigF5broningBanner(string Text, bool startNoise)
         {
             if (!Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.Multiplayer))
             {
@@ -227,16 +290,69 @@ namespace TerraTechETCUtil
             else
                 InvokeHelper.CancelInvokeSingle(RemoveWarning);
             if (Text == null)
-                Text = "";
+                Text = string.Empty;
             warningBanner.Message = Text;
             InvokeHelper.InvokeSingle(RemoveWarning, 4f);
+            if (!subbed)
+            {
+                warningBanner.OnMessageChanged.Subscribe(RemoveSub);
+                subbed = true;
+            }
             bannerActive = true;
+        }
+        private static void RemoveSub(string unused)
+        {
+            if (subbed)
+            {
+                InvokeHelper.CancelInvokeSingle(RemoveWarning);
+                warningBanner.OnMessageChanged.Unsubscribe(RemoveSub);
+                subbed = false;
+            }
         }
         private static void RemoveWarning()
         {
+            RemoveSub(null);
             ManSFX.inst.StopMiscLoopingSFX(ManSFX.MiscSfxType.PayloadIncoming);
             warningBanner.Message = "";
             bannerActive = false;
+        }
+
+        /// <summary>
+        /// Client Only!
+        /// </summary>
+        public static void PointAtTransform(Transform trans, Vector3 offset, float duration)
+        {
+            if (!Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.BouncingArrow))
+            {
+                Debug_TTExt.Log("TTUtil: UIHelpersExt - init BouncingArrow");
+                Singleton.Manager<ManHUD>.inst.InitialiseHudElement(ManHUD.HUDElementType.BouncingArrow);
+            }
+            UIBouncingArrow.BouncingArrowContext context = new UIBouncingArrow.BouncingArrowContext
+            {
+                targetTransform = trans,
+                targetOffset = offset,
+                forTime = duration,
+            };
+            Singleton.Manager<ManHUD>.inst.ShowHudElement(ManHUD.HUDElementType.BouncingArrow, context);
+        }
+        public static void StopPointing()
+        {
+            if (Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.BouncingArrow))
+            {
+                Singleton.Manager<ManHUD>.inst.HideHudElement(ManHUD.HUDElementType.BouncingArrow);
+            }
+        }
+
+        /// <summary>
+        /// Client Only!
+        /// </summary>
+        public static void PointAtThis(this Transform trans, Vector3 offset, float duration = 8)
+        {
+            PointAtTransform(trans, offset, duration);
+        }
+        public static void StopPointing(this Transform trans)
+        {
+            StopPointing();
         }
 
         /// <summary>
@@ -614,9 +730,13 @@ namespace TerraTechETCUtil
                 InsureRadialMenuPrefabs();
                 if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
                 {
+                    if (opener == null)
+                        throw new NullReferenceException("OpenGUI - opener was null for some reason. It should NOT be null EVER!");
                     //Debug_TTExt.Log("GUIButtonMadness.OpenGUI() - " + Time.time);
                     PRM.ShowThis(opener, elements);
                 }
+                else
+                    throw new IndexOutOfRangeException("OpenGUI - Index [" + elements.Length + "] is out of range of given: [1 - 6]");
             }
             else
             {
@@ -649,8 +769,10 @@ namespace TerraTechETCUtil
     {
         private const float timerDelay = 0.4f;
         private static FieldInfo radCOp = typeof(RadialMenu).GetField("m_CenterOption", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo radOpSub = typeof(RadialMenu).GetField("m_Submenus", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo radOp = typeof(RadialMenu).GetField("m_RadialOptions", BindingFlags.NonPublic | BindingFlags.Instance);
-        //private static FieldInfo radOpSubMenuRect = typeof(RadialMenu).GetField("m_FakeSubMenuRect", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo radOpNum = typeof(RadialMenu).GetField("m_NumOptions", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo radOpSubMenuRect = typeof(RadialMenu).GetField("m_FakeSubMenuRect", BindingFlags.NonPublic | BindingFlags.Instance);
         private static MethodInfo radInit = typeof(RadialMenu).GetMethod("OnPool", BindingFlags.NonPublic | BindingFlags.Instance);
         private static MethodInfo radInitOp = typeof(UIRadialMenuOptionWithWarning).GetMethod("OnPool", BindingFlags.NonPublic | BindingFlags.Instance);
         //private static FieldInfo allowed = typeof(UIRadialMenuOptionWithWarning).GetField("m_IsAllowed", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -680,7 +802,7 @@ namespace TerraTechETCUtil
                 m_AllowNonRadialMenu = false,
                 m_AllowRadialMenu = true,
                 m_RadialInputController = ManInput.RadialInputController.Mouse,
-                m_TargetTankBlock = targ
+                m_TargetTankBlock = targ,
             };
 
             elementsC = elements;
@@ -691,7 +813,11 @@ namespace TerraTechETCUtil
         }
         public override void Show(object context)
         {
+            if (context == null)
+                throw new NullReferenceException("Show was given NULL context!");
             OpenMenuEventData OMED = (OpenMenuEventData)context;
+            if (OMED.m_TargetTankBlock == null)
+                throw new NullReferenceException("Show was given NULL m_TargetTankBlock");
             base.Show(context);
             radMenu.Show(OMED.m_RadialInputController, OMED.m_TargetTankBlock.tank != Singleton.playerTank);
             InsureDominance();
@@ -813,6 +939,7 @@ namespace TerraTechETCUtil
         {
             single = singleButton;
             radMenu = gameObject.GetComponent<RadialMenu>();
+            var RT = radOpSubMenuRect.GetValue(radMenu);
             radMenu.OnOptionSelected.EnsureNoSubscribers();
             radMenu.OnClose.EnsureNoSubscribers();
             radMenu.OnOptionHovered.EnsureNoSubscribers();
@@ -879,8 +1006,10 @@ namespace TerraTechETCUtil
 
             radMenu.OnOptionSelected.Subscribe(OnOptionSelect);
             radMenu.OnClose.Subscribe(Hide);
+            radOpSub.SetValue(radMenu, new RadialMenuSubmenu[0]);
             if (slider)
                 SetSliderVis(false);
+            radOpSubMenuRect.SetValue(radMenu, RT);
             TryGetExistingTexturesAndLabels(radMenu);
         }
         internal void InsureDominance()
@@ -931,6 +1060,7 @@ namespace TerraTechETCUtil
                 }
             }
             radOp.SetValue(radMenu, radMenuOp);
+            radOpNum.SetValue(radMenu, radMenuOp.Length);
         }
 
         internal static void TryGetExistingTexturesAndLabels(RadialMenu rm)

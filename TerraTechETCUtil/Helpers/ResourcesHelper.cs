@@ -9,9 +9,43 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    public static class ModBaseExtensions
+    {
+        public static ModContainer GetModContainer(this ModBase script)
+        {
+            return ResourcesHelper.GetModContainerFromScript(script);
+        }
+
+        public static string GetModName(this ModBase script)
+        {
+            return script.GetModContainer().ModID;
+        }
+        public static void DebugLogModContents(this ModBase script)
+        {
+            ResourcesHelper.LookIntoModContents(script.GetModContainer());
+        }
+        public static Texture2D GetModTexture(this ModBase script, string nameNoExt)
+        {
+            return ResourcesHelper.GetTextureFromModAssetBundle(script.GetModContainer(), nameNoExt);
+        }
+        public static T GetModObject<T>(this ModBase script, string nameNoExt) where T : UnityEngine.Object
+        {
+            return ResourcesHelper.GetObjectFromModContainer<T>(script.GetModContainer(), nameNoExt);
+        }
+        public static IEnumerable<T> GetModObjects<T>(this ModBase script) where T : UnityEngine.Object
+        {
+            return ResourcesHelper.IterateObjectsFromModContainer<T>(script.GetModContainer());
+        }
+        public static IEnumerable<T> GetModObjects<T>(this ModBase script, string nameNoExt) where T : UnityEngine.Object
+        {
+            return ResourcesHelper.IterateObjectsFromModContainer<T>(script.GetModContainer(), nameNoExt);
+        }
+    }
+
     public class ResourcesHelper
     {
         public static bool ShowDebug = false;
+        /*
         public static string Up
         {
             get
@@ -27,15 +61,55 @@ namespace TerraTechETCUtil
             }
         }
         private static string up = null;
+        */
+        private static Dictionary<string, ModContainer> modsEmpty = new Dictionary<string, ModContainer>();
+        private static Dictionary<string, ModContainer> modsDirect = null;
 
-        private static void Init()
+        private static void OnModsChanged(Mode unused)
         {
-            if (SystemInfo.operatingSystemFamily == OperatingSystemFamily.MacOSX)
+            ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(OnModsChanged);
+            modsDirect = modsEmpty;
+        }
+        public static Dictionary<string, ModContainer> GetAllMods()
+        {
+            if (modsDirect == null)
             {
-                up = "/";
+                ManGameMode.inst.ModeCleanUpEvent.Subscribe(OnModsChanged);
+                modsDirect = (Dictionary<string, ModContainer>)ModContainerGet.GetValue(ManMods.inst);
             }
+            if (modsDirect == null)
+                modsDirect = modsEmpty;
+            return modsDirect;
+        }
+        public static IEnumerable<KeyValuePair<string, ModContainer>> IterateAllMods()
+        {
+            return GetAllMods();
         }
 
+        public static ModContainer GetModContainerFromScript(ModBase script)
+        {
+            foreach (var item in GetAllMods().Values)
+            {
+                if (item.Script == script)
+                {
+                    return item;
+                }
+            }
+            throw new NullReferenceException("GetModContainerFromScript could not find the mod with the given script");
+        }
+        public static bool TryGetModContainerFromScript(ModBase script, out ModContainer MC)
+        {
+            foreach (var item in GetAllMods().Values)
+            {
+                if (item.Script == script)
+                {
+                    MC = item;
+                    return true;
+                }
+            }
+            MC = null;
+            return false;
+        }
         public static bool TryGetModContainer(string modName, out ModContainer MC)
         {
             MC = ManMods.inst.FindMod(modName);
@@ -68,8 +142,26 @@ namespace TerraTechETCUtil
             }
             catch (Exception e)
             {
-                Debug_TTExt.Log(e);
+                Debug_TTExt.Log("LookIntoModContents ~ Error on checking ModContainer - " + e);
             }
+        }
+
+
+        public static T GetObjectFromModContainer<T>(ModContainer MC, string nameNoExt) where T : UnityEngine.Object
+        {
+            Mesh mesh = null;
+            return (T)MC.Contents.m_AdditionalAssets.Find(delegate (UnityEngine.Object cand)
+            { return cand is T && cand.name.Equals(nameNoExt); });
+        }
+        public static IEnumerable<T> IterateObjectsFromModContainer<T>(ModContainer MC) where T : UnityEngine.Object
+        {
+            return MC.Contents.m_AdditionalAssets.FindAll(delegate (UnityEngine.Object cand)
+            { return cand is T; }).Select(x => (T)x);
+        }
+        public static IEnumerable<T> IterateObjectsFromModContainer<T>(ModContainer MC, string nameStartsWith) where T : UnityEngine.Object
+        {
+            return MC.Contents.m_AdditionalAssets.FindAll(delegate (UnityEngine.Object cand)
+            { return cand is T && cand.name.StartsWith(nameStartsWith); }).Select(x => (T)x);
         }
 
         /// <summary>
@@ -114,10 +206,12 @@ namespace TerraTechETCUtil
             return tex;
         }
 
+
+
         public static Texture2D GetTexture2DFromBaseGame(string MaterialName, bool complainWhenFail = true)
         {
             var res = UnityEngine.Object.FindObjectsOfType<Texture2D>();
-            Texture2D mat = res.ToList().Find(delegate (Texture2D cand) { return cand.name.Equals(MaterialName); });
+            Texture2D mat = res.FirstOrDefault(delegate (Texture2D cand) { return cand.name.Equals(MaterialName); });
             if (complainWhenFail)
                 Debug_TTExt.Assert(mat == null, MaterialName + " Texture2D in base game could not be found!");
             return mat;
@@ -156,10 +250,11 @@ namespace TerraTechETCUtil
             return null;
         }
 
+
         public static Material GetMaterialFromBaseGame(string MaterialName, bool complainWhenFail = true)
         {
             var res = UnityEngine.Object.FindObjectsOfType<Material>();
-            Material mat = res.ToList().Find(delegate (Material cand) { return cand.name.Equals(MaterialName); });
+            Material mat = res.FirstOrDefault(delegate (Material cand) { return cand.name.Equals(MaterialName); });
             if (complainWhenFail)
                 Debug_TTExt.Assert(mat == null, MaterialName + " Material in base game could not be found!");
             return mat;
@@ -206,6 +301,7 @@ namespace TerraTechETCUtil
             return new AsyncLoaderUnstable(UnityEngine.Object.FindObjectsOfType(type), ResourceName, callback, processIterations);
         }
 
+
         public static Texture2D FetchTexture(ModContainer MC, string pngName, string DLLDirectory)
         {
             Texture2D tex = null;
@@ -231,6 +327,93 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("Could not load Icon " + pngName + "!  \n   File is missing!");
             return null;
         }
+
+
+        private static FieldInfo ModContainerGet = typeof(ManMods).GetField("m_Mods", BindingFlags.NonPublic | BindingFlags.Instance);
+        internal static bool CheckTTExtUtils()
+        {
+            bool success = true;
+            if (GetAllMods().Any())
+            {
+                FileVersionInfo FVIC = null;
+                GameVersion compVal = default;
+                foreach (var item in GetAllMods().Values)
+                {
+                    string filePos;
+                    if (FVIC == null)
+                    {
+                        if (GUIManaged.infoCache.TryGetValue(item, out var val))
+                        {
+                            GUIManaged.CurVersion = val.FileVer;
+                        }
+                        else
+                        {
+                            filePos = Path.Combine(new DirectoryInfo(item.AssetBundlePath).Parent.ToString(), "TerraTechETCUtil.dll");
+                            if (File.Exists(filePos))
+                            {
+                                FVIC = FileVersionInfo.GetVersionInfo(filePos);
+                                if (FVIC != null)
+                                {
+                                    GUIManaged.CurVersion = FVIC.FileVersion;
+                                    compVal = new GameVersion(GUIManaged.CurVersion);
+                                    GUIManaged.infoCache.Add(item, new ExtInfo()
+                                    {
+                                        synced = true,
+                                        FilePos = filePos,
+                                        FileVer = GUIManaged.CurVersion,
+                                    }
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        string FVI;
+                        if (GUIManaged.infoCache.TryGetValue(item, out var val))
+                        {
+                            filePos = val.FilePos;
+                            FVI = val.FileVer;
+                            if (!val.synced)
+                                success = false;
+                        }
+                        else
+                        {
+                            filePos = Path.Combine(new DirectoryInfo(item.AssetBundlePath).Parent.ToString(), "TerraTechETCUtil.dll");
+                            if (File.Exists(filePos))
+                            {
+                                FVIC = FileVersionInfo.GetVersionInfo(filePos);
+                                if (FVIC != null)
+                                {
+                                    FVI = FVIC.FileVersion;
+                                    GUIManaged.infoCache.Add(item, new ExtInfo()
+                                    {
+                                        synced = true,
+                                        FilePos = filePos,
+                                        FileVer = FVI,
+                                    }
+                                    );
+                                    break;
+                                }
+                            }
+                            success = false;
+                            GUIManaged.infoCache.Add(item, new ExtInfo()
+                            {
+                                synced = false,
+                                FilePos = filePos,
+                                FileVer = new GameVersion().ToString(),
+                            }
+                            );
+                        }
+                    }
+                }
+            }
+            return success;
+        }
+
+
+
+
 
         private static List<AsyncLoader> asyncLoaders = new List<AsyncLoader>();
         public interface AsyncLoader
@@ -404,16 +587,23 @@ namespace TerraTechETCUtil
 
         internal enum ResourceHelperGUITypes
         {
-            ModTexture,
             IngameTexture,
+            ModTexture,
             ModContainer,
             ETC_Utils
+        }
+        internal class ExtInfo
+        {
+            internal bool synced;
+            internal string FilePos;
+            internal string FileVer;
         }
         internal class GUIManaged : GUILayoutHelpers
         {
             private static bool controlledDisp = false;
             private static HashSet<string> enabledTabs = null;
             private static ResourceHelperGUITypes guiType = ResourceHelperGUITypes.ModTexture;
+            public static Dictionary<ModContainer, ExtInfo> infoCache = new Dictionary<ModContainer, ExtInfo>();
             public static void GUIGetTotalManaged()
             {
                 if (enabledTabs == null)
@@ -444,26 +634,29 @@ namespace TerraTechETCUtil
                                 GUIModContents(ref deltaed);
                                 break;
                             case ResourceHelperGUITypes.ETC_Utils:
+                                CheckTTExtUtils();
                                 GUILayout.Box("TerraTechETCUtils within mods");
-                                CurMods = (Dictionary<string, ModContainer>)ModContainerGet.GetValue(ManMods.inst);
-                                if (CurMods != null)
+                                GUILayout.BeginHorizontal();
+                                GUILayout.Box("Current Version: ");
+                                GUILayout.Box(CurVersion);
+                                GUILayout.FlexibleSpace();
+                                GUILayout.EndHorizontal();
+                                foreach (var item in GetAllMods().Values)
                                 {
-                                    FileVersionInfo FVIC = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
-                                    if (FVIC == null)
-                                        throw new NullReferenceException("TerraTechETCUtil does NOT have version info for some reason!");
-
-                                    GUILayout.Box("Current Version: " + FVIC.FileVersion);
-                                    foreach (var item in CurMods.Values)
+                                    if (infoCache.TryGetValue(item, out var val))
                                     {
-                                        string filePos = (new DirectoryInfo(item.AssetBundlePath).Parent.ToString()) + Up + "TerraTechETCUtil.dll";
+                                        string filePos = val.FilePos;
+                                        string FVI = val.FileVer;
                                         if (File.Exists(filePos))
                                         {
                                             GUILayout.BeginHorizontal();
                                             GUILayout.Label(item.Contents.ModName);
                                             GUILayout.FlexibleSpace();
-                                            FileVersionInfo FVI = FileVersionInfo.GetVersionInfo(filePos);
                                             if (FVI != null)
-                                                GUILayout.Label("Version: " + FVI.FileVersion);
+                                            {
+                                                GUILayout.Label("Version: ");
+                                                GUILayout.Label(FVI);
+                                            }
                                             else
                                                 GUILayout.Label("Version: NULL");
                                             GUILayout.EndHorizontal();
@@ -479,13 +672,16 @@ namespace TerraTechETCUtil
                     {
                         throw e;
                     }
-                    catch { }
+                    catch (Exception e)
+                    {
+                        Debug_TTExt.Log("ResourcesHelper UI Debug errored - " + e);
+                    }
                 }
             }
 
 
             private static FieldInfo ModContainerGet = typeof(ManMods).GetField("m_Mods", BindingFlags.NonPublic | BindingFlags.Instance);
-            private static Dictionary<string, ModContainer> CurMods = null;
+            internal static string CurVersion = "error";
             private static string MCName = "";
             private static ModContainer ModContainerInst = null;
             private static bool showModContainers = false;
@@ -495,20 +691,16 @@ namespace TerraTechETCUtil
             {
                 if (GUITextFieldDisp("ModContainer Name:", ref MCName))
                     deltaed = true;
-                showModContainers = GUILayout.Toggle(showModContainers, "Get Active ModContainers");
+                showModContainers = AltUI.Toggle(showModContainers, "Get Active ModContainers");
                 if (showModContainers)
                 {
                     int select = -1;
-                    CurMods = (Dictionary<string, ModContainer>)ModContainerGet.GetValue(ManMods.inst);
-                    if (CurMods != null)
+                    select = GUIVertToolbar(select, GetAllMods().Values.Select(x => x.Contents.ModName).ToArray());
+                    if (select != -1)
                     {
-                        select = GUIVertToolbar(select, CurMods.Values.Select(x => x.Contents.ModName).ToArray());
-                        if (select != -1)
-                        {
-                            MCName = CurMods.ElementAt(select).Value.Contents.ModName;
-                            deltaed = true;
-                            showModContainers = false;
-                        }
+                        MCName = GetAllMods().ElementAt(select).Value.Contents.ModName;
+                        deltaed = true;
+                        showModContainers = false;
                     }
                 }
                 if (deltaed)
@@ -539,7 +731,7 @@ namespace TerraTechETCUtil
                 {
                     if (GUITextFieldDisp("Texture Name:", ref TexName))
                         deltaed = true;
-                    showModTexs = GUILayout.Toggle(showModTexs, "Show Active Mod Textures");
+                    showModTexs = AltUI.Toggle(showModTexs, "Show Active Mod Textures");
                     if (showModTexs)
                     {
                         if (deltaed)
@@ -598,7 +790,7 @@ namespace TerraTechETCUtil
             private static Texture cachedMatTex = null;
             private static AsyncLoader<Material> asyncMatFinder = AsyncLoader<Material>.Default;
             private static Material[] cachedMats = null;
-            private static SlowSorter<Material> slowSort = new  SlowSorter<Material>(64);
+            private static SlowSorter<Material> slowSort = new SlowSorter<Material>(64);
             private static bool showAllMats = false;
             private static bool hideDuplicates = true;
             private static void GUIIngameMaterials(ref bool deltaed)
@@ -606,11 +798,11 @@ namespace TerraTechETCUtil
                 GUILayout.Box("Ingame Materials");
                 if (GUITextFieldDisp("Material Name:", ref MatName))
                     deltaed = true;
-                showAllMats = GUILayout.Toggle(showAllMats, "Show Active Materials");
+                showAllMats = AltUI.Toggle(showAllMats, "Show Active Materials");
                 if (showAllMats)
                 {
                     bool prevHideDupes = hideDuplicates;
-                    hideDuplicates = GUILayout.Toggle(hideDuplicates, "[Filter Out Duplicates]");
+                    hideDuplicates = AltUI.Toggle(hideDuplicates, "[Filter Out Duplicates]");
                     if (hideDuplicates != prevHideDupes)
                         deltaed = true;
                     if (cachedMats == null)

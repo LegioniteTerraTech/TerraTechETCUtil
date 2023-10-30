@@ -26,12 +26,6 @@ namespace TerraTechETCUtil
             //Initiate the madness
             try
             {
-                ModConfig thisModConfig = new ModConfig();
-                thisModConfig.BindConfig<ExtUsageHint>(null, "HintsSeenSAV");
-
-                config = thisModConfig;
-                ExtUsageHint.SaveToHintsSeen();
-
             }
             catch (Exception e)
             {

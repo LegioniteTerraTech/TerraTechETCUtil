@@ -8,8 +8,12 @@ namespace TerraTechETCUtil
 {
     public class GUILayoutHelpers
     {
+        public interface SlowSortable 
+        { 
+            string name { get; }
+        }
         private interface SlowSorter { }
-        public class SlowSorter<T> : SlowSorter where T : UnityEngine.Object
+        public class SlowSorter<T> : SlowSorter
         {
             public static readonly SlowSorter<T> Default = new SlowSorter<T>(16);
             private bool updating;
@@ -21,6 +25,7 @@ namespace TerraTechETCUtil
             private HashSet<T> Iterated;
             private Dictionary<string, int> names;
             public List<string> namesValid;
+            public List<T> valid;
             public SlowSorter(int iterations)
             {
                 stepRate = iterations;
@@ -29,7 +34,8 @@ namespace TerraTechETCUtil
                 Iterated = new HashSet<T>();
                 names = new Dictionary<string, int>();
                 namesValid = new List<string>();
-                this.name = "";
+                valid = new List<T>();
+                name = "";
                 step = 0;
             }
 
@@ -68,6 +74,7 @@ namespace TerraTechETCUtil
                 Iterated.Clear();
                 names.Clear();
                 namesValid.Clear();
+                valid.Clear();
                 if (clearArrayCache)
                     arrayCache = null;
                 InvokeHelper.CancelInvoke(Update);
@@ -79,28 +86,37 @@ namespace TerraTechETCUtil
                 while (step < deltaStep)
                 {
                     var item = arrayCache[step];
+                    string nameGet;
+                    if (item is UnityEngine.Object obj)
+                        nameGet = obj.name;
+                    else if (item is SlowSortable sortable)
+                        nameGet = sortable.name;
+                    else
+                        throw new InvalidCastException("SlowSorter must have a type that is either UnityEngine.Object or SlowSortable");
                     if (Iterated.Add(item))
                     {
-                        if (names.TryGetValue(item.name, out int stepName))
+                        if (names.TryGetValue(nameGet, out int stepName))
                         {
                             if (showDuplicates)
                             {
-                                if (item.name.ToLower().Contains(name))
+                                if (nameGet.ToLower().Contains(name))
                                 {
-                                    namesValid.Add(item.name + "(" + stepName + ")");
+                                    namesValid.Add(nameGet + "(" + stepName + ")");
+                                    valid.Add(item);
                                     step++;
-                                    names[item.name] = stepName + 1;
+                                    names[nameGet] = stepName + 1;
                                     continue;
                                 }
-                                names[item.name] = stepName + 1;
+                                names[nameGet] = stepName + 1;
                             }
                         }
                         else
                         {
-                            names.Add(item.name, 1);
-                            if (item.name.ToLower().Contains(name))
+                            names.Add(nameGet, 1);
+                            if (nameGet.ToLower().Contains(name))
                             {
-                                namesValid.Add(item.name);
+                                namesValid.Add(nameGet);
+                                valid.Add(item);
                                 step++;
                                 continue;
                             }
@@ -222,7 +238,7 @@ namespace TerraTechETCUtil
             int posStep = 0;
             foreach (var item in strings)
             {
-                if (GUILayout.Toggle(posStep == enabledOption, item))
+                if (AltUI.Toggle(posStep == enabledOption, item))
                 {
                     enabledOption = posStep;
                 }
@@ -235,7 +251,7 @@ namespace TerraTechETCUtil
             int posStep = 0;
             foreach (var item in strings)
             {
-                if (GUILayout.Toggle(posStep == enabledOption, item))
+                if (AltUI.Toggle(posStep == enabledOption, item))
                 {
                     enabledOption = posStep;
                 }

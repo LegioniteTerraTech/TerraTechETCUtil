@@ -164,8 +164,7 @@ namespace TerraTechETCUtil
             Debug.Log("TerraTechETCUtil: Rebuilding block lookup...");
             try
             {
-                List<BlockTypes> types = Singleton.Manager<ManSpawn>.inst.GetLoadedTankBlockNames().ToList();
-                foreach (BlockTypes type in types)
+                foreach (BlockTypes type in Singleton.Manager<ManSpawn>.inst.GetLoadedTankBlockNames())
                 {
                     TankBlock prefab = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
                     string name = prefab.name;
@@ -199,7 +198,8 @@ namespace TerraTechETCUtil
         /// </summary>
         public static void PrepareModdedBlocksFetch()
         {
-            ModdedBlocksGrabbed = (Dictionary<string, int>)allModdedBlocks.GetValue(Singleton.Manager<ManMods>.inst);
+            if (ModdedBlocksGrabbed == null)
+                ModdedBlocksGrabbed = (Dictionary<string, int>)allModdedBlocks.GetValue(Singleton.Manager<ManMods>.inst);
         }
 
         public static void ConstructModdedIDList()
@@ -318,7 +318,7 @@ namespace TerraTechETCUtil
                     searchLength = text.Substring(searchEnd).IndexOf(",");
                     if (searchLength != -1)
                     {
-                        output = text.Substring(searchEnd, searchLength);
+                        output = text.Substring(searchEnd, searchLength).Replace(" ", "");
                         intCase = (int)float.Parse(output);
                         return true;
                     }
@@ -352,32 +352,33 @@ namespace TerraTechETCUtil
 
         // RawTech Support
 
+        private static StringBuilder blockCase = new StringBuilder();
         private static List<BlockMemory> JSONToMemory(string toLoad)
         {   // Loading a Tech from the BlockMemory
-            StringBuilder RAW = new StringBuilder();
-            foreach (char ch in toLoad)
-            {
-                if (ch != '\\')
-                {
-                    RAW.Append(ch);
-                }
-            }
             List<BlockMemory> mem = new List<BlockMemory>();
-            StringBuilder blockCase = new StringBuilder();
-            string RAWout = RAW.ToString();
-            foreach (char ch in RAWout)
+            try
             {
-                if (ch == '|')//new block
+                foreach (char ch in toLoad)
                 {
-                    mem.Add(JsonUtility.FromJson<BlockMemory>(blockCase.ToString()));
-                    blockCase.Clear();
+                    if (ch != '\\')
+                    {
+                        if (ch == '|')//new block
+                        {
+                            mem.Add(JsonUtility.FromJson<BlockMemory>(blockCase.ToString()));
+                            blockCase.Clear();
+                        }
+                        else
+                            blockCase.Append(ch);
+                    }
                 }
-                else
-                    blockCase.Append(ch);
+                mem.Add(JsonUtility.FromJson<BlockMemory>(blockCase.ToString()));
+                //Debug.Log("TTETCUtil:  DesignMemory: saved " + mem.Count);
+                return mem;
             }
-            mem.Add(JsonUtility.FromJson<BlockMemory>(blockCase.ToString()));
-            //Debug.Log("TTETCUtil:  DesignMemory: saved " + mem.Count);
-            return mem;
+            finally
+            {
+                blockCase.Clear();
+            }
         }
         private static FactionTypesExt GetCorpExtended(BlockTypes type)
         {
@@ -419,6 +420,8 @@ namespace TerraTechETCUtil
             data.m_CreationData = new TechData.CreationData();
             data.m_BlockSpecs = new List<TankPreset.BlockSpec>();
             List<BlockMemory> mems = JSONToMemory(blueprint);
+            if (mems == null)
+                throw new NullReferenceException("RawTechToTechData was given an INVALID blueprint!");
             List<int> BTs = new List<int>();
 
             bool skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
@@ -511,7 +514,7 @@ namespace TerraTechETCUtil
         {
             bool IsAnchoredAnchorPresent = false;
             float close = 128 * 128;
-            TankBlock newRoot = ToSearch.First();
+            TankBlock newRoot = ToSearch.FirstOrDefault();
             foreach (TankBlock bloc in ToSearch)
             {
                 Vector3 blockPos = bloc.CalcFirstFilledCellLocalPos();
@@ -557,7 +560,7 @@ namespace TerraTechETCUtil
             TankBlock rootBlock = FindProperRootBlockExternal(ToSave);
             if (rootBlock != null)
             {
-                if (rootBlock != ToSave.First())
+                if (rootBlock != ToSave.FirstOrDefault())
                 {
                     ToSave.Remove(rootBlock);
                     ToSave.Insert(0, rootBlock);
@@ -597,31 +600,45 @@ namespace TerraTechETCUtil
         {   // Saving a Tech from the BlockMemory
             return MemoryToJSONExternal(TechToMemoryExternal(tank));
         }
+
+        private static StringBuilder TechRAW = new StringBuilder();
+        private static StringBuilder TechRAWCase = new StringBuilder();
         private static string MemoryToJSONExternal(List<BlockMemory> mem)
         {   // Saving a Tech from the BlockMemory
             if (mem.Count == 0)
                 return null;
-            StringBuilder JSONTechRAW = new StringBuilder();
-            JSONTechRAW.Append(JsonUtility.ToJson(mem.First()));
-            for (int step = 1; step < mem.Count; step++)
+            try
             {
-                JSONTechRAW.Append("|");
-                JSONTechRAW.Append(JsonUtility.ToJson(mem.ElementAt(step)));
-            }
-            string JSONTechRAWout = JSONTechRAW.ToString();
-            StringBuilder JSONTech = new StringBuilder();
-            foreach (char ch in JSONTechRAWout)
-            {
-                if (ch == '"')
+                TechRAW.Append(JsonUtility.ToJson(mem.FirstOrDefault()));
+                for (int step = 1; step < mem.Count; step++)
                 {
-                    //JSONTech.Append("\\");
-                    JSONTech.Append(ch);
+                    TechRAW.Append("|");
+                    TechRAW.Append(JsonUtility.ToJson(mem.ElementAt(step)));
                 }
-                else
-                    JSONTech.Append(ch);
             }
-            //Debug.Log("TTETCUtil: " + JSONTech.ToString());
-            return JSONTech.ToString();
+            finally
+            {
+                TechRAW.Clear();
+            }
+            try
+            {
+                foreach (char ch in TechRAW.ToString())
+                {
+                    if (ch == '"')
+                    {
+                        //TechRAWCase.Append("\\");
+                        TechRAWCase.Append(ch);
+                    }
+                    else
+                        TechRAWCase.Append(ch);
+                }
+                //Debug.Log("TTETCUtil: " + JSONTech.ToString());
+                return TechRAWCase.ToString();
+            }
+            finally
+            {
+                TechRAWCase.Clear();
+            }
         }
 
         public static bool IsValidRotation(TankBlock TB, OrthoRotation.r r)
@@ -661,6 +678,88 @@ namespace TerraTechETCUtil
             return rot;
         }
 
+
+        internal class GUIManaged : GUILayoutHelpers
+        {
+            private static bool controlledDisp = false;
+            private static HashSet<string> enabledTabs = null;
+            private static BiomeTypes curBiome = BiomeTypes.Grassland;
+            private static bool showUtils = false;
+            private static bool snapTerrain = false;
+            private static string Tech = "";
+            public static void GUIGetTotalManaged()
+            {
+                if (enabledTabs == null)
+                {
+                    enabledTabs = new HashSet<string>();
+                }
+                GUILayout.Box("--- RawTechs --- ");
+                bool show = controlledDisp && Singleton.playerTank;
+                if (GUILayout.Button(" Enabled Loading: " + show))
+                    controlledDisp = !controlledDisp;
+                if (controlledDisp)
+                {
+                    try
+                    {
+                        if (GUILayout.Button("Tech Utils"))
+                        {
+                            showUtils = !showUtils;
+                            if (!showUtils)
+                                Tech = null;
+                        }
+                        if (showUtils)
+                        {
+                            var playerT = Singleton.playerTank;
+                            if (playerT)
+                            {
+                                if (GUILayout.Button("Export RawTech"))
+                                {
+                                    Tech = "\"" + RawTechTemplate.TechToJSONExternal(playerT).Replace("\"", "\\\"") + "\"";
+                                }
+                                if (!Tech.NullOrEmpty())
+                                {
+                                    var type = ManGameMode.inst.GetCurrentGameType();
+                                    if (type == ManGameMode.GameType.Creative || type == ManGameMode.GameType.RaD ||
+                                        type == ManGameMode.GameType.Misc || type == ManGameMode.GameType.Attract)
+                                    {
+                                        if (GUILayout.Button("Spawn RawTech"))
+                                        {
+                                            try
+                                            {
+                                                string cleaned = Tech.Replace("\\\"", "\"");
+                                                if (cleaned.StartsWith("\""))
+                                                    cleaned = cleaned.Remove(0, 1);
+                                                if (cleaned.EndsWith("\""))
+                                                    cleaned = cleaned.Remove(cleaned.Length - 1, 1);
+                                                new RawTechTemplate(RawTechToTechData("Raw Tech", cleaned, out _)).SpawnRawTech(
+                                                    playerT.boundsCentreWorld + playerT.rootBlockTrans.forward * 100, ManPlayer.inst.PlayerTeam,
+                                                    -playerT.rootBlockTrans.forward);
+                                                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.AIFollow);
+                                            }
+                                            catch
+                                            {
+                                                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.AnchorFailed);
+                                            }
+                                        }
+                                    }
+                                    else
+                                        GUILayout.Button("Spawn RawTech needs Creative");
+                                    Tech = GUILayout.TextArea(Tech, AltUI.TextfieldBlackHuge, 
+                                        GUILayout.MaxWidth(DebugExtUtilities.HotWindow.width));
+                                }
+                            }
+                            else
+                                GUILayout.Button("You must be\ncontrolling\na Tech!");
+                        }
+                    }
+                    catch (ExitGUIException e)
+                    {
+                        throw e;
+                    }
+                    catch { }
+                }
+            }
+        }
 
 
         [Serializable]

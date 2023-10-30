@@ -6,12 +6,34 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    public interface IInvokeGrabbable
+    {
+        void OnGrabbed();
+    }
+
     // Do not use any of these alone. They will do nothing useful.
     /// <summary>
     /// Used solely for this mod for modules compat with MP
     /// </summary>
-    public class ExtModule : MonoBehaviour
+    public class ExtModule : MonoBehaviour, IInvokeGrabbable
     {
+        private static bool notInitStatic = true;
+        private static TankBlock lastBlock = null;
+        public static TankBlock LastBlock => lastBlock;
+        public static void OnItemGrabbed(Visible vis, ManPointer.DragAction act, Vector3 pos)
+        {
+            if (act == ManPointer.DragAction.Grab && vis?.block)
+            {
+                lastBlock = vis.block;
+                foreach (var item in lastBlock.GetComponentsInChildren<MonoBehaviour>(true))
+                {
+                    if (item is IInvokeGrabbable IG)
+                        IG.OnGrabbed();
+                }
+                //Debug_TTExt.Log("OnItemGrabbed - " + vis.name);
+            }
+        }
+
         public TankBlock block { get; private set; }
         public Tank tank => block.tank;
         public ModuleDamage dmg { get; private set; }
@@ -21,6 +43,12 @@ namespace TerraTechETCUtil
         /// </summary>
         public void OnPool()
         {
+            if (notInitStatic)
+            {
+                notInitStatic = false;
+                ManPointer.inst.DragEvent.Subscribe(OnItemGrabbed);
+                Debug_TTExt.Log("ExtModule - Init Static");
+            }
             if (!block)
             {
                 block = gameObject.GetComponent<TankBlock>();
@@ -46,6 +74,7 @@ namespace TerraTechETCUtil
             }
         }
         protected virtual void Pool() { }
+        public virtual void OnGrabbed() { }
         public virtual void OnAttach() { }
         public virtual void OnDetach() { }
 

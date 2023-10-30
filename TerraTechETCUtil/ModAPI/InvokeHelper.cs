@@ -18,6 +18,7 @@ namespace TerraTechETCUtil
             internal float delay;
             internal Action toInvoke;
         }
+
         private Dictionary<MethodInfo, InvokeRepeater> invokeSingleRepeat = new Dictionary<MethodInfo, InvokeRepeater>();
         private Dictionary<MethodInfo, IInvokeable> invokeSingles = new Dictionary<MethodInfo, IInvokeable>();
         private Dictionary<MethodInfo, List<IInvokeable>> invokes = new Dictionary<MethodInfo, List<IInvokeable>>();
@@ -208,6 +209,15 @@ namespace TerraTechETCUtil
             inst.invokeSingles.Remove(act.Method);
         }
 
+        /// <summary>
+        /// Invoke the given instance of the given Action the next time Update happens.
+        /// </summary>
+        /// <param name="act">The Method to invoke after delay time.</param>
+        public static void InvokeNextUpdate(Action act)
+        {
+            InsureInit();
+            inst.invokes.AddInlined(act.Method, (IInvokeable)new Invokeable(act, Time.time + 0.01f));
+        }
         /// <summary>
         /// Invoke the given instance of the given Action after a set delay.
         /// </summary>

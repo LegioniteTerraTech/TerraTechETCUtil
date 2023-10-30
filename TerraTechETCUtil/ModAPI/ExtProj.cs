@@ -11,7 +11,7 @@ namespace TerraTechETCUtil
     public class ManExtProj : MonoBehaviour
     {
         private static ManExtProj inst;
-        internal static readonly List<ProjBase> projPool = new List<ProjBase>();
+        public static readonly List<ProjBase> projPool = new List<ProjBase>();
 
         private const float SlowUpdateTime = 0.6f;
         private float SlowUpdate = 0;

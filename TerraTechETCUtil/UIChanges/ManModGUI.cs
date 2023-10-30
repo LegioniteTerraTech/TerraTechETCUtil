@@ -248,7 +248,7 @@ namespace TerraTechETCUtil
             {
                 try
                 {
-                    if (!RemovePopup(AllPopups.First()))
+                    if (!RemovePopup(AllPopups.FirstOrDefault()))
                         worked = false;
                 }
                 catch { }

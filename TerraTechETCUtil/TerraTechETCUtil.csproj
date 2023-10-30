@@ -47,6 +47,10 @@
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="3rdParty">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\3rdParty.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Ionic.Zlib">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\Ionic.Zlib.dll</HintPath>
       <Private>False</Private>
@@ -86,6 +90,10 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="System.Workflow.ComponentModel">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="TTModManager">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\workshop\content\285920\2790161231\TTModManager.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
@@ -196,12 +204,21 @@
     <Compile Include="CursorChangeHelper.cs" />
     <Compile Include="DebugExtUtilities.cs" />
     <Compile Include="Helpers\GUILayoutHelpers.cs" />
+    <Compile Include="Helpers\TerrainModifier.cs" />
     <Compile Include="ModAPI\BlockIndexer.cs" />
     <Compile Include="ModAPI\InvokeHelper.cs" />
     <Compile Include="Helpers\SFXHelpers.cs" />
+    <Compile Include="ModAPI\ModStatusChecker.cs" />
+    <Compile Include="ModAPI\TinySettingsUtil.cs" />
+    <Compile Include="Networking\ManModNetwork.cs" />
+    <Compile Include="Networking\NetHookExt.cs" />
+    <Compile Include="Networking\NetworkHook.cs" />
+    <Compile Include="PhysicsCoupler.cs" />
+    <Compile Include="SpecialAttract.cs" />
+    <Compile Include="TerrainOperations.cs" />
     <Compile Include="UIChanges\AltUI.cs" />
     <Compile Include="ConfigConnect.cs" />
-    <Compile Include="ModAPI\ExtUsageHint.cs" />
+    <Compile Include="UIChanges\ExtUsageHint.cs" />
     <Compile Include="ModAPI\IChildModuleWeapon.cs" />
     <Compile Include="ModAPI\ChildProjectile.cs" />
     <Compile Include="Debug_TTExt.cs" />
@@ -210,6 +227,11 @@
     <Compile Include="ModAPI\BlockDebug.cs" />
     <Compile Include="ModAPI\ExtProj.cs" />
     <Compile Include="LegModExt.cs" />
+    <Compile Include="UIChanges\ManAbilities.cs" />
+    <Compile Include="UIChanges\ManToolbar.cs" />
+    <Compile Include="UIChanges\Wiki\ManIngameWiki.cs" />
+    <Compile Include="UIChanges\LoadingHintsExt.cs" />
+    <Compile Include="UIChanges\LocalisationExt.cs" />
     <Compile Include="UIChanges\ManModGUI.cs" />
     <Compile Include="MassPatcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -217,7 +239,14 @@
     <Compile Include="Helpers\ResourcesHelper.cs" />
     <Compile Include="Helpers\SpawnHelper.cs" />
     <Compile Include="UIChanges\UIHelpersExt.cs" />
+    <Compile Include="UIChanges\Wiki\UIHUDWiki.cs" />
+    <Compile Include="UIChanges\Wiki\WikiPageInfo.cs" />
+    <Compile Include="UIChanges\Wiki\WikiPageHints.cs" />
+    <Compile Include="UIChanges\Wiki\WikiPageBlock.cs" />
+    <Compile Include="UIChanges\Wiki\WikiPageCorp.cs" />
     <Compile Include="Utilities.cs" />
+    <Compile Include="ManWorldTileExt.cs" />
+    <Compile Include="WorldDeformer.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -264,22 +293,6 @@ echo Copying to game
 set e=$(TargetDir)&gt;nul
 xcopy /S /Y /R "!e:~0,-1!" !modpathc!
 )
-)
-
-if $(ConfigurationName) == Steam (
-set modpath2="C:\Users\Legionite\Desktop\Advanced AI\Assets\Mods\Better Servers"
-
-if exist !modpath2! (
-echo Copying to SteamMods Better Servers
-set e=$(TargetDir)&gt;nul
-xcopy /S /Y /R "!e:~0,-1!" !modpath2!
-)
-set modpath2a="C:\Users\Legionite\Desktop\Advanced AI\Assets\Mods\Advanced AI"
-
-if exist !modpath2a! (
-echo Copying to SteamMods Advanced AI
-set e=$(TargetDir)&gt;nul
-xcopy /S /Y /R "!e:~0,-1!" !modpath2a!
 )
 
 set modpath3="C:\Program Files (x86)\Steam\steamapps\common\TerraTech\LocalMods\Better Servers"

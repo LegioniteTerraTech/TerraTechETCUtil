@@ -15,8 +15,15 @@ namespace TerraTechETCUtil
         {
             return SKU.DisplayVersion.Count(x => x == '.') > 2;
         }
+        public static void Thrower(bool throwOnFail, string stringIn)
+        {
+            if (throwOnFail)
+                throw new Exception(stringIn);
+            else
+                Debug_TTExt.Log(stringIn);
+        }
 
-        public static bool MassPatchAllWithin(this Harmony inst, Type ToPatch, string modName)
+        public static bool MassPatchAllWithin(this Harmony inst, Type ToPatch, string modName, bool throwOnFail = false)
         {
             bool errorless = true;
             try
@@ -39,13 +46,13 @@ namespace TerraTechETCUtil
                         }
                         catch
                         {
-                            Debug_TTExt.Log(modName + ": FAILED TO patch " + typeCase.Name + " of " + ToPatch.Name + " - There must be a declared target type in a field \"target\"");
+                            Thrower(throwOnFail, modName + ": FAILED TO patch " + typeCase.Name + " of " + ToPatch.Name + " - There must be a declared target type in a field \"target\"");
                             continue;
                         }
                         MethodInfo[] methods = typeCase.GetMethods(BindingFlags.Static | BindingFlags.NonPublic);
                         if (methods == null)
                         {
-                            Debug_TTExt.Log(modName + ": FAILED TO patch " + typeCase.Name + " of " + ToPatch.Name + " - There are no methods to patch?");
+                            Thrower(throwOnFail, modName + ": FAILED TO patch " + typeCase.Name + " of " + ToPatch.Name + " - There are no methods to patch?");
                             continue;
                         }
                         //Debug_TTExt.Log("MethodCount: " + methods.Length);
@@ -138,7 +145,7 @@ namespace TerraTechETCUtil
                             }
                             catch (Exception e)
                             {
-                                Debug_TTExt.Log(modName + ": FAILED (" + item.Value.fullName + ") on patch of " + ToPatch.Name + " in type - " + typeCase.Name + " - " + e.Message);
+                                Thrower(throwOnFail, modName + ": FAILED (" + item.Value.fullName + ") on patch of " + ToPatch.Name + " in type - " + typeCase.Name + " - " + e.Message);
                                 errorless = false;
                             }
                         }
@@ -152,20 +159,20 @@ namespace TerraTechETCUtil
             }
             catch (Exception e)
             {
-                Debug_TTExt.Log(modName + ": FAILED TO patch " + ToPatch.Name + " - " + e);
+                Thrower(throwOnFail, modName + ": FAILED TO patch " + ToPatch.Name + " - " + e);
                 errorless = false;
             }
             Debug_TTExt.Log(modName + ": Mass patched " + ToPatch.Name);
             return errorless;
         }
-        public static bool MassUnPatchAllWithin(this Harmony inst, Type ToPatch, string modName)
+        public static bool MassUnPatchAllWithin(this Harmony inst, Type ToPatch, string modName, bool throwOnFail = false)
         {
             try
             {
                 Type[] types = ToPatch.GetNestedTypes(BindingFlags.Static | BindingFlags.NonPublic);
                 if (types == null)
                 {
-                    Debug_TTExt.Log(modName + ": FAILED TO patch " + ToPatch.Name + " - There's no nested classes?");
+                    Thrower(throwOnFail, modName + ": FAILED TO patch " + ToPatch.Name + " - There's no nested classes?");
                     return false;
                 }
                 foreach (var typeCase in types)
@@ -179,13 +186,13 @@ namespace TerraTechETCUtil
                         }
                         catch
                         {
-                            Debug_TTExt.Log(modName + ": FAILED TO un-patch " + typeCase.Name + " of " + ToPatch.Name + " - There must be a declared target type in a field \"target\"");
+                            Thrower(throwOnFail, modName + ": FAILED TO un-patch " + typeCase.Name + " of " + ToPatch.Name + " - There must be a declared target type in a field \"target\"");
                             continue;
                         }
                         MethodInfo[] methods = typeCase.GetMethods(BindingFlags.Static | BindingFlags.NonPublic);
                         if (methods == null)
                         {
-                            Debug_TTExt.Log(modName + ": FAILED TO un-patch " + typeCase.Name + " of " + ToPatch.Name + " - There are no methods to patch?");
+                            Thrower(throwOnFail, modName + ": FAILED TO un-patch " + typeCase.Name + " of " + ToPatch.Name + " - There are no methods to patch?");
                             continue;
                         }
                         List<string> methodsToUnpatch = new List<string>();
@@ -212,14 +219,14 @@ namespace TerraTechETCUtil
                     }
                     catch (Exception e)
                     {
-                        Debug_TTExt.Log(modName + ": Failed to handle un-patch of " + ToPatch.Name + " in type - " + typeCase.Name + " - " + e.Message);
+                        Thrower(throwOnFail, modName + ": Failed to handle un-patch of " + ToPatch.Name + " in type - " + typeCase.Name + " - " + e.Message);
                         return false;
                     }
                 }
             }
             catch (Exception e)
             {
-                Debug_TTExt.Log(modName + ": FAILED TO un-patch " + ToPatch.Name + " - " + e);
+                Thrower(throwOnFail, modName + ": FAILED TO un-patch " + ToPatch.Name + " - " + e);
             }
             Debug_TTExt.Log(modName + ": Mass un-patched " + ToPatch.Name);
             return true;

@@ -19,6 +19,7 @@ namespace TerraTechETCUtil
         private static FieldInfo asdr = typeof(AudioProvider).GetField("m_Adsr01", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo state = typeof(AudioProvider).GetField("m_State", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        public static FMODEvent LastPlayed = default;
 
         public static void TankPlayOneshot(Tank tank, TechAudio.SFXType SFX)
         {
@@ -171,8 +172,9 @@ namespace TerraTechETCUtil
         }
 
 
-        internal class GUIManaged : GUILayoutHelpers
+        public class GUIManaged : GUILayoutHelpers
         {
+
             private static bool controlledDisp = false;
             private static HashSet<string> enabledTabs = null;
             private static string textField = "";

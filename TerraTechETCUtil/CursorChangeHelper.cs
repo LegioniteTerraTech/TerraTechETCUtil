@@ -9,8 +9,6 @@ namespace TerraTechETCUtil
 {
     public static class CursorChangeHelper
     {
-        private static FieldInfo existingCursors = typeof(MousePointer).GetField("m_CursorDataSets", BindingFlags.NonPublic | BindingFlags.Instance);
-
         public static bool ShowDebug = false;
 
         /// <summary>
@@ -26,17 +24,58 @@ namespace TerraTechETCUtil
         /// <param name="DLLDirectory">DLL Directory in disk.  Should be gathered on game startup and not preset.</param>
         /// <param name="MC">ModContainer of the mod to look into for assets.  Use ResourcesHelper.TryGetModContainer() to get the mod container.</param>
         /// <param name="cursorsByNameInOrder">Name of each cursor to add. Will be registered in a lookup in CursorIndexCache</param>
-        public static CursorChangeCache GetCursorChangeCache(string DLLDirectory, ModContainer MC, params string[] cursorsByNameInOrder)
+        public static CursorChangeCache GetCursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC, params string[] cursorsByNameInOrder)
         {
-            return new CursorChangeCache(DLLDirectory, MC, cursorsByNameInOrder);
+            return new CursorChangeCache(DLLDirectory, IconsFolderName, MC, cursorsByNameInOrder);
         }
+
+        public static CursorChangeCache GetCursorChangeCache<T>(string DLLDirectory, string IconsFolderName, ModContainer MC) where T : Enum
+        {
+            return new CursorChangeCache<T>(DLLDirectory, IconsFolderName, MC);
+        }
+
+        public class CursorChangeCache<T> : CursorChangeCache where T : Enum
+        {
+            private Dictionary<T, int> CursorIndexCacheEnumLookup;
+
+            internal CursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC) :
+                base(DLLDirectory, IconsFolderName, MC, Enum.GetNames(typeof(T))) 
+            {
+                if (Enum.GetUnderlyingType(typeof(T)) != typeof(int))
+                    throw new InvalidCastException("CursorChangeCache cannot be created for enums that aren't of base type int");
+
+                CursorIndexCacheEnumLookup = new Dictionary<T, int>();
+                foreach (var item in Enum.GetValues(typeof(T)))
+                {
+                    CursorIndexCacheEnumLookup.Add((T)item, (int)item);
+                }
+            }
+            public GameCursor.CursorState GetCursor(T index)
+            {
+                try
+                {
+                    return _CursorIndexCache[CursorIndexCacheEnumLookup[index]];
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+            }
+        }
+
 
         public class CursorChangeCache
         {
             /// <summary>
             /// Look up the index in this to get the actual index of the cursor you are going to use from memory
             /// </summary>
-            public GameCursor.CursorState[] CursorIndexCache;
+            protected GameCursor.CursorState[] _CursorIndexCache;
+
+            public GameCursor.CursorState this[int i]
+            {
+                get { return _CursorIndexCache[i]; }
+            }
+            public CursorChangeCache CursorIndexCache => this;
             private List<Texture2D> CursorTextureCache;
 
             /// <summary>
@@ -46,14 +85,26 @@ namespace TerraTechETCUtil
             /// Get the CursorChangeCache registered
             /// </summary>
             /// <param name=""></param>
-            internal CursorChangeCache(string DLLDirectory, ModContainer MC, string[] cursorsByNameInOrder)
+            internal CursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC, string[] cursorsByNameInOrder)
             {
-                CursorIndexCache = new GameCursor.CursorState[cursorsByNameInOrder.Length];
+                _CursorIndexCache = new GameCursor.CursorState[cursorsByNameInOrder.Length];
                 CursorTextureCache = new List<Texture2D>(cursorsByNameInOrder.Length);
-                AddNewCursors(MC, DLLDirectory, cursorsByNameInOrder);
+                AddNewCursors(MC, DLLDirectory, IconsFolderName, cursorsByNameInOrder);
+            }
+            public GameCursor.CursorState GetCursor(int index)
+            {
+                try
+                {
+                    return _CursorIndexCache[index];
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
             }
 
-            private void AddNewCursors(ModContainer MC, string DLLDirectory, string[] cursorsByNameOrder)
+
+            protected void AddNewCursors(ModContainer MC, string DLLDirectory, string IconsFolderName, string[] cursorsByNameOrder)
             {
                 MousePointer MP = UnityEngine.Object.FindObjectOfType<MousePointer>();
                 if (!MP)
@@ -63,15 +114,16 @@ namespace TerraTechETCUtil
                     else
                         return;
                 }
-                string DirectoryTarget = DLLDirectory + ResourcesHelper.Up + "AI_Icons";
+                string DirectoryTarget = Path.Combine(DLLDirectory, IconsFolderName);
                 Debug_TTExt.LogDevOnly("CursorChangeCache: AddNewCursors - Path: " + DirectoryTarget);
                 try
                 {
                     int LODLevel = 0;
-                    MousePointer.CursorDataSet[] cursorLODs = (MousePointer.CursorDataSet[])existingCursors.GetValue(MP);
+                    CursorDataTable.CursorDataSet[] cursorLODs = ManUI.inst.CursorDataTable.
+                    PlatformSets[CursorDataTable.PlatformSetTypes.PC].m_DataSets;
                     foreach (var item in cursorLODs)
                     {
-                        List<MousePointer.CursorData> cursorTypes = item.m_CursorData.ToList();
+                        List<CursorDataTable.CursorData> cursorTypes = item.m_CursorData.ToList();
 
                         int cursorIndex = 0;
                         foreach (var item2 in cursorsByNameOrder)
@@ -86,14 +138,12 @@ namespace TerraTechETCUtil
                 catch (Exception e) { Debug_TTExt.Log("CursorChangeCache: AddNewCursors - failed to fetch rest of cursor textures " + e); }
             }
 
-
-            private void TryAddNewCursor(ModContainer MC, List<MousePointer.CursorData> lodInst, string DLLDirectory, string name, int lodLevel, Vector2 center, int cacheIndex)
+            protected void TryAddNewCursor(ModContainer MC, List<CursorDataTable.CursorData> lodInst, string DLLDirectory, string name, int lodLevel, Vector2 center, int cacheIndex)
             {
                 if (ShowDebug)
-                    Debug_TTExt.Log("CursorChanger: AddNewCursors - " + DLLDirectory + " for " + name + " " + lodLevel + " " + center);
+                    Debug_TTExt.Log("CursorChangeCache: AddNewCursors - " + DLLDirectory + " for " + name + " " + lodLevel + " " + center);
                 try
                 {
-                    List<FileInfo> FI = new DirectoryInfo(DLLDirectory).GetFiles().ToList();
                     Texture2D tex;
                     try
                     {
@@ -103,21 +153,22 @@ namespace TerraTechETCUtil
                     }
                     catch
                     {
-                        Debug_TTExt.Info("CursorChanger: AddNewCursors - failed to fetch cursor texture LOD " + lodLevel + " for " + name);
-                        tex = FileUtils.LoadTexture(FI.Find(delegate (FileInfo cand)
+                        Debug_TTExt.Info("CursorChangeCache: AddNewCursors - failed to fetch cursor texture LOD " + lodLevel + " for " + name + "\n" +
+                            "Attempting to load from files instead");
+                        tex = FileUtils.LoadTexture(new DirectoryInfo(DLLDirectory).GetFiles().FirstOrDefault(delegate (FileInfo cand)
                         { return cand.Name == name + "1.png"; }).ToString());
                         CursorTextureCache.Add(tex);
                     }
-                    MousePointer.CursorData CD = new MousePointer.CursorData
+                    CursorDataTable.CursorData CD = new CursorDataTable.CursorData
                     {
                         m_Hotspot = center * tex.width,
                         m_Texture = tex,
                     };
                     lodInst.Add(CD);
-                    CursorIndexCache[cacheIndex] = (GameCursor.CursorState)lodInst.IndexOf(CD);
+                    _CursorIndexCache[cacheIndex] = (GameCursor.CursorState)lodInst.IndexOf(CD);
                     Debug_TTExt.Info(name + " center: " + CD.m_Hotspot.x + "|" + CD.m_Hotspot.y);
                 }
-                catch { Debug_TTExt.Assert(true, "CursorChanger: AddNewCursors - failed to fetch cursor texture " + name); }
+                catch { Debug_TTExt.Assert(true, "CursorChangeCache: AddNewCursors - failed to fetch cursor texture " + name); }
             }
 
 
@@ -146,7 +197,7 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e) { Debug_TTExt.Log("CursorChangeCache: ChangeMiniIcon - failed to change " + e); }
             }
-            private void ApplyTextureDeltaAdditive(int cacheIndex, IntVector2 toAddOffset, Texture2D baseTex, Texture2D toAdd)
+            protected void ApplyTextureDeltaAdditive(int cacheIndex, IntVector2 toAddOffset, Texture2D baseTex, Texture2D toAdd)
             {
                 Texture2D toAddTo = CursorTextureCache[cacheIndex];
                 if (toAddTo.width != baseTex.width || toAddTo.height != baseTex.height)
