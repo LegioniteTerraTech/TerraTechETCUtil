@@ -149,7 +149,11 @@ namespace TerraTechETCUtil
                     {
                         tex = ResourcesHelper.FetchTexture(MC, name + lodLevel + ".png", DLLDirectory);
                         if (tex == null)
-                            throw new NullReferenceException();
+                        {
+                            tex = ResourcesHelper.FetchTexture(MC, name + ".png", DLLDirectory);
+                            if (tex == null)
+                                throw new NullReferenceException();
+                        }
                     }
                     catch
                     {
@@ -163,6 +167,7 @@ namespace TerraTechETCUtil
                     {
                         m_Hotspot = center * tex.width,
                         m_Texture = tex,
+                        m_Sprite = Sprite.Create(tex, new Rect(0,0,tex.width, tex.height), Vector2.one * 0.5f, 1),
                     };
                     lodInst.Add(CD);
                     _CursorIndexCache[cacheIndex] = (GameCursor.CursorState)lodInst.IndexOf(CD);

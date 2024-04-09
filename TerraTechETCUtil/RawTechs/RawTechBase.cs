@@ -8,364 +8,25 @@ using Newtonsoft.Json;
 
 namespace TerraTechETCUtil
 {
-    public static class RawTechUtil
+    public abstract class RawTechBase
     {
-        public const int FrameImpactingTechBlockCount = 256;
-        public static string up = "\\";
-
-        /// <summary>
-        /// Only call for cases where we want only vanilla corps!
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public static FactionTypesExt GetCorpExtended(BlockTypes type)
-        {
-            return (FactionTypesExt)Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
-        }
-        public static bool IsFactionExtension(FactionTypesExt ext)
-        {
-            return ext >= FactionTypesExt.AER && ext <= FactionTypesExt.LOL;
-        }
-        public static FactionSubTypes CorpExtToCorp(FactionTypesExt corpExt)
-        {
-            switch (corpExt)
-            {
-                case FactionTypesExt.SPE:
-                //case FactionTypesExt.GSO:
-                case FactionTypesExt.GT:
-                case FactionTypesExt.IEC:
-                    return FactionSubTypes.GSO;
-                //case FactionTypesExt.GC:
-                case FactionTypesExt.EFF:
-                case FactionTypesExt.LK:
-                    return FactionSubTypes.GC;
-                //case FactionTypesExt.VEN:
-                case FactionTypesExt.OS:
-                    return FactionSubTypes.VEN;
-                //case FactionTypesExt.HE:
-                case FactionTypesExt.BL:
-                case FactionTypesExt.TAC:
-                    return FactionSubTypes.HE;
-                //case FactionTypesExt.BF:
-                case FactionTypesExt.DL:
-                case FactionTypesExt.EYM:
-                case FactionTypesExt.HS:
-                    return FactionSubTypes.BF;
-                case FactionTypesExt.EXP:
-                    return FactionSubTypes.EXP;
-            }
-            return (FactionSubTypes)corpExt;
-        }
-        public static FactionTypesExt CorpExtToVanilla(FactionTypesExt corpExt)
-        {
-            switch (corpExt)
-            {
-                case FactionTypesExt.SPE:
-                //case FactionTypesExt.GSO:
-                case FactionTypesExt.GT:
-                case FactionTypesExt.IEC:
-                    return FactionTypesExt.GSO;
-                //case FactionTypesExt.GC:
-                case FactionTypesExt.EFF:
-                case FactionTypesExt.LK:
-                    return FactionTypesExt.GC;
-                //case FactionTypesExt.VEN:
-                case FactionTypesExt.OS:
-                    return FactionTypesExt.VEN;
-                //case FactionTypesExt.HE:
-                case FactionTypesExt.BL:
-                case FactionTypesExt.TAC:
-                    return FactionTypesExt.HE;
-                //case FactionTypesExt.BF:
-                case FactionTypesExt.DL:
-                case FactionTypesExt.EYM:
-                case FactionTypesExt.HS:
-                    return FactionTypesExt.BF;
-                case FactionTypesExt.EXP:
-                    return FactionTypesExt.EXP;
-            }
-            return corpExt;
-        }
-
-        public static FactionLevel GetFactionLevel(FactionSubTypes FST)
-        {
-            switch (FST)
-            {
-                case FactionSubTypes.NULL:
-                case FactionSubTypes.GSO:
-                case FactionSubTypes.SPE:
-                    return FactionLevel.GSO;
-                case FactionSubTypes.GC:
-                    return FactionLevel.GC;
-                case FactionSubTypes.EXP:
-                    return FactionLevel.EXP;
-                case FactionSubTypes.VEN:
-                    return FactionLevel.VEN;
-                case FactionSubTypes.HE:
-                    return FactionLevel.HE;
-                case FactionSubTypes.BF:
-                    return FactionLevel.BF;
-                default:
-                    return FactionLevel.MOD;
-            }
-        }
-
-        private static List<FactionTypesExt> SortCorps(List<FactionTypesExt> unsorted)
-        {
-            List<FactionTypesExt> distinct = unsorted.Distinct().ToList();
-            List<KeyValuePair<int, FactionTypesExt>> sorted = new List<KeyValuePair<int, FactionTypesExt>>();
-            foreach (FactionTypesExt FTE in distinct)
-            {
-                int countOut = unsorted.FindAll(delegate (FactionTypesExt cand) { return cand == FTE; }).Count();
-                sorted.Add(new KeyValuePair<int, FactionTypesExt>(countOut, FTE));
-            }
-            sorted = sorted.OrderByDescending(x => x.Key).ToList();
-            distinct.Clear();
-            foreach (KeyValuePair<int, FactionTypesExt> intBT in sorted)
-            {
-                distinct.Add(intBT.Value);
-            }
-            return distinct;
-        }
-        public static FactionTypesExt GetMainCorpExt(this Tank tank)
-        {
-            List<FactionTypesExt> toSort = new List<FactionTypesExt>();
-            foreach (TankBlock BlocS in tank.blockman.IterateBlocks())
-            {
-                toSort.Add(GetBlockCorpExt(BlocS.BlockType));
-            }
-            toSort = SortCorps(toSort);
-            FactionTypesExt final = toSort.FirstOrDefault();
-
-            //Debug_TTExt.Log("RawTech: GetMainCorpExt - Selected " + final + " for main corp");
-            return final;
-        }
-        public static FactionTypesExt GetMainCorpExt(this TechData tank)
-        {
-            List<FactionTypesExt> toSort = new List<FactionTypesExt>();
-            foreach (TankPreset.BlockSpec BlocS in tank.m_BlockSpecs)
-            {
-                toSort.Add(GetBlockCorpExt(BlocS.m_BlockType));
-            }
-            toSort = SortCorps(toSort);
-            return toSort.FirstOrDefault();//(FactionTypesExt)tank.GetMainCorporations().FirstOrDefault();
-        }
-        public static FactionTypesExt GetMainCorpExt(this List<RawBlockMem> tank)
-        {
-            List<FactionTypesExt> toSort = new List<FactionTypesExt>();
-            foreach (RawBlockMem BlocS in tank)
-            {
-                toSort.Add(GetBlockCorpExt(BlockIndexer.StringToBlockType(BlocS.t)));
-            }
-            toSort = SortCorps(toSort);
-            return toSort.FirstOrDefault();//(FactionTypesExt)tank.GetMainCorporations().FirstOrDefault();
-        }
-        internal static FactionTypesExt GetBlockCorpExt(BlockTypes BT)
-        {
-            int BTval = (int)BT;
-            if (BTval < 5000)// Payload's range
-                return (FactionTypesExt)Singleton.Manager<ManSpawn>.inst.GetCorporation(BT);
-
-            if (BTval >= 300000 && BTval <= 303999) // Old Star
-            {   // This should work until Pachu makes a VEN Block
-                if (Singleton.Manager<ManSpawn>.inst.GetCorporation(BT) == FactionSubTypes.VEN)
-                    return FactionTypesExt.OS;
-            }
-            if (BTval >= 419000 && BTval <= 419999) // Lemon Kingdom - Mobile Kingdom
-                return FactionTypesExt.LK;
-            if (BTval == 584147)
-                return FactionTypesExt.TAC;
-            if (BTval >= 584200 && BTval <= 584599) // Technocratic AI Colony - Power Density
-                return FactionTypesExt.TAC;
-            if (BTval >= 584600 && BTval <= 584750) // Emperical Forge Fabrication - Unit Count
-                return FactionTypesExt.EFF;
-            if (BTval >= 911000 && BTval <= 912000) // GreenTech - Eco Rangers
-                return FactionTypesExt.GT;
-
-            return (FactionTypesExt)Singleton.Manager<ManSpawn>.inst.GetCorporation(BT);
-        }
-
-
-        private static StringBuilder RAW = new StringBuilder();
-        private static StringBuilder RAWCase = new StringBuilder();
-        private static List<RawBlockMem> nonAlloc = new List<RawBlockMem>();
-        /// <summary>
-        /// Checks all of the blocks in a BaseTemplate Tech to make sure it's safe to spawn as well as calculate other requirements for it.
-        /// </summary>
-        /// <param name="toLoad"></param>
-        /// <param name="templateToCheck"></param>
-        /// <param name="basePrice"></param>
-        /// <param name="greatestFaction"></param>
-        /// <returns></returns>
-        public static bool ValidateBlocksInTech(this RawTechTemplate templateToCheck)
-        {
-            try
-            {
-                foreach (char ch in templateToCheck.savedTech)
-                {
-                    if (ch != up.ToCharArray()[0])
-                    {
-                        RAW.Append(ch);
-                    }
-                }
-                FactionLevel greatestFaction = FactionLevel.GSO;
-                try
-                {
-                    foreach (char ch in RAW.ToString())
-                    {
-                        if (ch == '|')//new block
-                        {
-                            nonAlloc.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
-                            RAWCase.Clear();
-                        }
-                        else
-                            RAWCase.Append(ch);
-                    }
-                    nonAlloc.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
-                }
-                catch
-                {
-                    Debug_TTExt.Assert(true, "RawTech: ValidateBlocksInTech - Loading error - File was edited or corrupted!");
-                    greatestFaction = FactionLevel.GSO;
-                    return false;
-                }
-                finally
-                {
-                    RAWCase.Clear();
-                }
-                bool valid = true;
-                if (!nonAlloc.Any())
-                {
-                    greatestFaction = FactionLevel.GSO;
-                    Debug_TTExt.Log("RawTech: ValidateBlocksInTech - FAILED as no blocks were present!");
-                    return false;
-                }
-                int basePrice = 0;
-                foreach (RawBlockMem bloc in nonAlloc)
-                {
-                    BlockTypes type = BlockIndexer.StringToBlockType(bloc.t);
-                    if (!Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(type))
-                    {
-                        valid = false;
-                        continue;
-                    }
-
-                    FactionSubTypes FST = Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
-                    FactionLevel FL = GetFactionLevel(FST);
-                    if (FL >= FactionLevel.ALL)
-                    {
-                        if (ManMods.inst.IsModdedCorp(FST))
-                        {
-                            ModdedCorpDefinition MCD = ManMods.inst.GetCorpDefinition(FST);
-                            if (Enum.TryParse(MCD.m_RewardCorp, out FactionSubTypes FST2))
-                            {
-                                FST = FST2;
-                            }
-                            else
-                                throw new Exception("There's a block given that has an invalid corp \nBlockType: " + type);
-                        }
-                        else
-                            throw new Exception("There's a block given that has an invalid corp \nCorp: " + FL + " \nBlockType: " + type);
-                    }
-                    if (greatestFaction < FL)
-                        greatestFaction = FL;
-                    basePrice += Singleton.Manager<RecipeManager>.inst.GetBlockBuyPrice(type);
-                    bloc.t = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type).name;
-                }
-                templateToCheck.baseCost = basePrice;
-                templateToCheck.factionLim = greatestFaction;
-                templateToCheck.blockCount = nonAlloc.Count;
-
-                // Rebuild in workable format
-                templateToCheck.savedTech = RawTechTemplate.MemoryToJSONExternal(nonAlloc);
-
-                return valid;
-            }
-            catch
-            {
-                Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech was corrupted via unexpected mod changes!");
-                return false;
-            }
-            finally
-            {
-                nonAlloc.Clear();
-                RAW.Clear();
-            }
-        }
-    }
-    [Serializable]
-    public class RawBlockMem
-    {   // Save the blocks!
-        public string t = BlockTypes.GSOAIController_111.ToString(); //blocktype
-        public Vector3 p = Vector3.zero;
-        public OrthoRotation.r r = OrthoRotation.r.u000;
-
-        /// <summary>
-        /// get rid of floating point errors
-        /// </summary>
-        public void TidyUp()
-        {
-            p.x = Mathf.RoundToInt(p.x);
-            p.y = Mathf.RoundToInt(p.y);
-            p.z = Mathf.RoundToInt(p.z);
-        }
-    }
-    public class RawTechTemplate
-    {
-        private static readonly FieldInfo forceVal = typeof(BoosterJet).GetField("m_Force", BindingFlags.NonPublic | BindingFlags.Instance);
-
         public string techName = "!!!!null!!!!";
-        public FactionTypesExt faction = FactionTypesExt.GSO;
-        /// <summary>
-        /// Mostly here to restrict spawns based on best corp in the spawns
-        /// </summary>
-        public FactionLevel factionLim = FactionLevel.NULL;
-        public HashSet<BasePurpose> purposes;
-        public int IntendedGrade = -1;
-        public BaseTerrain terrain = BaseTerrain.Land;
-        public int startingFunds = 5000;
-        public int baseCost = 0;
-        public int blockCount = 0;
-        public string savedTech = "{\"t\":\"GSOAnchorFixed_111\",\"p\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"r\":0}";
         public Dictionary<string, string> serialDataTech = null;
         public Dictionary<int, List<string>> serialDataBlock = null;
-        public bool environ = false; // are we not a miner?
-        public bool deployBoltsASAP = false; // press X on spawn
 
-        public static implicit operator int(RawTechTemplate BT)
-        {
-            if (BT.baseCost == 0 && !BT.savedTech.NullOrEmpty())
-                BT.baseCost = RawTechTemplate.GetBBCost(BT.savedTech);
-            return BT.baseCost;
+#if !EDITOR
+        private static readonly FieldInfo forceVal = typeof(BoosterJet).GetField("m_Force", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public RawTechBase()
+        { 
         }
-
-        public RawTechTemplate()
+        public RawTechBase(RawTechBase cloner)
         {
+            if (cloner.serialDataTech != null)
+                serialDataTech = cloner.serialDataTech.ToDictionary(x => { return x.Key;}, x => { return x.Value; });
+            if (cloner.serialDataBlock != null)
+                serialDataBlock = cloner.serialDataBlock.ToDictionary(x => { return x.Key; }, x => { return x.Value; });
         }
-        public RawTechTemplate(TechData tech, bool ExceptionIfFail = false)
-        {
-            techName = tech.Name;
-            faction = GetTopCorp(tech);
-            savedTech = MemoryToJSONExternal(TechToMemoryExternal(tech, ExceptionIfFail));
-            bool anchored = tech.CheckIsAnchored();
-            purposes = GetHandler(savedTech, faction, anchored, out terrain, out IntendedGrade);
-            serialDataBlock = EncodeSerialData(tech);
-
-            this.ValidateBlocksInTech();
-        }
-
-        public RawTechTemplate(string Name, string rawTech, bool anchored = false)
-        {
-            techName = Name;
-            List<RawBlockMem> mem = JSONToMemoryExternalNonAlloc(rawTech);
-            faction = GetTopCorp(mem);
-            savedTech = rawTech;
-            purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
-            serialDataBlock = new Dictionary<int, List<string>>();
-
-            this.ValidateBlocksInTech();
-        }
-
 
         public void SetState(string param, string serial)
         {
@@ -384,6 +45,141 @@ namespace TerraTechETCUtil
             serialDataTech.Clear();
         }
 
+        public abstract Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, bool Charged = false, bool randomSkins = false);
+
+        public void EncodeSerialDataToThis(int index, TankPreset.BlockSpec specs)
+        {
+            serialDataBlock[index] = new List<string>(specs.textSerialData);
+        }
+        public void EncodeSerialDataToThis(TechData tech)
+        {
+            serialDataBlock.Clear();
+            if (tech.m_BlockSpecs.Count < 1)
+            {
+                Debug_TTExt.Log("RawTech: TECH IS NULL!");
+                return;
+            }
+            int blockIndex = 0;
+            for (int step = 0; step < tech.m_BlockSpecs.Count; step++)
+            {
+                var blocRaw = tech.m_BlockSpecs[step];
+                if (blocRaw.textSerialData != null && blocRaw.textSerialData.Any())
+                    serialDataBlock[step] = new List<string>(blocRaw.textSerialData);
+                blockIndex++;
+            }
+        }
+
+        public void DecodeSerialData(int index, TechData tech)
+        {
+            if  (serialDataBlock.TryGetValue(index, out var item))
+            {
+                try
+                {
+                    var blockSpec = tech.m_BlockSpecs[index];
+                    blockSpec.textSerialData = new List<string>(item);
+                    tech.m_BlockSpecs[index] = blockSpec;
+                }
+                catch { }
+            }
+        }
+        public void DecodeSerialData(TechData tech)
+        {
+            if (serialDataBlock != null)
+            {
+                foreach (var item in serialDataBlock)
+                {
+                    try
+                    {
+                        var blockSpec = tech.m_BlockSpecs[item.Key];
+                        blockSpec.textSerialData = new List<string>(item.Value);
+                        tech.m_BlockSpecs[item.Key] = blockSpec;
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        public void DecodeSerialData(Tank tech)
+        {
+            if (serialDataBlock != null)
+            {
+                //tech.SerializeEvent.Send(true)
+                int step = 0;
+                foreach (TankBlock block in tech.blockman.IterateBlocks())
+                {
+                    TankPreset.BlockSpec blockSpec = default(TankPreset.BlockSpec);
+                    blockSpec.InitFromBlockState(block, false);
+                    if (serialDataBlock.TryGetValue(step, out var serials))
+                    {
+                        blockSpec.textSerialData = serials;
+                        //Debug_TTExt.Log("Decoded for " + block.name);
+                    }
+                    block.serializeTextEvent.Send(false, blockSpec, true);
+                    step++;
+                }
+            }
+        }
+
+
+
+        // Statics
+        public static TechData CreateNewTechData()
+        {
+            return new TechData()
+            {
+                Author = "rawTech",
+                LocalisedName = new LocalisedString()
+                {
+                    m_GUIExpanded = false,
+                    m_Bank = "_MOD",
+                    m_Id = "_MOD",
+                    m_InlineGlyphs = new Localisation.GlyphInfo[0],
+                },
+                m_BlockSpecs = new List<TankPreset.BlockSpec>(),
+                m_Bounds = new IntVector3(1,1,1),
+                m_CreationData = new TechData.CreationData
+                {
+                    mode = "",
+                    m_Creator = "rawTech",
+                    m_UserProfile = new TankPreset.UserData(ManProfile.inst.GetCurrentUser()),
+                    subMode = "",
+                    userData = "",
+                },
+                m_SkinMapping = new Dictionary<uint, string>(),
+                m_TechSaveState = new Dictionary<int, TechComponent.SerialData>(),
+                RadarMarkerConfig = RadarMarker.DefaultMarker,
+                Name = "techdata",
+                NameIndex = 0,
+            };
+        }
+        public static Dictionary<int, List<string>> EncodeSerialData(TechData tech)
+        {
+            Dictionary<int, List<string>> blockSerial = new Dictionary<int, List<string>>();
+            if (tech.m_BlockSpecs.Count < 1)
+            {
+                Debug_TTExt.Log("RawTech: TECH IS NULL!");
+                return null;
+            }
+            int blockIndex = 0;
+            for (int step = 0; step < tech.m_BlockSpecs.Count; step++)
+            {
+                var blocRaw = tech.m_BlockSpecs[step];
+                if (blocRaw.textSerialData != null && blocRaw.textSerialData.Count > 0)
+                {
+                    var blockInfo = new List<string>();
+                    foreach (var item in blocRaw.textSerialData)
+                    {
+                        blockInfo.Add(item);
+                    }
+                    if (blockInfo.Count > 0)
+                        blockSerial.Add(step, blockInfo);
+                }
+                blockIndex++;
+            }
+            if (blockSerial.Count == 0)
+                return null;
+            return blockSerial;
+        }
 
         public static HashSet<BasePurpose> GetHandler(string blueprint, FactionTypesExt factionType, bool Anchored, out BaseTerrain terra, out int minCorpGrade)
         {
@@ -675,10 +471,298 @@ namespace TerraTechETCUtil
 
             return purposes;
         }
+
+        public static HashSet<BasePurpose> GetHandler(List<RawBlock> mems, FactionTypesExt factionType, bool Anchored, out BaseTerrain terra, out int minCorpGrade)
+        {
+            List<TankBlock> blocs = new List<TankBlock>();
+            if (mems.Count < 1)
+            {
+                Debug_TTExt.Log("RawTech: TECH IS NULL!  SKIPPING!");
+                minCorpGrade = 99;
+                terra = BaseTerrain.AnyNonSea;
+                return new HashSet<BasePurpose>();
+            }
+
+            HashSet<BasePurpose> purposes = new HashSet<BasePurpose>();
+            //foreach (BlockMemory mem in mems)
+            //{
+            //    blocs.Add(Singleton.Manager<ManSpawn>.inst.GetBlockPrefab((BlockTypes)Enum.Parse(typeof(BlockTypes), mem.t)));
+            //}
+
+            bool isFlying = false;
+            bool isFlyingDirectionForwards = true;
+
+            Vector3 biasDirection = Vector3.zero;
+            Vector3 boostBiasDirection = Vector3.zero;
+
+            int FoilCount = 0;
+            int MovingFoilCount = 0;
+
+            int modControlCount = 0;
+            int modCollectCount = 0;
+            int modEXPLODECount = 0;
+            int modBoostCount = 0;
+            int modHoverCount = 0;
+            int modGyroCount = 0;
+            int modWheelCount = 0;
+            int modAGCount = 0;
+            int modDangerCount = 0;
+            int modGunCount = 0;
+            int modDrillCount = 0;
+            minCorpGrade = 0;
+            bool NotMP = false;
+            bool hasAutominer = false;
+            bool hasReceiver = false;
+            bool hasBaseFunction = false;
+
+            BlockUnlockTable blockList = Singleton.Manager<ManLicenses>.inst.GetBlockUnlockTable();
+            int gradeM = blockList.GetMaxGrade(RawTechUtil.CorpExtToCorp(factionType));
+            //Debug_TTExt.Log("RawTech: GetHandler - " + Singleton.Manager<ManLicenses>.inst.m_UnlockTable.GetAllBlocksInTier(1, factionType, false).Count());
+            foreach (RawBlock blocRaw in mems)
+            {
+                BlockTypes type = BlockIndexer.StringToBlockType(blocRaw.t);
+                TankBlock bloc = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
+                if (bloc.IsNull())
+                    continue;
+                ModuleItemPickup rec = bloc.GetComponent<ModuleItemPickup>();
+                ModuleItemHolder conv = bloc.GetComponent<ModuleItemHolder>();
+                if ((bool)rec && conv && conv.Acceptance.HasFlag(ModuleItemHolder.AcceptFlags.Chunks) && conv.IsFlag(ModuleItemHolder.Flags.Receiver))
+                {
+                    hasReceiver = true;
+                }
+                if (bloc.GetComponent<ModuleItemProducer>())
+                {
+                    hasAutominer = true;
+                    NotMP = true;
+                }
+                if (bloc.GetComponent<ModuleItemConveyor>())
+                {
+                    NotMP = true;
+                }
+                if (bloc.GetComponent<ModuleItemConsume>())
+                {
+                    hasBaseFunction = true;
+                    switch (type)
+                    {
+                        case BlockTypes.GSODeliCannon_221:
+                        case BlockTypes.GSODeliCannon_222:
+                        case BlockTypes.GCDeliveryCannon_464:
+                        case BlockTypes.VENDeliCannon_221:
+                        case BlockTypes.HE_DeliveryCannon_353:
+                        case BlockTypes.BF_DeliveryCannon_122:
+                            break;
+                        default:
+                            var recipeCase = bloc.GetComponent<ModuleRecipeProvider>();
+                            if ((bool)recipeCase)
+                            {
+                                using (IEnumerator<RecipeTable.RecipeList> matters = recipeCase.GetEnumerator())
+                                {
+                                    while (matters.MoveNext())
+                                    {
+                                        RecipeTable.RecipeList matter = matters.Current;
+                                        if (matter.m_Name != "rawresources" && matter.m_Name != "gsodelicannon")
+                                        {
+                                            NotMP = true;
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                    }
+                }
+
+
+                if (bloc.GetComponent<ModuleItemHolder>())
+                    modCollectCount++;
+                if (bloc.GetComponent<ModuleDetachableLink>())
+                    modEXPLODECount++;
+                if (bloc.GetComponent<ModuleBooster>())
+                {
+                    var module = bloc.GetComponent<ModuleBooster>();
+                    foreach (FanJet jet in module.GetComponentsInChildren<FanJet>())
+                    {
+                        if (jet.spinDelta <= 10)
+                        {
+                            Quaternion quat = new OrthoRotation(blocRaw.r);
+                            biasDirection -= quat * (jet.EffectorForwards * jet.force);
+                        }
+                    }
+                    foreach (BoosterJet boost in module.GetComponentsInChildren<BoosterJet>())
+                    {
+                        //We have to get the total thrust in here accounted for as well because the only way we CAN boost is ALL boosters firing!
+                        boostBiasDirection -= boost.LocalBoostDirection * (float)forceVal.GetValue(boost);
+                    }
+                    modBoostCount++;
+                }
+                if (bloc.GetComponent<ModuleHover>())
+                    modHoverCount++;
+                if (bloc.GetComponent<ModuleGyro>())
+                    modGyroCount++;
+                if (bloc.GetComponent<ModuleWheels>())
+                    modWheelCount++;
+                if (bloc.GetComponent<ModuleAntiGravityEngine>())
+                    modAGCount++;
+
+                if (bloc.GetComponent<ModuleTechController>())
+                    modControlCount++;
+                else
+                {
+                    if (bloc.GetComponent<ModuleWeapon>() || bloc.GetComponent<ModuleWeaponTeslaCoil>())
+                        modDangerCount++;
+                    if (bloc.GetComponent<ModuleWeaponGun>())
+                        modGunCount++;
+                    if (bloc.GetComponent<ModuleDrill>())
+                        modDrillCount++;
+                }
+
+                try
+                {
+                    int tier = Singleton.Manager<ManLicenses>.inst.m_UnlockTable.GetBlockTier(type, true);
+                    if (RawTechUtil.GetCorpExtended(type) == factionType)
+                    {
+                        if (tier > minCorpGrade)
+                        {
+                            minCorpGrade = tier;
+                        }
+                    }
+                    else
+                    {
+                        if (tier - 1 > minCorpGrade)
+                        {
+                            if (tier > gradeM)
+                                minCorpGrade = gradeM - 1;
+                            else
+                                minCorpGrade = tier - 1;
+                        }
+                    }
+                }
+                catch
+                {
+                    //Debug_TTExt.Log("RawTech: GetHandler - error");
+                }
+
+                if (bloc.GetComponent<ModuleWing>())
+                {
+                    //Get the slowest spooling one
+                    foreach (ModuleWing.Aerofoil Afoil in bloc.GetComponent<ModuleWing>().m_Aerofoils)
+                    {
+                        if (Afoil.flapAngleRangeActual > 0 && Afoil.flapTurnSpeed > 0)
+                            MovingFoilCount++;
+                        FoilCount++;
+                    }
+                }
+                blocs.Add(bloc);
+            }
+            bool isDef = true;
+            if (modEXPLODECount > 0)
+            {
+                purposes.Add(BasePurpose.TechProduction);
+                isDef = false;
+            }
+            if (modCollectCount > 0 || hasBaseFunction)
+            {
+                purposes.Add(BasePurpose.Harvesting);
+                isDef = false;
+            }
+            if (NotMP)
+                purposes.Add(BasePurpose.MPUnsafe);
+            if (Anchored)
+            {
+                if (hasReceiver)
+                {
+                    purposes.Add(BasePurpose.HasReceivers);
+                    isDef = false;
+                }
+                if (hasAutominer)
+                {
+                    purposes.Add(BasePurpose.Autominer);
+                    isDef = false;
+                }
+                if (isDef)
+                    purposes.Add(BasePurpose.Defense);
+            }
+
+
+            boostBiasDirection.Normalize();
+            biasDirection.Normalize();
+
+            if (biasDirection == Vector3.zero && boostBiasDirection != Vector3.zero)
+            {
+                isFlying = true;
+                if (boostBiasDirection.y > 0.6)
+                    isFlyingDirectionForwards = false;
+            }
+            else if (biasDirection != Vector3.zero)
+            {
+                isFlying = true;
+                if (biasDirection.y > 0.6)
+                    isFlyingDirectionForwards = false;
+            }
+
+            if (modDangerCount == 0)
+                purposes.Add(BasePurpose.NoWeapons);
+
+            terra = BaseTerrain.Land;
+            string purposesList = "None.";
+            if (Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(BlockIndexer.StringToBlockType(mems.ElementAt(0).t)).GetComponent<ModuleAnchor>())
+            {
+                purposesList = "";
+                foreach (BasePurpose purp in purposes)
+                {
+                    purposesList += purp.ToString() + "|";
+                }
+                Debug_TTExt.Info("RawTech: Terrain: " + terra.ToString() + " - Purposes: " + purposesList + "Anchored (static)");
+
+                //Debug_TTExt.Log("RawTech: Purposes: Anchored (static)");
+                return purposes;
+            }
+            else if (modBoostCount > 2 && (modHoverCount > 2 || modAGCount > 0))
+            {   //Starship
+                terra = BaseTerrain.Space;
+            }
+            else if (MovingFoilCount > 4 && isFlying && isFlyingDirectionForwards)
+            {   // Airplane
+                terra = BaseTerrain.Air;
+            }
+            else if (modGyroCount > 0 && isFlying && !isFlyingDirectionForwards)
+            {   // Chopper
+                terra = BaseTerrain.Air;
+            }
+            else if (FoilCount > 0 && modGyroCount > 0 && modBoostCount > 0 && (modWheelCount < 4 || modHoverCount > 1))
+            {   // Naval
+                terra = BaseTerrain.Sea;
+            }
+            else if (modGunCount < 2 && modDrillCount < 2 && modBoostCount > 0)
+            {   // Melee
+                terra = BaseTerrain.AnyNonSea;
+            }
+
+            if (!Anchored)
+                purposes.Add(BasePurpose.NotStationary);
+
+            if (mems.Count >= RawTechUtil.FrameImpactingTechBlockCount || modGunCount > 48 || modHoverCount > 18)
+            {
+                purposes.Add(BasePurpose.NANI);
+            }
+
+            if (purposes.Count > 0)
+            {
+                purposesList = "";
+                foreach (BasePurpose purp in purposes)
+                {
+                    purposesList += purp.ToString() + "|";
+                }
+            }
+
+            Debug_TTExt.Info("RawTech: Terrain: " + terra.ToString() + " - Purposes: " + purposesList);
+
+            return purposes;
+        }
+
         public static BaseTerrain GetBaseTerrain(TechData tech, bool Anchored)
         {
             List<TankBlock> blocs = new List<TankBlock>();
-            List<RawBlockMem> mems = JSONToMemoryExternalNonAlloc(BlockSpecToJSONExternal(tech.m_BlockSpecs, out _, out _, out _, out _));
+            List<RawBlock> mems = JSONToMemoryExternalNonAlloc(BlockSpecToJSONExternal(tech.m_BlockSpecs, out _, out _, out _, out _));
             if (mems.Count < 1)
             {
                 Debug_TTExt.Log("RawTech: TECH IS NULL!  SKIPPING!");
@@ -718,7 +802,7 @@ namespace TerraTechETCUtil
 
             //BlockUnlockTable blockList = Singleton.Manager<ManLicenses>.inst.GetBlockUnlockTable();
             //Debug_TTExt.Log("RawTech: GetHandler - " + Singleton.Manager<ManLicenses>.inst.m_UnlockTable.GetAllBlocksInTier(1, factionType, false).Count());
-            foreach (RawBlockMem blocRaw in mems)
+            foreach (RawBlock blocRaw in mems)
             {
                 BlockTypes type = BlockIndexer.StringToBlockType(blocRaw.t);
                 TankBlock bloc = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
@@ -927,29 +1011,32 @@ namespace TerraTechETCUtil
             return terra;
         }
 
+        private static Dictionary<int, int> corpCounts = new Dictionary<int, int>();
         public static FactionTypesExt GetTopCorp(Tank tank)
         {   // 
             FactionTypesExt final = tank.GetMainCorpExt();
             if (!(bool)Singleton.Manager<ManLicenses>.inst)
                 return final;
-            int corps = Enum.GetNames(typeof(FactionTypesExt)).Length;
-            int[] corpCounts = new int[corps];
 
             foreach (TankBlock block in tank.blockman.IterateBlocks())
             {
-                corpCounts[(int)RawTechUtil.GetBlockCorpExt(block.BlockType)]++;
+                int corpNum = (int)RawTechUtil.GetBlockCorpExt(block.BlockType);
+                if (!corpCounts.ContainsKey(corpNum))
+                    corpCounts[corpNum] = 1;
+                else
+                    corpCounts[corpNum]++;
             }
             int blockCounts = 0;
-            int bestCorpIndex = 0;
-            for (int step = 0; step < corps; step++)
+            int bestCorpIndex = (int)FactionTypesExt.GSO;
+            foreach (var item in corpCounts)
             {
-                int num = corpCounts[step];
-                if (num > blockCounts)
+                if (item.Value > blockCounts)
                 {
-                    bestCorpIndex = step;
-                    blockCounts = num;
+                    bestCorpIndex = item.Key;
+                    blockCounts = item.Value;
                 }
             }
+            corpCounts.Clear();
             final = (FactionTypesExt)bestCorpIndex;
             return final;
         }
@@ -958,24 +1045,29 @@ namespace TerraTechETCUtil
             FactionTypesExt final = tank.GetMainCorpExt();
             if (!(bool)Singleton.Manager<ManLicenses>.inst)
                 return final;
-            int corps = Enum.GetNames(typeof(FactionTypesExt)).Length;
-            int[] corpCounts = new int[corps];
-
-            foreach (var block in tank.m_BlockSpecs)
+            foreach (TankPreset.BlockSpec block in tank.m_BlockSpecs)
             {
-                corpCounts[(int)RawTechUtil.GetBlockCorpExt(block.m_BlockType)]++;
+                int corpNum;
+                if (ManMods.inst.IsModdedBlock(block.m_BlockType))
+                    corpNum = (int)RawTechUtil.GetBlockCorpExt(BlockIndexer.GetBlockIDLogFree(block.block));
+                else
+                    corpNum = (int)RawTechUtil.GetBlockCorpExt(block.m_BlockType);
+                if (!corpCounts.ContainsKey(corpNum))
+                    corpCounts[corpNum] = 1;
+                else
+                    corpCounts[corpNum]++;
             }
             int blockCounts = 0;
-            int bestCorpIndex = 0;
-            for (int step = 0; step < corps; step++)
+            int bestCorpIndex = (int)FactionTypesExt.GSO;
+            foreach (var item in corpCounts)
             {
-                int num = corpCounts[step];
-                if (num > blockCounts)
+                if (item.Value > blockCounts)
                 {
-                    bestCorpIndex = step;
-                    blockCounts = num;
+                    bestCorpIndex = item.Key;
+                    blockCounts = item.Value;
                 }
             }
+            corpCounts.Clear();
             final = (FactionTypesExt)bestCorpIndex;
             return final;
         }
@@ -1005,58 +1097,33 @@ namespace TerraTechETCUtil
             final = (FactionTypesExt)bestCorpIndex;
             return final;
         }
+        public static FactionTypesExt GetTopCorp(List<RawBlock> tank)
+        {   // 
+            FactionTypesExt final = tank.GetMainCorpExt();
+            if (!(bool)Singleton.Manager<ManLicenses>.inst)
+                return final;
+            int corps = Enum.GetNames(typeof(FactionTypesExt)).Length;
+            int[] corpCounts = new int[corps];
 
-        public static Dictionary<int, List<string>> EncodeSerialData(TechData tech)
-        {
-            Dictionary<int, List<string>> blockSerial = new Dictionary<int, List<string>>();
-            if (tech.m_BlockSpecs.Count < 1)
+            foreach (var block in tank)
             {
-                Debug_TTExt.Log("RawTech: TECH IS NULL!");
-                return null;
+                corpCounts[(int)RawTechUtil.GetBlockCorpExt(BlockIndexer.StringToBlockType(block.t))]++;
             }
-            int blockIndex = 0;
-            for (int step = 0; step < tech.m_BlockSpecs.Count; step++)
+            int blockCounts = 0;
+            int bestCorpIndex = 0;
+            for (int step = 0; step < corps; step++)
             {
-                var blocRaw = tech.m_BlockSpecs[step];
-                if (blocRaw.textSerialData != null && blocRaw.textSerialData.Count > 0)
+                int num = corpCounts[step];
+                if (num > blockCounts)
                 {
-                    var blockInfo = new List<string>();
-                    foreach (var item in blocRaw.textSerialData)
-                    {
-                        blockInfo.Add(item);
-                    }
-                    if (blockInfo.Count > 0)
-                        blockSerial.Add(step, blockInfo);
-                }
-                blockIndex++;
-            }
-            if (blockSerial.Count == 0)
-                return null;
-            return blockSerial;
-        }
-        public void DecodeSerialData(TechData tech)
-        {
-            if (serialDataBlock != null)
-            {
-                foreach (var item in serialDataBlock)
-                {
-                    try
-                    {
-                        var blockSpec = tech.m_BlockSpecs[item.Key];
-                        blockSpec.textSerialData = item.Value;
-                        tech.m_BlockSpecs[item.Key] = blockSpec;
-                    }
-                    catch { }
+                    bestCorpIndex = step;
+                    blockCounts = num;
                 }
             }
+            final = (FactionTypesExt)bestCorpIndex;
+            return final;
         }
 
-
-
-        public bool IsDefense()
-        {
-            return purposes.Contains(BasePurpose.Defense);
-        }
 
         public static int GetBBCost(List<RawBlockMem> mem)
         {
@@ -1087,8 +1154,8 @@ namespace TerraTechETCUtil
         public static int GetBBCost(string JSONTechBlueprint)
         {
             int output = 0;
-            List<RawBlockMem> mem = JSONToMemoryExternalNonAlloc(JSONTechBlueprint);
-            foreach (RawBlockMem block in mem)
+            List<RawBlock> mem = JSONToMemoryExternalNonAlloc(JSONTechBlueprint);
+            foreach (RawBlock block in mem)
             {
                 output += Singleton.Manager<RecipeManager>.inst.GetBlockBuyPrice(BlockIndexer.StringToBlockType(block.t), true);
             }
@@ -1250,6 +1317,65 @@ namespace TerraTechETCUtil
 
             return output;
         }
+        /// <summary>
+        /// Mandatory for techs that have plans to be built over time by the building AI.
+        /// Since the first block placed ultimately determines the base rotation of the Tech
+        ///  (Arrow shown on Radar/minimap) we must be ABSOLUTELY SURE to build teh Tech in relation
+        ///   to that first block.
+        ///   Any alteration on the first block's rotation will have severe consequences in the long run.
+        ///   
+        /// Split techs on the other hand are mostly free from this issue.
+        /// </summary>
+        /// <param name="ToSearch">The list of blocks to find the new foot in</param>
+        /// <returns></returns>
+        public static void TechToBlocksExternal(Tank tank, List<RawBlock> output)
+        {
+            // This resaves the whole tech cab-forwards regardless of original rotation
+            //   It's because any solutions that involve the cab in a funny direction will demand unholy workarounds.
+            //   I seriously don't know why the devs didn't try it this way, perhaps due to lag reasons.
+            //   or the blocks that don't allow upright placement (just detach those lmao)
+            output.Clear();
+            List<TankBlock> ToSave = tank.blockman.IterateBlocks().ToList();
+            Vector3 coreOffset = Vector3.zero;
+            Quaternion coreRot;
+            TankBlock rootBlock = FindProperRootBlockExternal(ToSave);
+            if (rootBlock != null)
+            {
+                if (rootBlock != ToSave.FirstOrDefault())
+                {
+                    ToSave.Remove(rootBlock);
+                    ToSave.Insert(0, rootBlock);
+                }
+                coreOffset = rootBlock.trans.localPosition;
+                coreRot = rootBlock.trans.localRotation;
+                tank.blockman.SetRootBlock(rootBlock);
+            }
+            else
+                coreRot = new OrthoRotation(OrthoRotation.r.u000);
+
+            foreach (TankBlock bloc in ToSave)
+            {
+                if (!Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(bloc.BlockType))
+                    continue;
+                Quaternion deltaRot = Quaternion.Inverse(coreRot);
+                RawBlock mem = new RawBlock
+                {
+                    t = bloc.name,
+                    p = deltaRot * (bloc.trans.localPosition - coreOffset)
+                };
+                // get rid of floating point errors
+                mem.TidyUp();
+                //Get the rotation
+                mem.r = SetCorrectRotation(bloc.trans.localRotation, deltaRot).rot;
+                if (!IsValidRotation(bloc, mem.r))
+                {   // block cannot be saved - illegal rotation.
+                    Debug_TTExt.Log("RawTech:  DesignMemory - " + tank.name + ": could not save " + bloc.name + " in blueprint due to illegal rotation.");
+                    continue;
+                }
+                output.Add(mem);
+            }
+            Debug_TTExt.Info("RawTech:  DesignMemory - Saved " + tank.name + " to memory format");
+        }
 
         /// <summary>
         /// Mandatory for techs that have plans to be built over time by the building AI.
@@ -1287,8 +1413,8 @@ namespace TerraTechETCUtil
                 if (bloc == null || BT == BlockTypes.GSOAIController_111 || !Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(BT))
                 {
                     if (ExceptionIfFail)
-                        throw new NullReferenceException("TechToMemoryExternal - Block " + 
-                            StringLookup.GetItemName(ObjectTypes.Block, (int)BT) + " does not exists. Entry " + 
+                        throw new NullReferenceException("TechToMemoryExternal - Block " +
+                            StringLookup.GetItemName(ObjectTypes.Block, (int)BT) + " does not exists. Entry " +
                             blocS.block + " could not be found");
                     continue;
                 }
@@ -1311,6 +1437,65 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("RawTechTemplate.ctor - Tech is invalid! No blocks could be loaded!!!");
             return output;
         }
+        /// <summary>
+        /// Mandatory for techs that have plans to be built over time by the building AI.
+        /// Since the first block placed ultimately determines the base rotation of the Tech
+        ///  (Arrow shown on Radar/minimap) we must be ABSOLUTELY SURE to build teh Tech in relation
+        ///   to that first block.
+        ///   Any alteration on the first block's rotation will have severe consequences in the long run.
+        ///   
+        /// Split techs on the other hand are mostly free from this issue.
+        /// </summary>
+        /// <param name="ToSearch">The list of blocks to find the new foot in</param>
+        /// <returns></returns>
+        public static void TechToBlocksExternal(TechData tank, List<RawBlock> output, bool ExceptionIfFail = false)
+        {
+            // This resaves the whole tech cab-forwards regardless of original rotation
+            //   It's because any solutions that involve the cab in a funny direction will demand unholy workarounds.
+            //   I seriously don't know why the devs didn't try it this way, perhaps due to lag reasons.
+            //   or the blocks that don't allow upright placement (just detach those lmao)
+            output.Clear();
+            List<TankPreset.BlockSpec> ToSave = tank.m_BlockSpecs;
+            TankPreset.BlockSpec rootBlock = FindProperRootBlockExternal(ToSave);
+            if (rootBlock.m_BlockType != ToSave.FirstOrDefault().m_BlockType)
+            {
+                ToSave.Remove(rootBlock);
+                ToSave.Insert(0, rootBlock);
+            }
+
+            Vector3 coreOffset = rootBlock.position;
+            Quaternion coreRot = Quaternion.Euler(new OrthoRotation(rootBlock.orthoRotation).ToEulers());
+
+            foreach (TankPreset.BlockSpec blocS in ToSave)
+            {
+                BlockTypes BT = BlockIndexer.StringToBlockType(blocS.block);
+                TankBlock bloc = ManSpawn.inst.GetBlockPrefab(BT);
+                if (bloc == null || BT == BlockTypes.GSOAIController_111 || !Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(BT))
+                {
+                    if (ExceptionIfFail)
+                        throw new NullReferenceException("TechToMemoryExternal - Block " +
+                            StringLookup.GetItemName(ObjectTypes.Block, (int)BT) + " does not exists. Entry " +
+                            blocS.block + " could not be found");
+                    continue;
+                }
+                Quaternion deltaRot = Quaternion.Inverse(coreRot);
+                Quaternion savRot = Quaternion.Euler(new OrthoRotation(blocS.orthoRotation).ToEulers());
+                RawBlock mem = new RawBlock
+                {
+                    t = blocS.block,
+                    p = deltaRot * (blocS.position - coreOffset),
+                    r = SetCorrectRotation(savRot, deltaRot).rot,
+                };
+                //Get the rotation
+                if (!IsValidRotation(bloc, mem.r))
+                {   // block cannot be saved - illegal rotation.
+                    continue;
+                }
+                output.Add(mem);
+            }
+            if (!output.Any())
+                throw new NullReferenceException("RawTechTemplate.ctor - Tech is invalid! No blocks could be loaded!!!");
+        }
         public static string TechToJSONExternal(Tank tank)
         {   // Saving a Tech from the BlockMemory
             return MemoryToJSONExternal(TechToMemoryExternal(tank));
@@ -1320,6 +1505,47 @@ namespace TerraTechETCUtil
         private static StringBuilder TechRAW = new StringBuilder();
         private static StringBuilder TechRAWCase = new StringBuilder();
         public static string MemoryToJSONExternal(List<RawBlockMem> mem, bool ExceptionIfFail = false)
+        {   // Saving a Tech from the BlockMemory
+            if (!mem.Any())
+            {
+                if (ExceptionIfFail)
+                    throw new NullReferenceException("MemoryToJSONExternal expects mem contain at least one instance in it.  Got none.");
+                return null;
+            }
+            try
+            {
+                TechRAW.Append(JsonUtility.ToJson(mem.First()));
+                for (int step = 1; step < mem.Count; step++)
+                {
+                    TechRAW.Append("|");
+                    TechRAW.Append(JsonUtility.ToJson(mem.ElementAt(step)));
+                }
+                try
+                {
+                    foreach (char ch in TechRAW.ToString())
+                    {
+                        if (ch == '"')
+                        {
+                            //JSONTech.Append("\\");
+                            TechRAWCase.Append(ch);
+                        }
+                        else
+                            TechRAWCase.Append(ch);
+                    }
+                    //Debug_TTExt.Log("RawTech: " + JSONTech.ToString());
+                    return TechRAWCase.ToString();
+                }
+                finally
+                {
+                    TechRAWCase.Clear();
+                }
+            }
+            finally
+            {
+                TechRAW.Clear();
+            }
+        }
+        public static string MemoryToJSONExternal(List<RawBlock> mem, bool ExceptionIfFail = false)
         {   // Saving a Tech from the BlockMemory
             if (!mem.Any())
             {
@@ -1389,9 +1615,35 @@ namespace TerraTechETCUtil
                 RAWCase.Clear();
             }
         }
+        public static void JSONToBlocksExternal(string toLoad, List<RawBlock> mem)
+        {   // Loading a Tech from the BlockMemory
+            try
+            {
+                mem.Clear();
+                foreach (char ch in toLoad)
+                {
+                    if (ch != '\\')
+                    {
+                        if (ch == '|')//new block
+                        {
+                            mem.Add(JsonUtility.FromJson<RawBlock>(RAWCase.ToString()));
+                            RAWCase.Clear();
+                        }
+                        else
+                            RAWCase.Append(ch);
+                    }
+                }
+                mem.Add(JsonUtility.FromJson<RawBlock>(RAWCase.ToString()));
+                //Debug_TTExt.Log("RawTech:  DesignMemory: saved " + mem.Count);
+            }
+            finally
+            {
+                RAWCase.Clear();
+            }
+        }
 
-        private static List<RawBlockMem> nonAllocL = new List<RawBlockMem>();
-        public static List<RawBlockMem> JSONToMemoryExternalNonAlloc(string toLoad)
+        private static List<RawBlock> nonAllocL = new List<RawBlock>();
+        public static List<RawBlock> JSONToMemoryExternalNonAlloc(string toLoad)
         {   // Loading a Tech from the BlockMemory
             try
             {
@@ -1402,14 +1654,14 @@ namespace TerraTechETCUtil
                     {
                         if (ch == '|')//new block
                         {
-                            nonAllocL.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
+                            nonAllocL.Add(JsonUtility.FromJson<RawBlock>(RAWCase.ToString()));
                             RAWCase.Clear();
                         }
                         else
                             RAWCase.Append(ch);
                     }
                 }
-                nonAllocL.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
+                nonAllocL.Add(JsonUtility.FromJson<RawBlock>(RAWCase.ToString()));
                 //Debug_TTExt.Log("RawTech:  DesignMemory: saved " + mem.Count);
                 return nonAllocL;
             }
@@ -1433,6 +1685,35 @@ namespace TerraTechETCUtil
             return true;
         }
 
+        public static OrthoRotation SetCorrectRotation(Quaternion changeRot)
+        {
+            Vector3 foA = (changeRot * Vector3.forward).normalized;
+            Vector3 upA = (changeRot * Vector3.up).normalized;
+            //Debug.Log("Architech: SetCorrectRotation - Matching test " + foA + " | " + upA);
+            Quaternion qRot2 = Quaternion.LookRotation(foA, upA);
+            OrthoRotation rot = new OrthoRotation(qRot2);
+            if (rot != qRot2)
+            {
+                bool worked = false;
+                for (int step = 0; step < OrthoRotation.NumDistinctRotations; step++)
+                {
+                    OrthoRotation rotT = new OrthoRotation(OrthoRotation.AllRotations[step]);
+                    bool isForeMatch = (rotT * Vector3.forward).Approximately(foA, 0.35f);
+                    bool isUpMatch = (rotT * Vector3.up).Approximately(upA, 0.35f);
+                    if (isForeMatch && isUpMatch)
+                    {
+                        rot = rotT;
+                        worked = true;
+                        break;
+                    }
+                }
+                if (!worked)
+                {
+                    Debug_TTExt.Log("RawTech: SetCorrectRotation - Matching failed - OrthoRotation is missing edge case " + foA + " | " + upA);
+                }
+            }
+            return rot;
+        }
         public static OrthoRotation SetCorrectRotation(Quaternion blockRot, Quaternion changeRot)
         {
             Quaternion qRot2 = Quaternion.identity;
@@ -1662,7 +1943,9 @@ namespace TerraTechETCUtil
             return 0;
         }
         private static List<byte> num2 = new List<byte>();
-        private static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, string blueprint, bool grounded, bool ForceAnchor = false, bool population = false, bool randomSkins = true, bool UseTeam = false)
+        public static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, List<RawBlockMem> blueprint, 
+            Dictionary<int, List<string>> blockSerials, bool grounded, bool ForceAnchor = false, bool population = false, 
+            bool randomSkins = true, bool UseTeam = false)
         {
             TechData data = new TechData
             {
@@ -1680,7 +1963,297 @@ namespace TerraTechETCUtil
             {
                 skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
             }
-            foreach (RawBlockMem mem in JSONToMemoryExternalNonAlloc(blueprint))
+            foreach (RawBlockMem mem in blueprint)
+            {
+                BlockTypes type = BlockIndexer.StringToBlockType(mem.t);
+                if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) ||
+                        Singleton.Manager<ManSpawn>.inst.IsBlockUsageRestrictedInGameMode(type))
+                {
+                    Debug_TTExt.Log("TTExtUtil: InstantTech - Removed " + mem.t + " as it was invalidated");
+                    continue;
+                }
+                TankPreset.BlockSpec spec = default;
+                spec.block = mem.t;
+                spec.m_BlockType = type;
+                spec.orthoRotation = new OrthoRotation(mem.r);
+                spec.position = mem.p;
+                spec.saveState = new Dictionary<int, Module.SerialData>();
+                spec.textSerialData = new List<string>();
+
+                if (UseTeam)
+                {
+                    FactionTypesExt factType = RawTechUtil.GetCorpExtended(type);
+                    FactionSubTypes FST = RawTechUtil.CorpExtToCorp(factType);
+                    spec.m_SkinID = GetSkinIDSetForTeam(Team, (int)FST);
+                }
+                else if (randomSkins)
+                {
+                    FactionTypesExt factType = RawTechUtil.GetCorpExtended(type);
+                    FactionSubTypes FST = RawTechUtil.CorpExtToCorp(factType);
+                    if (skinChaotic)
+                    {
+                        spec.m_SkinID = GetSkinIDRand((int)FST);
+                    }
+                    else
+                    {
+                        spec.m_SkinID = GetSkinIDSet((int)FST);
+                    }
+                }
+                else
+                    spec.m_SkinID = 0;
+
+                data.m_BlockSpecs.Add(spec);
+            }
+
+            if (blockSerials != null)
+            {
+                foreach (var item in blockSerials)
+                {
+                    try
+                    {
+                        var blockSpec = data.m_BlockSpecs[item.Key];
+                        blockSpec.textSerialData = new List<string>(item.Value);
+                        data.m_BlockSpecs[item.Key] = blockSpec;
+                    }
+                    catch { }
+                }
+            }
+
+            Tank theTech;
+            if (ManNetwork.IsNetworked)
+            {
+                uint[] BS = new uint[data.m_BlockSpecs.Count];
+                for (int step = 0; step < data.m_BlockSpecs.Count; step++)
+                {
+                    BS[step] = Singleton.Manager<ManNetwork>.inst.GetNextHostBlockPoolID();
+                }
+                TrackedVisible TV = ManNetwork.inst.SpawnNetworkedNonPlayerTech(data, BS,
+                    WorldPosition.FromScenePosition(pos).ScenePosition,
+                    Quaternion.LookRotation(forward, Vector3.up), grounded);
+                if (TV == null)
+                {
+                    Debug_TTExt.FatalError("TTExtUtil: InstantTech(TrackedVisible)[MP] - error on SpawnTank");
+                    return null;
+                }
+                if (TV.visible == null)
+                {
+                    Debug_TTExt.FatalError("TTExtUtil: InstantTech(Visible)[MP] - error on SpawnTank");
+                    return null;
+                }
+                theTech = TV.visible.tank;
+                if (theTech.IsNull())
+                {
+                    throw new NullReferenceException("TTExtUtil: InstantTech[MP] - error on SpawnTank" +
+                        " - Resulting tech is null");
+                }
+                else
+                    TryForceIntoPop(theTech);
+            }
+            else
+            {
+                ManSpawn.TankSpawnParams tankSpawn = new ManSpawn.TankSpawnParams
+                {
+                    techData = data,
+                    blockIDs = null,
+                    teamID = Team,
+                    position = pos,
+                    rotation = Quaternion.LookRotation(forward, Vector3.up),//Singleton.cameraTrans.position - pos
+                    ignoreSceneryOnSpawnProjection = false,
+                    forceSpawn = true,
+                    isPopulation = population
+                };
+                if (ForceAnchor)
+                    tankSpawn.grounded = true;
+                else
+                    tankSpawn.grounded = grounded;
+                theTech = Singleton.Manager<ManSpawn>.inst.SpawnTank(tankSpawn, true);
+                if (theTech.IsNull())
+                {
+                    throw new NullReferenceException("TTExtUtil: InstantTech - error on SpawnTank" +
+                        " - Resulting tech is null");
+                }
+                else
+                    TryForceIntoPop(theTech);
+            }
+
+            ForceAllBubblesUp(theTech);
+            if (ForceAnchor)
+            {
+                theTech.gameObject.AddComponent<RequestAnchored>();
+                theTech.trans.position = theTech.trans.position + new Vector3(0, -0.5f, 0);
+                //theTech.visible.MoveAboveGround();
+            }
+
+            Debug_TTExt.Log("TTExtUtil: InstantTech - Built " + name);
+
+            return theTech;
+        }
+
+        public static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, List<RawBlock> blueprint, 
+            Dictionary<int, List<string>> blockSerials, bool grounded, bool ForceAnchor = false, bool population = false, 
+            bool randomSkins = true, bool UseTeam = false)
+        {
+            TechData data = new TechData
+            {
+                Name = name,
+                m_Bounds = new IntVector3(new Vector3(18, 18, 18)),
+                m_SkinMapping = new Dictionary<uint, string>(),
+                m_TechSaveState = new Dictionary<int, TechComponent.SerialData>(),
+                m_CreationData = new TechData.CreationData(),
+                m_BlockSpecs = new List<TankPreset.BlockSpec>()
+            };
+
+            bool skinChaotic = false;
+            ResetSkinIDSet();
+            if (randomSkins)
+            {
+                skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
+            }
+            foreach (RawBlock mem in blueprint)
+            {
+                BlockTypes type = BlockIndexer.StringToBlockType(mem.t);
+                if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) ||
+                        Singleton.Manager<ManSpawn>.inst.IsBlockUsageRestrictedInGameMode(type))
+                {
+                    Debug_TTExt.Log("TTExtUtil: InstantTech - Removed " + mem.t + " as it was invalidated");
+                    continue;
+                }
+                TankPreset.BlockSpec spec = default;
+                spec.block = mem.t;
+                spec.m_BlockType = type;
+                spec.orthoRotation = new OrthoRotation(mem.r);
+                spec.position = mem.p;
+                spec.saveState = new Dictionary<int, Module.SerialData>();
+                spec.textSerialData = new List<string>();
+
+                if (UseTeam)
+                {
+                    FactionTypesExt factType = RawTechUtil.GetCorpExtended(type);
+                    FactionSubTypes FST = RawTechUtil.CorpExtToCorp(factType);
+                    spec.m_SkinID = GetSkinIDSetForTeam(Team, (int)FST);
+                }
+                else if (randomSkins)
+                {
+                    FactionTypesExt factType = RawTechUtil.GetCorpExtended(type);
+                    FactionSubTypes FST = RawTechUtil.CorpExtToCorp(factType);
+                    if (skinChaotic)
+                    {
+                        spec.m_SkinID = GetSkinIDRand((int)FST);
+                    }
+                    else
+                    {
+                        spec.m_SkinID = GetSkinIDSet((int)FST);
+                    }
+                }
+                else
+                    spec.m_SkinID = 0;
+
+                data.m_BlockSpecs.Add(spec);
+            }
+
+            if (blockSerials != null)
+            {
+                foreach (var item in blockSerials)
+                {
+                    try
+                    {
+                        var blockSpec = data.m_BlockSpecs[item.Key];
+                        blockSpec.textSerialData = new List<string>(item.Value);
+                        data.m_BlockSpecs[item.Key] = blockSpec;
+                    }
+                    catch { }
+                }
+            }
+
+            Tank theTech;
+            if (ManNetwork.IsNetworked)
+            {
+                uint[] BS = new uint[data.m_BlockSpecs.Count];
+                for (int step = 0; step < data.m_BlockSpecs.Count; step++)
+                {
+                    BS[step] = Singleton.Manager<ManNetwork>.inst.GetNextHostBlockPoolID();
+                }
+                TrackedVisible TV = ManNetwork.inst.SpawnNetworkedNonPlayerTech(data, BS,
+                    WorldPosition.FromScenePosition(pos).ScenePosition,
+                    Quaternion.LookRotation(forward, Vector3.up), grounded);
+                if (TV == null)
+                {
+                    Debug_TTExt.FatalError("TTExtUtil: InstantTech(TrackedVisible)[MP] - error on SpawnTank");
+                    return null;
+                }
+                if (TV.visible == null)
+                {
+                    Debug_TTExt.FatalError("TTExtUtil: InstantTech(Visible)[MP] - error on SpawnTank");
+                    return null;
+                }
+                theTech = TV.visible.tank;
+                if (theTech.IsNull())
+                {
+                    throw new NullReferenceException("TTExtUtil: InstantTech[MP] - error on SpawnTank" +
+                        " - Resulting tech is null");
+                }
+                else
+                    TryForceIntoPop(theTech);
+            }
+            else
+            {
+                ManSpawn.TankSpawnParams tankSpawn = new ManSpawn.TankSpawnParams
+                {
+                    techData = data,
+                    blockIDs = null,
+                    teamID = Team,
+                    position = pos,
+                    rotation = Quaternion.LookRotation(forward, Vector3.up),//Singleton.cameraTrans.position - pos
+                    ignoreSceneryOnSpawnProjection = false,
+                    forceSpawn = true,
+                    isPopulation = population
+                };
+                if (ForceAnchor)
+                    tankSpawn.grounded = true;
+                else
+                    tankSpawn.grounded = grounded;
+                theTech = Singleton.Manager<ManSpawn>.inst.SpawnTank(tankSpawn, true);
+                if (theTech.IsNull())
+                {
+                    throw new NullReferenceException("TTExtUtil: InstantTech - error on SpawnTank" +
+                        " - Resulting tech is null");
+                }
+                else
+                    TryForceIntoPop(theTech);
+            }
+
+            ForceAllBubblesUp(theTech);
+            if (ForceAnchor)
+            {
+                theTech.gameObject.AddComponent<RequestAnchored>();
+                theTech.trans.position = theTech.trans.position + new Vector3(0, -0.5f, 0);
+                //theTech.visible.MoveAboveGround();
+            }
+
+            Debug_TTExt.Log("TTExtUtil: InstantTech - Built " + name);
+
+            return theTech;
+        }
+
+        public static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, string blueprint, bool grounded, bool ForceAnchor = false, bool population = false, bool randomSkins = true, bool UseTeam = false)
+        {
+            TechData data = new TechData
+            {
+                Name = name,
+                m_Bounds = new IntVector3(new Vector3(18, 18, 18)),
+                m_SkinMapping = new Dictionary<uint, string>(),
+                m_TechSaveState = new Dictionary<int, TechComponent.SerialData>(),
+                m_CreationData = new TechData.CreationData(),
+                m_BlockSpecs = new List<TankPreset.BlockSpec>(),
+            };
+
+            bool skinChaotic = false;
+            ResetSkinIDSet();
+            if (randomSkins)
+            {
+                skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
+            }
+            foreach (RawBlock mem in JSONToMemoryExternalNonAlloc(blueprint))
             {
                 BlockTypes type = BlockIndexer.StringToBlockType(mem.t);
                 if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) ||
@@ -1763,7 +2336,8 @@ namespace TerraTechETCUtil
                     rotation = Quaternion.LookRotation(forward, Vector3.up),//Singleton.cameraTrans.position - pos
                     ignoreSceneryOnSpawnProjection = false,
                     forceSpawn = true,
-                    isPopulation = population
+                    isPopulation = population,
+                    placement = ManSpawn.TankSpawnParams.Placement.BoundsCentredAtPosition,
                 };
                 if (ForceAnchor)
                     tankSpawn.grounded = true;
@@ -1792,7 +2366,7 @@ namespace TerraTechETCUtil
             return theTech;
         }
 
-        private static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, RawTechTemplate blueprint, bool grounded, bool ForceAnchor = false, bool population = false, bool randomSkins = true, bool UseTeam = false)
+        public static Tank InstantTech(Vector3 pos, Vector3 forward, int Team, string name, RawTechTemplate blueprint, bool grounded, bool ForceAnchor = false, bool population = false, bool randomSkins = true, bool UseTeam = false)
         {
             TechData data = new TechData
             {
@@ -1810,7 +2384,7 @@ namespace TerraTechETCUtil
             {
                 skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
             }
-            foreach (RawBlockMem mem in JSONToMemoryExternalNonAlloc(blueprint.savedTech))
+            foreach (RawBlock mem in JSONToMemoryExternalNonAlloc(blueprint.savedTech))
             {
                 BlockTypes type = BlockIndexer.StringToBlockType(mem.t);
                 if (!Singleton.Manager<ManSpawn>.inst.IsBlockAllowedInCurrentGameMode(type) ||
@@ -1851,6 +2425,8 @@ namespace TerraTechETCUtil
 
                 data.m_BlockSpecs.Add(spec);
             }
+
+            blueprint.DecodeSerialData(data);
 
             Tank theTech;
             if (ManNetwork.IsNetworked)
@@ -1922,40 +2498,7 @@ namespace TerraTechETCUtil
             return theTech;
         }
 
-        /// <summary>
-        /// Spawns a RawTech IMMEDEATELY.  Do NOT Call while calling BlockMan or spawner blocks or the game will break!
-        /// </summary>
-        /// <param name="pos"></param>
-        /// <param name="Team"></param>
-        /// <param name="forwards"></param>
-        /// <param name="Blueprint"></param>
-        /// <param name="snapTerrain"></param>
-        /// <param name="Charged"></param>
-        /// <param name="ForceInstant"></param>
-        /// <returns></returns>
-        public Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, bool Charged = false, bool randomSkins = false)
-        {
-            if (savedTech == null)
-                throw new NullReferenceException("TTExtUtil: SpawnTechExternal - Was handed a NULL Blueprint!");
-            string baseBlueprint = savedTech;
 
-            try
-            {
-                Tank theTech = InstantTech(pos, forwards, Team, techName, baseBlueprint, snapTerrain, ForceAnchor: !purposes.Contains(BasePurpose.NotStationary), Team == -1, randomSkins);
-                Debug_TTExt.Log("TTExtUtil: SpawnTechExternal - Spawned " + techName + " at " + pos + ". Snapped to terrain " + snapTerrain);
-
-                if (Team == -2)//neutral - be crafty mike and face the player
-                    theTech.AI.SetBehaviorType(AITreeType.AITypes.FacePlayer);
-                if (Charged)
-                    ChargeAndClean(theTech);
-
-                return theTech;
-            }
-            catch (Exception e)
-            {
-                throw new Exception("Tech " + techName + " failed to spawn", e);
-            }
-        }
 
         internal static TrackedVisible TrackTank(Tank tank, bool anchored = false)
         {
@@ -2029,110 +2572,6 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TTExtUtil: ChargeAndClean - error");
             }
         }
-    }
-    internal class RequestAnchored : MonoBehaviour
-    {
-        sbyte delay = 4;
-        private void Update()
-        {
-            delay--;
-            if (delay == 0)
-                Destroy(this);
-        }
-    }
-
-
-    public enum FactionTypesExt
-    {
-        // No I do not make any of the corps below (exclusing some of TAC and EFF) 
-        //  - but these are needed to allow the AI to spawn the right bases with 
-        //    the right block ranges
-        // OFFICIAL
-        NULL,   // not a corp, really, probably the most unique of all lol
-        GSO,    // Galactic Survey Organization
-        GC,     // GeoCorp
-        EXP,    // Reticule Research
-        VEN,    // VENture
-        HE,     // HawkEye
-        SPE,    // Special
-        BF,     // Better Future
-        SJ,     // Space Junkers
-        LEG,    // Legion
-
-        // Below is currently mostly unused as Custom Corps already address this.
-        // Community
-        AER = 256,    // Aerion
-        BL = 257,     // Black Labs (EXT OF HE)
-        CC = 258,     // CrystalCorp
-        DC = 259,     // DEVCorp
-        DL = 260,     // DarkLight
-        EYM = 261,    // Ellydium
-        GT = 262,     // GreenTech
-        HS = 263,     // Hyperion Systems
-        IEC = 264,    // Independant Earthern Colonies
-        LK = 265,     // Lemon Kingdom
-        OS = 266,     // Old Stars
-        TC = 267,     // Tofuu Corp
-        TAC = 268,    // Technocratic AI Colony
-
-        // idk
-        EFF = 269,    // Emperical Forge Fabrication
-        MCC = 270,    // Mechaniccoid Cooperative Confederacy 
-        BLN = 271,    // BuLwark Nation (Bulin)
-        CNC = 272,    // ClaNg Clads (ChanClas)
-        LOL = 273,    // Larry's Overlord Laser
-    }
-
-    /// <summary>
-    /// ONLY SUPPORTS RANKING OF FactionSubTypes (No modded corps!)
-    /// </summary>
-    public enum FactionLevel
-    {
-        NULL,
-        GSO,
-        GC,
-        VEN,
-        HE,
-        BF,
-        EXP,
-        ALL,
-        MOD,
-    }
-    public enum BaseTypeLevel
-    {
-        Basic,      //basic base
-        Advanced,
-        Headquarters,
-        Overkill,
-        InvaderSpecific,
-    }
-    public enum BaseTerrain
-    {
-        Any,
-        AnyNonSea,
-        Land,   // is anchored
-        Sea,    // floats on water
-        Air,    // doubles as airplane
-        Chopper,// relies on props to stay airborne
-        Space   // mobile base that flies beyond
-    }
-    public enum BasePurpose
-    {
-        AnyNonHQ,       // Any base that's not an HQ
-        HarvestingNoHQ, // Any harvesting base that's not an HQ
-        Defense,        // Strictly defensive base element
-        Harvesting,     // Has Delivery cannons
-        Autominer,      // Can mine unlimited BB (DO NOT ATTACH THIS TAG TO HQs!!!)
-        TechProduction, // Base with Explosive Bolts attached
-                        //   As of Update 1.8.3, this is now considered a Garrison
-        Headquarters,   // Calls in techs from orbit using funds
-        MPUnsafe,       // MP blocked crafting blocks
-        HasReceivers,   // Has receivers
-        NotStationary,  // Mobile Tech
-        AttractTech,    // Reserved for Attract (or an endgame spawn)
-        NoWeapons,      // unarmed
-        Fallback,       // run out of other options
-        Sniper,          // Lock to harder difficulties
-        NANI,           // Incomprehensibly powerful Tech spawn
+#endif
     }
 }

@@ -5,11 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 #if !STEAM
 using ModHelper.Config;
-#else
+#elif !EDITOR
 using ModHelper;
 #endif
 //using Nuterra.NativeOptions;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     internal class ConfigConnect
@@ -50,3 +51,4 @@ namespace TerraTechETCUtil
         }
     }
 }
+#endif

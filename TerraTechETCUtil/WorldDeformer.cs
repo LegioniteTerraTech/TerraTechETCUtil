@@ -6,6 +6,7 @@ using System.IO;
 using UnityEngine;
 using Newtonsoft.Json;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public class WorldDeformer : MonoBehaviour
@@ -22,10 +23,10 @@ namespace TerraTechETCUtil
 
         public Dictionary<IntVector2, TerrainModifier> TerrainModsActive = new Dictionary<IntVector2, TerrainModifier>();
 
-        private static Dictionary<TerraformerType, TerrainModifier> TerrainDefaults;
+        public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaults;
 
-        private static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsSmall;
-        private static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsLarge;
+        public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsSmall;
+        public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsLarge;
 
 
         //private static bool SetupSaveSystem = false;
@@ -68,7 +69,7 @@ namespace TerraTechETCUtil
 
 
         // TOOL
-        internal bool GrabTerrainCursorPos(out Vector3 posScene)
+        public static bool GrabTerrainCursorPos(out Vector3 posScene)
         {
             if (!Singleton.camera)
             {
@@ -91,7 +92,7 @@ namespace TerraTechETCUtil
                 return false;
             }
         }
-        internal bool GrabTerrainCursorPos(out Vector3 posScene, out float height)
+        public static bool GrabTerrainCursorPos(out Vector3 posScene, out float height)
         {
             if (!Singleton.camera)
             {
@@ -129,8 +130,11 @@ namespace TerraTechETCUtil
             Circle,
             Square,
             Level,
+            Reset,
+            Slope
         }
 
+        /*
         private static float applyStrength => 0.01f / TerrainOperations.RescaleFactor;
         private static float levelingStrength => 0.1f / TerrainOperations.RescaleFactor;
         private static bool active = false;
@@ -140,7 +144,7 @@ namespace TerraTechETCUtil
         private static float delayTimer = 0;
         private static float delayTimerDelay = 0.0356f;
         private static KeyCode altHotKey = KeyCode.LeftShift;
-        internal void Update()
+        public void Update_LEGACY()
         {
             bool delayTimed;
             bool deltaed = false;
@@ -315,9 +319,33 @@ namespace TerraTechETCUtil
                 terrainsDeformed.Clear();
             }
         }
+        */
+        /// <summary>
+        /// Reloads allTerrainMods
+        /// </summary>
+        public static void TempResetALLTerrain()
+        {
+            if (inst == null)
+                return;
+            foreach (var item in inst.TerrainModsActive)
+            {
+                ManWorldTileExt.ReloadTile(item.Value.Position.TileCoord);
+            }
+        }
+        public static void ReloadTerrainMods()
+        {
+            if (inst == null)
+                return;
+            foreach (var item in inst.TerrainModsActive)
+            {
+                item.Value.FlushApply(1, new WorldPosition(item.Key, Vector3.zero).ScenePosition);
+            }
+        }
 
         public static void AddTerrainDefault()
         { 
         }
+
     }
 }
+#endif

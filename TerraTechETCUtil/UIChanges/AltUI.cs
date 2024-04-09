@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -167,9 +168,10 @@ namespace TerraTechETCUtil
             MenuCenter.font = ExoFont;
             MenuCenter.fontSize = 18;
             MenuCenterStyle = new GUIStyleState() { background = MenuTexRect, textColor = ColorDefaultGrey, };
-            MenuCenter.overflow = new RectOffset(0, 0, 0, 0);
-            MenuCenter.padding = new RectOffset(MenuTexRect.width / 6, MenuTexRect.width / 6, MenuTexRect.height / 12, MenuTexRect.height / 12);
-            MenuCenter.border = new RectOffset(16, 16, 16, 16);
+            MenuCenter.overflow = new RectOffset(10, 10, 10, 10);
+            MenuCenter.padding = new RectOffset(0, 0, 6, 0);
+            MenuCenter.border = new RectOffset(10, 10, 10, 10);
+            MenuCenter.margin = new RectOffset(0, 0, 0, 0);
             MenuCenter.normal = MenuCenterStyle;
             MenuCenter.hover = MenuCenterStyle;
             MenuCenter.active = MenuCenterStyle;
@@ -188,7 +190,7 @@ namespace TerraTechETCUtil
 
             MenuLeft = new GUIStyle(MenuCenter);
             MenuLeftStyleLeft = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
-            MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
+            MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 16, MenuTexRectLeft.width / 16, MenuTexRectLeft.height / 18, MenuTexRectLeft.height / 18);
             MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
             MenuLeft.normal = MenuLeftStyleLeft;
             MenuLeft.hover = MenuLeftStyleLeft;
@@ -217,10 +219,14 @@ namespace TerraTechETCUtil
 
 
             MenuSharp = new GUIStyle(MenuCenter);
-            MenuSharpCenterStyle = new GUIStyleState() { background = MenuSharpTexRect, textColor = new Color(0, 0, 0, 1), };
+            MenuSharpCenterStyle = new GUIStyleState() { 
+                background = MenuSharpTexRect, 
+                textColor = new Color(0, 0, 0, 1),
+            };
             MenuSharp.overflow = new RectOffset(16, 16, 0, 38);
-            MenuSharp.padding = new RectOffset(16, 16, 0, 38);
-            MenuSharp.border = new RectOffset(0, 0, 0, 0);
+            MenuSharp.padding = new RectOffset(0, 0, 0, 0);
+            MenuSharp.border = new RectOffset(16, 16, 0, 38);
+            MenuSharp.margin = new RectOffset(0, 0, 0, 0);
             MenuSharp.normal = MenuSharpCenterStyle;
             MenuSharp.hover = MenuSharpCenterStyle;
             MenuSharp.active = MenuSharpCenterStyle;
@@ -234,7 +240,7 @@ namespace TerraTechETCUtil
             MenuBubble = new GUIStyle(MenuCenter);
             MenuBubbleCenterStyle = new GUIStyleState() { background = MenuBubbleTexRect, textColor = new Color(0, 0, 0, 1), };
             MenuBubble.overflow = new RectOffset(16, 16, 0, 38);
-            MenuBubble.padding = new RectOffset(16, 16, 0, 38);
+            MenuBubble.padding = new RectOffset(16, 16, 8, 38);
             MenuBubble.border = new RectOffset(0, 0, 0, 0);
             MenuBubble.normal = MenuBubbleCenterStyle;
             MenuBubble.hover = MenuBubbleCenterStyle;
@@ -251,6 +257,7 @@ namespace TerraTechETCUtil
         // -------------- Labels --------------
         public static GUIStyle LabelBlack;
         private static GUIStyleState LabelBlackStyle;
+        public static GUIStyle LabelBlackNoStretch;
         public static GUIStyle LabelBlackTitle;
         private static GUIStyleState LabelBlackTitleStyle;
 
@@ -276,6 +283,7 @@ namespace TerraTechETCUtil
             TextBase.fontStyle = FontStyle.Normal;
             TextBase.normal.textColor = ColorDefaultGrey;
             TextBase.font = ExoFontSemiBold;
+            TextBase.clipping = TextClipping.Overflow;
 
             // Setup Label Black
             GUIStyle styleBatch = new GUIStyle(TextBase);
@@ -294,6 +302,11 @@ namespace TerraTechETCUtil
             styleBatch.onHover = styleStateBatch;
             styleBatch.onActive = styleStateBatch;
             styleBatch.onFocused = styleStateBatch;
+
+            styleBatch = new GUIStyle(LabelBlack);
+            LabelBlackNoStretch = styleBatch;
+            LabelBlackNoStretch.stretchHeight = false;
+            LabelBlackNoStretch.stretchWidth = false;
 
             // Setup Label BlackTitle
             styleBatch = new GUIStyle(TextBase);
@@ -439,12 +452,12 @@ namespace TerraTechETCUtil
 
         private static void MakeBoxes()
         {
-
             GUIStyle TextBase = new GUIStyle(TextfieldBlackHuge);
             TextBase.alignment = TextAnchor.MiddleLeft;
             TextBase.fontStyle = FontStyle.Normal;
             TextBase.normal.textColor = ColorDefaultGrey;
             TextBase.font = ExoFontSemiBold;
+            TextBase.clipping = TextClipping.Overflow;
 
             // Setup Label Black
             GUIStyle styleBatch = new GUIStyle(TextBase);
@@ -592,6 +605,9 @@ namespace TerraTechETCUtil
         private static void MakeButtons()
         {
             GUIStyle ButtonBase = new GUIStyle(GUI.skin.button);
+            ButtonBase.imagePosition = ImagePosition.ImageLeft;
+            ButtonBase.overflow = new RectOffset(0, 0, 0, 0);
+            ButtonBase.margin = new RectOffset(1, 1, 1, 1);
             ButtonBase.padding = new RectOffset(12, 12, 8, 8);
             ButtonBase.border = new RectOffset(12, 12, 12, 12);
 
@@ -826,6 +842,8 @@ namespace TerraTechETCUtil
         private static GUIStyleState TextfieldHBStyle;
 
         public static GUIStyle TextfieldWhiteHuge;
+        public static GUIStyle TextfieldWhiteMenu;
+        private static GUIStyleState TextfieldWhiteMenuStyle;
 
         // ----------------------------------
         public static GUIStyle TextfieldBlackSearch;
@@ -839,7 +857,7 @@ namespace TerraTechETCUtil
         private static void MakeTextBoxes()
         {
             GUIStyle TextBase = new GUIStyle(GUI.skin.button);
-            TextBase.clipping = TextClipping.Clip;
+            TextBase.clipping = TextClipping.Overflow;
             TextBase.alignment = TextAnchor.MiddleLeft;
             TextBase.overflow = new RectOffset(0, 0, 0, 0);
             TextBase.padding = new RectOffset(22, 22, 3, 3);
@@ -873,7 +891,8 @@ namespace TerraTechETCUtil
             // Setup Textfield Default
             styleBatch = new GUIStyle(TextBase);
             styleBatch.alignment = TextAnchor.MiddleRight;
-            styleBatch.border = new RectOffset(TextfieldTexMain.width / 10, TextfieldTexMain.width / 10, 0, 0);
+            styleBatch.padding = new RectOffset(TextfieldTexMain.width / 6, TextfieldTexMain.width / 6, 3, 3);
+            styleBatch.border = new RectOffset(TextfieldTexMain.width / 6, TextfieldTexMain.width / 6, 0, 0);
             TextfieldBlack = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
@@ -896,6 +915,8 @@ namespace TerraTechETCUtil
 
             // Setup Textfield Left
             styleBatch = new GUIStyle(TextfieldBlack);
+            styleBatch.padding = new RectOffset(3, TextfieldTexMain.width / 6, 3, 3);
+            styleBatch.border = new RectOffset(0, TextfieldTexMain.width / 6, 0, 0);
             TextfieldBlackLeft = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
@@ -916,6 +937,10 @@ namespace TerraTechETCUtil
             styleBatch = new GUIStyle(TextfieldBlack);
             styleBatch.border = new RectOffset(Mathf.RoundToInt(TextfieldSTexMain.width / 2.25f),
                 Mathf.RoundToInt(TextfieldSTexMain.width / 2.25f), 0, 0);
+            RectOffset alt = styleBatch.border;
+            alt.top = 3;
+            alt.bottom = 3;
+            styleBatch.padding = alt;
             TextfieldBlackSearch = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
@@ -979,7 +1004,7 @@ namespace TerraTechETCUtil
             // Setup Textfield White Huge
             styleBatch = new GUIStyle(TextfieldBlackHuge);
             styleBatch.overflow = new RectOffset(0, 0, 0, 0);
-            styleBatch.padding = new RectOffset(MenuTexRect.width / 6, MenuTexRect.width / 6, MenuTexRect.height / 12, MenuTexRect.height / 12);
+            styleBatch.padding = new RectOffset(16, 16, 16, 16);
             styleBatch.border = new RectOffset(16, 16, 16, 16);
             TextfieldWhiteHuge = styleBatch;
             styleStateBatch = new GUIStyleState()
@@ -1000,8 +1025,8 @@ namespace TerraTechETCUtil
 
             // Setup Textfield Bordered
             styleBatch = new GUIStyle(TextBase);
-            styleBatch.padding = new RectOffset(12, 12, 8, 8);
-            styleBatch.border = new RectOffset(12, 12, 12, 12);
+            styleBatch.padding = new RectOffset(9, 9, 9, 9);
+            styleBatch.border = new RectOffset(10, 10, 10, 10);
             //styleBatch.border = new RectOffset(TextfieldBTexMain.width / 3, TextfieldBTexMain.width / 3, TextfieldBTexMain.height / 3, TextfieldBTexMain.height / 3);
             TextfieldBordered = styleBatch;
             styleStateBatch = new GUIStyleState()
@@ -1021,7 +1046,7 @@ namespace TerraTechETCUtil
 
             // Setup Textfield Blue
             styleBatch = new GUIStyle(TextBase);
-            styleBatch.padding = new RectOffset(12, 12, 8, 8);
+            styleBatch.padding = new RectOffset(8, 8, 8, 8);
             styleBatch.border = new RectOffset(12, 12, 12, 12);
             //styleBatch.border = new RectOffset(TextfieldBBTexMain.width / 3, TextfieldBBTexMain.width / 3, TextfieldBBTexMain.height / 3, TextfieldBBTexMain.height / 3);
             TextfieldBorderedBlue = styleBatch;
@@ -1039,6 +1064,21 @@ namespace TerraTechETCUtil
             styleBatch.onHover = styleStateBatch;
             styleBatch.onActive = styleStateBatch;
             styleBatch.onFocused = styleStateBatch;
+
+
+            TextfieldWhiteMenu = new GUIStyle(TextBase);
+            TextfieldWhiteMenu.wordWrap = true;
+            TextfieldWhiteMenuStyle = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
+            TextfieldWhiteMenu.padding = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
+            TextfieldWhiteMenu.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
+            TextfieldWhiteMenu.normal = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.hover = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.active = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.focused = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.onNormal = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.onHover = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.onActive = TextfieldWhiteMenuStyle;
+            TextfieldWhiteMenu.onFocused = TextfieldWhiteMenuStyle;
         }
 
 
@@ -1275,7 +1315,7 @@ namespace TerraTechETCUtil
             // Setup ScrollBar Vertical
             styleBatch = new GUIStyle(ScrollThumb);
             styleBatch.fixedWidth = 12;
-            styleBatch.fixedHeight = 0;
+            styleBatch.fixedHeight = 24;
             styleBatch.stretchHeight = true;
             ScrollVerticalTransparent = styleBatch;
             styleStateBatch = new GUIStyleState()
@@ -1294,7 +1334,7 @@ namespace TerraTechETCUtil
 
             // Setup ScrollBar Horizontal
             styleBatch = new GUIStyle(ScrollThumb);
-            styleBatch.fixedWidth = 0;
+            styleBatch.fixedWidth = 24;
             styleBatch.fixedHeight = 12;
             styleBatch.stretchWidth = true;
             ScrollHorizontalTransparent = styleBatch;
@@ -1348,22 +1388,26 @@ namespace TerraTechETCUtil
             GUIStyle ExtrasBase = new GUIStyle(TextfieldBordered);
             ExtrasBase.clipping = TextClipping.Clip;
             ExtrasBase.alignment = TextAnchor.MiddleLeft;
-            ExtrasBase.overflow = new RectOffset(4, 4, 4, 100);
+            ExtrasBase.overflow = new RectOffset(0, 0, 0, 100);
             ExtrasBase.padding = new RectOffset(9, 9, 4, 4);
             ExtrasBase.border = new RectOffset(0, 0, 0, 100);
+            ExtrasBase.margin = new RectOffset(0, 0, 0, 4);
             ExtrasBase.stretchWidth = true;
             ExtrasBase.fontSize = TitleFontSize;
             ExtrasBase.font = ExoFontSemiBoldItalic;
 
 
             // Setup WindowHeader
+            ExtrasBase.clipping = TextClipping.Overflow;
             WindowHeaderBlue = NewGUIElement(ExtrasBase, ref WindowHeaderBlueStyle, WindowHeaderBlueTex, ColorDefaultGrey);
             ExtrasBase.overflow = new RectOffset(100, 4, 4, 4);
             ExtrasBase.border = new RectOffset(100, 0, 0, 0);
+            ExtrasBase.margin = new RectOffset(4, 0, 0, 0);
             ExtrasBase.stretchWidth = false;
             ExtrasBase.stretchHeight = true;
             WindowRightBlue = NewGUIElement(ExtrasBase, ref WindowRightBlueStyle, WindowRightBlueTex, ColorDefaultGrey);
             ExtrasBase.stretchHeight = false;
+            ExtrasBase.margin = new RectOffset(0, 0, 0, 4);
 
             GUIStyle styleBatch = new GUIStyle(ExtrasBase);
             ElementShadow = styleBatch;
@@ -2012,14 +2056,48 @@ namespace TerraTechETCUtil
                     callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
                 GUILayout.EndHorizontal();
                 func(id);
+                tooltipOverMenu.EndDisplayGUIToolTip();
                 if (callClose)
                 {
                     ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
                     closeCallback.Invoke();
                 }
             }, string.Empty, options);
+            if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
+                ManModGUI.IsMouseOverOtherModGUI = true;
             EndUI();
             return rect;
+        }
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, float alpha, Action closeCallback = null, params GUILayoutOption[] options)
+        {
+            StartUISharp(alpha, alpha);
+            var rect = GUILayout.Window(id, screenRect, x => {
+                GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
+                GUILayout.Label(title, LabelBlackTitle);
+                GUILayout.FlexibleSpace();
+                bool callClose = false;
+                if (closeCallback != null)
+                    callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
+                GUILayout.EndHorizontal();
+                func(id);
+                tooltipOverMenu.EndDisplayGUIToolTip();
+                if (callClose)
+                {
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
+                    closeCallback.Invoke();
+                }
+            }, string.Empty, options);
+            if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
+                ManModGUI.IsMouseOverOtherModGUI = true;
+            EndUI();
+            return rect;
+        }
+        public static bool CloseButton(ManSFX.UISfxType sfx = ManSFX.UISfxType.Close, params GUILayoutOption[] options)
+        {
+            bool closed = GUILayout.Toggle(false, string.Empty, SwitchCloseInv, options);
+            if (closed)
+                ManSFX.inst.PlayUISFX(sfx);
+            return closed;
         }
 
         public static bool Button(string text, ManSFX.UISfxType clickNoise, params GUILayoutOption[] options)
@@ -2093,12 +2171,26 @@ namespace TerraTechETCUtil
         }
 
 
+        public static bool ToggleLone(bool value, params GUILayoutOption[] options)
+        {
+            bool outP = GUILayout.Toggle(value, string.Empty, options);
+            if (outP != value)
+                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
+            return outP;
+        }
+        public static bool ToggleLone(bool value, GUIStyle style, params GUILayoutOption[] options)
+        {
+            bool outP = GUILayout.Toggle(value, string.Empty, style, options);
+            if (outP != value)
+                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
+            return outP;
+        }
         public static bool Toggle(bool value, string text, params GUILayoutOption[] options)
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(text);
             GUILayout.FlexibleSpace();
-            bool outP = GUILayout.Toggle(value, "", options);
+            bool outP = GUILayout.Toggle(value, string.Empty, options);
             GUILayout.EndHorizontal();
             if (outP != value)
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
@@ -2109,7 +2201,7 @@ namespace TerraTechETCUtil
             GUILayout.BeginHorizontal();
             GUILayout.Label(text);
             GUILayout.FlexibleSpace();
-            bool outP = GUILayout.Toggle(value, "", style, options);
+            bool outP = GUILayout.Toggle(value, string.Empty, style, options);
             GUILayout.EndHorizontal();
             if (outP != value)
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
@@ -2118,7 +2210,7 @@ namespace TerraTechETCUtil
         public static bool ToggleNoFormat(bool value, string text, params GUILayoutOption[] options)
         {
             GUILayout.Label(text);
-            bool outP = GUILayout.Toggle(value, "", options);
+            bool outP = GUILayout.Toggle(value, string.Empty, options);
             if (outP != value)
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
@@ -2126,7 +2218,7 @@ namespace TerraTechETCUtil
         public static bool ToggleNoFormat(bool value, string text, GUIStyle style, params GUILayoutOption[] options)
         {
             GUILayout.Label(text);
-            bool outP = GUILayout.Toggle(value, "", style, options);
+            bool outP = GUILayout.Toggle(value, string.Empty, style, options);
             if (outP != value)
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
@@ -2160,6 +2252,120 @@ namespace TerraTechETCUtil
                 (float)sprite.rect.height / sprite.texture.height));
             GUI.DrawTextureWithTexCoords(pos, sprite.texture, rescaled, alphaBlend);
         }
+        public static bool SpriteButton(Sprite sprite, params GUILayoutOption[] options)
+        {
+            GUILayout.Box(string.Empty, options);
+            return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, true);
+        }
+        public static bool SpriteButton(Sprite sprite, bool alphaBlend, params GUILayoutOption[] options)
+        {
+            GUILayout.Box(string.Empty, options);
+            return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
+        }
+        public static bool SpriteButton(Sprite sprite, GUIStyle style, params GUILayoutOption[] options)
+        {
+            GUILayout.Box(string.Empty, style, options);
+            return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, true);
+        }
+        public static bool SpriteButton(Sprite sprite, GUIStyle style, bool alphaBlend, params GUILayoutOption[] options)
+        {
+            GUILayout.Box(string.Empty, style, options);
+            return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
+        }
+        public static bool DrawSpriteButton(Rect pos, Sprite sprite, bool alphaBlend = true)
+        {
+            Rect rescaled = new Rect(sprite.rect.position,
+                new Vector2((float)sprite.rect.width / sprite.texture.width,
+                (float)sprite.rect.height / sprite.texture.height));
+            GUI.DrawTextureWithTexCoords(pos, sprite.texture, rescaled, alphaBlend);
+            return GUI.Button(pos, string.Empty, TRANSPARENT);
+        }
+        /*
+        public static void LastRectTooltip(string displayString, bool fixate = false)
+        {
+            if (tooltipFrame)
+                return;
+            if (tooltipWorld == null)
+                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipAuto>();
+            tooltipOverMenu.GUITooltip(displayString, fixate);
+            tooltipFrame = true;
+        }*/
+        public static void TooltipWorld(string Title, string displayString, bool fixate = false)
+        {
+            if (tooltipFrame)
+                return;
+            if (tooltipWorld == null)
+                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipAuto>();
+
+            if (tooltipWorld.Title != Title)
+                tooltipWorld.Title = Title;
+            if (tooltipWorld.Text != displayString)
+                tooltipWorld.Text = displayString;
+            tooltipFrame = true;
+        }
+        public static void TooltipWorld(string displayString, bool fixate = false)
+        {
+            if (tooltipQueued)
+                return;
+            if (tooltipWorld == null)
+                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipAuto>();
+
+            if (tooltipWorld.Title != string.Empty)
+                tooltipWorld.Title = string.Empty;
+            if (tooltipWorld.Text != displayString)
+                tooltipWorld.Text = displayString;
+            tooltipQueued = true;
+        }
+        private static GUIToolTip tooltipOverMenu = new GUIToolTip();
+        private static GUIToolTipAuto tooltipWorld;
+        private static bool tooltipQueued = false;
+        private static bool tooltipFrame = false;
+        private static bool tooltipFrameGUI = false;
+
+        public class GUIToolTipAuto : MonoBehaviour
+        {
+            internal string Title = "Unset";
+            internal string Text = "Unset";
+            internal Rect toolWindow = new Rect(0, 0, 100, 60);   // the "window"
+            public void OnGUI()
+            {
+                if (tooltipFrame)
+                {
+                    StartUI(0.9f);
+                    Vector3 Mous = Input.mousePosition;
+                    Mous.y = Display.main.renderingHeight - Mous.y;
+                    GUILayout.BeginHorizontal(GUILayout.MaxWidth(240));
+                    Rect rescale = GUILayoutUtility.GetRect(new GUIContent(Text), LabelBlackNoStretch);
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        toolWindow.width = rescale.width + 26;
+                        toolWindow.height = rescale.height + 26;
+                    }
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                    GUILayout.FlexibleSpace();
+                    toolWindow.x = Mathf.Clamp(Mous.x + 16, 0, Display.main.renderingWidth - toolWindow.width);
+                    toolWindow.y = Mathf.Clamp(Mous.y + 16, 0, Display.main.renderingHeight - toolWindow.height);
+                    toolWindow = GUI.Window(5625662, toolWindow, GUIHandlerInfo, Title, MenuLeft);
+                    GUI.BringWindowToFront(5625662);
+                    EndUI();
+                }
+            }
+            public void GUIHandlerInfo(int ID)
+            {
+                GUILayout.Label(Text, LabelBlackNoStretch);
+            }
+            public void Update()
+            {
+                if (GUIUtility.hotControl == 0 || tooltipFrameGUI)
+                {
+                    tooltipFrame = tooltipQueued;
+                    tooltipQueued = false;
+                    tooltipFrameGUI = false;
+                }
+                GUIToolTip.DoUpdate();
+            }
+        }
 
         public class GUIToolTip
         {
@@ -2167,11 +2373,11 @@ namespace TerraTechETCUtil
             private Rect ScanWindow = new Rect(0, 0, 2, 2);   // the "window"
             private Rect maxToolWindow = new Rect(0, 0, 300, 160);   // the "window"
             private Rect toolWindow = new Rect(0, 0, 300, 160);   // the "window"
-            private bool fakeTooltipShown = false;
-            private bool doShowFakeTooltip = false;
+            private static bool fakeTooltipShown = false;
+            private static bool doShowFakeTooltip = false;
             private bool Fixate = false;
             private int IgnoreClose = 0;
-            public void DoUpdate()
+            internal static void DoUpdate()
             {
                 doShowFakeTooltip = fakeTooltipShown;
             }
@@ -2219,6 +2425,16 @@ namespace TerraTechETCUtil
                     var lastWindow = GUILayoutUtility.GetLastRect();
                     if (lastWindow.Contains(Event.current.mousePosition))
                     {
+                        TooltipWorld(displayString, fixate);
+                        tooltipFrameGUI = true;
+                    }
+                }
+                /*
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var lastWindow = GUILayoutUtility.GetLastRect();
+                    if (lastWindow.Contains(Event.current.mousePosition))
+                    {
                         ScanWindow = lastWindow;
                         if (Text != displayString)
                         {
@@ -2228,7 +2444,7 @@ namespace TerraTechETCUtil
                         fakeTooltipShown = true;
                         Fixate = fixate;
                     }
-                }
+                }*/
             }
 
         }

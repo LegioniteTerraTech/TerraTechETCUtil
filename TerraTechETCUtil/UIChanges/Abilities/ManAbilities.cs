@@ -11,146 +11,16 @@ namespace TerraTechETCUtil
 {
     public class ManAbilities
     {
-        private static List<AbilityElement> updating = new List<AbilityElement>();
-        public abstract class AbilityElement
-        {
-            public readonly string Name;
-            public readonly Sprite Sprite;
-            protected GameObject inst;
-            protected float Cooldown = 1;
-            private float cooldownCur = 0;
-            protected Image[] images;
-            public AbilityElement(string name, Sprite iconSprite, float cooldown)
-            {
-                Name = name;
-                Sprite = iconSprite;
-                Cooldown = cooldown;
-            }
-            public void Remove()
-            {
-                UnityEngine.Object.Destroy(inst);
-                Active.Remove(this);
-                updating.Remove(this);
-            }
-            internal abstract void Initiate();
-            internal abstract void SetAvail(bool state);
-            public void SetFillState(float fillPercent)
-            {
-                if (inst)
-                {
-                    foreach (var item in images)
-                    {
-                        item.fillAmount = fillPercent;
-                    }
-                }
-            }
-            public void TriggerCooldown()
-            {
-                if (inst)
-                {
-                    cooldownCur = Cooldown;
-                    if (!updating.Any())
-                    {
-                        InvokeHelper.InvokeSingleRepeat(CheckCooldowns, 0);
-                    }
-                    SetAvail(false);
-                    updating.Add(this);
-                }
-            }
-            private static void CheckCooldowns()
-            {
-                for (int step = 0; step < updating.Count; step++)
-                {
-                    var item = updating[step];
-                    if (item.inst)
-                    {
-                        item.cooldownCur -= Time.deltaTime;
-                        if (item.cooldownCur <= 0)
-                        {
-                            item.cooldownCur = 0;
-                            item.SetFillState(1);
-                            item.SetAvail(true);
-                            updating.RemoveAt(step);
-                        }
-                        else
-                            item.SetFillState(1 - Mathf.Clamp01(item.cooldownCur / item.Cooldown));
-                    }
-                }
-                if (!updating.Any())
-                {
-                    InvokeHelper.CancelInvokeSingleRepeat(CheckCooldowns);
-                }
-            }
-        }
-        public class AbilityButton : AbilityElement
-        {
-            public Button button;
-            public readonly UnityAction Callback;
-            public AbilityButton(string name, Sprite iconSprite, UnityAction callback, float cooldown) :
-                base(name, iconSprite, cooldown)
-            {
-                Callback = callback;
-                InsuredStartup(this);
-            }
-            public void TriggerCooldownWrapper()
-            {
-                Callback.Invoke();
-                //TriggerCooldown();
-            }
-            internal override void SetAvail(bool state)
-            {
-                button.interactable = state;
-            }
-            internal override void Initiate()
-            {
-                button = MakePrefabButton(Name, Sprite, TriggerCooldownWrapper);
-                inst = button.gameObject;
-                images = inst.GetComponentsInChildren<Image>(true);
-                Active.Add(this);
-            }
-        }
-        public class AbilityToggle : AbilityElement
-        {
-            public Toggle toggle;
-            public readonly UnityAction<bool> Callback;
-            private UIHUDToggleButton togUI;
-            public AbilityToggle(string name, Sprite iconSprite, UnityAction<bool> callback, float cooldown) :
-                base(name, iconSprite, cooldown)
-            {
-                Callback = callback;
-                InsuredStartup(this);
-            }
-            public void TriggerCooldownWrapper(bool input)
-            {
-                Callback.Invoke(input);
-                //TriggerCooldown();
-            }
-            internal override void SetAvail(bool state)
-            {
-                toggle.interactable = state;
-            }
-            internal override void Initiate()
-            {
-                toggle = MakePrefabToggle(Name, Sprite, TriggerCooldownWrapper);
-                inst = toggle.gameObject;
-                images = inst.GetComponentsInChildren<Image>(true);
-                togUI = inst.GetComponentInChildren<UIHUDToggleButton>(true);
-                Active.Add(this);
-            }
-            public void SetToggleState(bool state)
-            {
-                if (inst)
-                    togUI.SetToggledState(state);
-            }
-        }
+        internal static List<AbilityElement> updating = new List<AbilityElement>();
 
 
-        private static bool ready = false;
-        private static GameObject inst;
-        private static Queue<AbilityElement> queued = null;
-        private static List<AbilityElement> Active = null;
 
-        private static void InsuredStartup(AbilityElement add)
+        internal static bool ready = false;
+        internal static GameObject inst;
+        internal static Queue<AbilityElement> queued = null;
+        internal static List<AbilityElement> Active = null;
+
+        internal static void InitElement(AbilityElement add)
         {
             InitAbilityBar();
             if (queued == null)
@@ -165,7 +35,7 @@ namespace TerraTechETCUtil
             else
                 queued.Enqueue(add);
         }
-        private static void TrySetup(Mode ignor)
+        internal static void TrySetup(Mode ignor)
         {
             try
             {
@@ -183,7 +53,7 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("ManAbilities.TrySetup) ~ error - " + e);
             }
         }
-        private static void NotReady(Mode ignor)
+        internal static void NotReady(Mode ignor)
         {
             ready = false;
         }
@@ -268,7 +138,7 @@ namespace TerraTechETCUtil
 
                     inst = rectT.gameObject;
                     Debug_TTExt.Log("ManAbilities.InitAbilityBar() - Prefab Init");
-                    inst.SetActive(true);
+                    inst.SetActive(false);
                 }
                 else
                     Debug_TTExt.Assert("ManAbilities.InitAbilityBar()  - UI FAILED to init!!! (GO null)");
@@ -281,7 +151,7 @@ namespace TerraTechETCUtil
             }
         }
 
-        private static Toggle MakePrefabToggle(string name, Sprite iconSprite, UnityAction<bool> callback)
+        internal static Toggle MakePrefabToggle(string name, Sprite iconSprite, UnityAction<bool> callback)
         {
             var ob = ManToolbar.MakePrefabToggle(name, iconSprite, callback, inst.transform);
             RectTransform RT = ob.GetComponent<RectTransform>();
@@ -294,9 +164,10 @@ namespace TerraTechETCUtil
                 item.fillCenter = false;
                 item.fillAmount = 1;
             }
+            ob.gameObject.SetActive(false);
             return ob;
         }
-        private static Button MakePrefabButton(string name, Sprite iconSprite, UnityAction callback)
+        internal static Button MakePrefabButton(string name, Sprite iconSprite, UnityAction callback)
         {
             var ob = ManToolbar.MakePrefabButton(name, iconSprite, callback, inst.transform);
             RectTransform RT = ob.GetComponent<RectTransform>();
@@ -309,6 +180,7 @@ namespace TerraTechETCUtil
                 item.fillCenter = false;
                 item.fillAmount = 1;
             }
+            ob.gameObject.SetActive(false);
             return ob;
         }
     }

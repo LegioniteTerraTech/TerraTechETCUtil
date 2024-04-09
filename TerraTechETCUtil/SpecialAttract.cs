@@ -5,6 +5,7 @@ using System.Text;
 using System.Reflection;
 using UnityEngine;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     internal class AttractPatches
@@ -444,3 +445,4 @@ namespace TerraTechETCUtil
         }
     }
 }
+#endif

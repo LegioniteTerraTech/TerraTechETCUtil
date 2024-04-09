@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
@@ -11,10 +10,11 @@ namespace TerraTechETCUtil
     {   // Global popup manager
         public static ManModGUI inst;
 
-        internal const int IDOffset = 136000;
+        public const int IDOffset = 136000;
         private const int MaxPopups = 48;
         private const int MaxPopupsActive = 32;
 
+        public const int LargeWindowWidth = 1000;
         public static Rect DefaultWindow = new Rect(0, 0, 300, 300);   // the "window"
         public static Rect LargeWindow = new Rect(0, 0, 1000, 600);
         public static Rect WideWindow = new Rect(0, 0, 700, 180);
@@ -33,6 +33,14 @@ namespace TerraTechETCUtil
         public static GUIStyle styleLargeFont;
         public static GUIStyle styleHugeFont;
         public static GUIStyle styleGinormusFont;
+        public static GUIStyle styleBlueFont;
+        public static GUIStyle styleBorderedFont;
+        public static GUIStyle styledFont;
+        public static GUIStyle styleBlackLargeFont;
+        public static GUIStyle styleScrollFont;
+        public static GUIStyle styleLabelLargerFont;
+        public static GUIStyle styleButtonHugeFont;
+        public static GUIStyle styleButtonGinormusFont;
 
 
         public static List<GUIPopupDisplay> AllPopups = new List<GUIPopupDisplay>();
@@ -83,6 +91,7 @@ namespace TerraTechETCUtil
                     return;
                 RemoveALLPopups();
                 inst.CancelInvoke("LateInitiate");
+                ManPointer.inst.PreventInteraction((ManPointer.PreventChannel)16, false);
                 ManPauseGame.inst.PauseEvent.Unsubscribe(SetVisibilityOfAllPopups);
                 Debug_TTExt.Log("TerraTechETCUtil: ManModGUI De-Init");
             }
@@ -168,8 +177,36 @@ namespace TerraTechETCUtil
             );
         }
 
+        public static bool IsMouseOverModGUI { get; private set; } = false;
+        public static bool IsMouseOverOtherModGUI = false;
+        public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked || IsMouseOverModGUI;
+        public static bool IsUIInteractionBlocked => ManPointer.inst.DraggingItem;
+        private static void UpdateMouseOverAnyWindow()
+        {
+            bool isCurrent = false;
+            foreach (var item in AllPopups)
+            {
+                if (item.isOpen && UIHelpersExt.MouseIsOverSubMenu(item.Window))
+                {
+                    isCurrent = true;
+                    break;
+                }
+            }
+            if (IsMouseOverOtherModGUI)
+                isCurrent = true;
+            if (isCurrent != IsMouseOverModGUI)
+            {
+                IsMouseOverModGUI = isCurrent;
+                ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, isCurrent);
+                if (!isCurrent)
+                    UIHelpersExt.ReleaseControl();
+            }
+            IsMouseOverOtherModGUI = false;
+        }
 
-        internal static bool AddPopupStackable(string menuName, GUIMiniMenu type, GUIDisplayStats windowOverride = null)
+
+        public static bool AddPopupStackable<T>(string menuName, GUIDisplayStats windowOverride = null)
+            where T : GUIMiniMenu<T>, new()
         {
             if (MaxPopups <= AllPopups.Count)
             {
@@ -181,7 +218,7 @@ namespace TerraTechETCUtil
             currentGUIWindow.obj = gameObj;
             currentGUIWindow.context = menuName;
             currentGUIWindow.Window = new Rect(DefaultWindow);
-            currentGUIWindow.SetupGUI(type, windowOverride, IDCur);
+            currentGUIWindow.SetupGUI<T>(windowOverride, IDCur);
             IDCur++;
             gameObj.SetActive(false);
             currentGUIWindow.isOpen = false;
@@ -190,12 +227,13 @@ namespace TerraTechETCUtil
             return true;
         }
 
-        internal static bool AddPopupSingle(string Header, GUIMiniMenu Menu, GUIDisplayStats windowOverride = null)
+        public static bool AddPopupSingle<T>(string Header, GUIDisplayStats windowOverride = null)
+            where T : GUIMiniMenu<T>, new()
         {
-            if (DoesPopupExist(Header, Menu.typeHash, out GUIPopupDisplay exists))
+            if (DoesPopupExist(Header, typeof(T).GetHashCode(), out GUIPopupDisplay exists))
             {
                 SetCurrentPopup(exists);
-                RefreshPopup(exists, Menu, windowOverride);
+                RefreshPopup<T>(exists, windowOverride);
                 return true;
             }
             if (MaxPopups <= AllPopups.Count)
@@ -208,7 +246,7 @@ namespace TerraTechETCUtil
             currentGUIWindow.obj = gameObj;
             currentGUIWindow.context = Header;
             currentGUIWindow.Window = new Rect(DefaultWindow);
-            currentGUIWindow.SetupGUI(Menu, windowOverride, IDCur);
+            currentGUIWindow.SetupGUI<T>(windowOverride, IDCur);
             IDCur++;
             gameObj.SetActive(false);
             currentGUIWindow.isOpen = false;
@@ -216,9 +254,39 @@ namespace TerraTechETCUtil
             AllPopups.Add(currentGUIWindow);
             return true;
         }
-        private static void RefreshPopup(GUIPopupDisplay disp, GUIMiniMenu Menu, GUIDisplayStats windowOverride = null)
+        public static bool RegisterPopupSingle<T>(T instance, string Header, GUIDisplayStats windowOverride = null)
+            where T : GUIMiniMenu<T>, new()
         {
-            disp.SetupGUI(Menu, windowOverride, disp.ID);
+            if (instance == null)
+                throw new ArgumentNullException("instance");
+            if (DoesPopupExist(Header, typeof(T).GetHashCode(), out GUIPopupDisplay exists))
+            {
+                SetCurrentPopup(exists);
+                exists.SetupExistingGUI(instance, windowOverride, exists.ID);
+                return true;
+            }
+            if (MaxPopups <= AllPopups.Count)
+            {
+                Debug_TTExt.Log("TerraTechETCUtil: Too many popups!!!  Aborting AddPopup!");
+                return false;
+            }
+            var gameObj = new GameObject(Header);
+            currentGUIWindow = gameObj.AddComponent<GUIPopupDisplay>();
+            currentGUIWindow.obj = gameObj;
+            currentGUIWindow.context = Header;
+            currentGUIWindow.Window = new Rect(DefaultWindow);
+            currentGUIWindow.SetupExistingGUI(instance, windowOverride, IDCur);
+            IDCur++;
+            gameObj.SetActive(false);
+            currentGUIWindow.isOpen = false;
+
+            AllPopups.Add(currentGUIWindow);
+            return true;
+        }
+        private static void RefreshPopup<T>(GUIPopupDisplay disp, GUIDisplayStats windowOverride = null)
+            where T : GUIMiniMenu<T>, new()
+        {
+            disp.SetupGUI<T>(windowOverride, disp.ID);
         }
         public static bool RemovePopup(GUIPopupDisplay disp)
         {
@@ -397,6 +465,7 @@ namespace TerraTechETCUtil
 
         private void Update()
         {
+            UpdateMouseOverAnyWindow();
             UpdateAllFast();
             if (updateClock > updateClockDelay)
             {
@@ -406,7 +475,7 @@ namespace TerraTechETCUtil
             updateClock++;
         }
 
-        private void UpdateAllPopups()
+        public static void UpdateAllPopups()
         {
             int FireTimes = AllPopups.Count;
             for (int step = 0; step < FireTimes; step++)
@@ -440,21 +509,22 @@ namespace TerraTechETCUtil
         public GameObject obj;
         public string context = "error";
         public bool isOpen { get; internal set; } = false;
-        public bool isOpaque { get; internal set; } = false;
+        public float alpha = 0.65f;
         public Rect Window = new Rect(ManModGUI.DefaultWindow);   // the "window"
         public int typeHash = 0;
+        public bool CursorWithinWindow => UIHelpersExt.MouseIsOverSubMenu(Window);
         public GUIMiniMenu GUIFormat { get; private set; }
 
+        public void Show() => ManModGUI.ShowPopup(this);
+        public void Hide() => ManModGUI.HidePopup(this);
+        public void Remove() => ManModGUI.RemovePopup(this);
         private void OnGUI()
         {
             if (isOpen)
             {
-                if (isOpaque)
-                    AltUI.StartUIOpaque();
-                else
-                    AltUI.StartUI();
                 if (!ManModGUI.SetupAltWins)
                 {
+                    AltUI.StartUI(alpha, alpha);
                     ManModGUI.styleDescLargeFont = new GUIStyle(GUI.skin.textField);
                     ManModGUI.styleDescLargeFont.fontSize = 16;
                     ManModGUI.styleDescLargeFont.alignment = TextAnchor.MiddleLeft;
@@ -472,18 +542,68 @@ namespace TerraTechETCUtil
                     ManModGUI.styleGinormusFont = new GUIStyle(GUI.skin.button);
                     ManModGUI.styleGinormusFont.fontSize = 38;
                     ManModGUI.SetupAltWins = true;
+
+                    ManModGUI.styleBlueFont = new GUIStyle(AltUI.TextfieldBlue);
+                    ManModGUI.styleBlueFont.fontSize = 12;
+                    ManModGUI.styleBlueFont.alignment = TextAnchor.UpperLeft;
+                    ManModGUI.styleBlueFont.wordWrap = true;
+
+                    ManModGUI.styleBorderedFont = new GUIStyle(AltUI.TextfieldBordered);
+                    ManModGUI.styleBorderedFont.fontSize = 12;
+                    ManModGUI.styleBorderedFont.wordWrap = true;
+                    ManModGUI.styleBorderedFont.alignment = TextAnchor.UpperLeft;
+
+                    ManModGUI.styledFont = new GUIStyle(AltUI.MenuGUI.label);
+                    ManModGUI.styledFont.fontSize = 12;
+                    ManModGUI.styledFont.wordWrap = true;
+                    ManModGUI.styledFont.alignment = TextAnchor.UpperLeft;
+
+                    ManModGUI.styleLargeFont = new GUIStyle(AltUI.MenuGUI.label);
+                    ManModGUI.styleLargeFont.fontSize = 16;
+                    ManModGUI.styleLargeFont.wordWrap = true;
+                    ManModGUI.styleLargeFont.alignment = TextAnchor.MiddleCenter;
+
+                    ManModGUI.styleBlackLargeFont = new GUIStyle(AltUI.TextfieldBlackHuge);
+                    ManModGUI.styleBlackLargeFont.fontSize = 16;
+                    ManModGUI.styleBlackLargeFont.wordWrap = true;
+                    ManModGUI.styleBlackLargeFont.alignment = TextAnchor.MiddleLeft;
+
+                    ManModGUI.styleScrollFont = new GUIStyle(AltUI.MenuGUI.label);
+                    ManModGUI.styleScrollFont.fontSize = 16;
+                    ManModGUI.styleScrollFont.wordWrap = true;
+                    ManModGUI.styleScrollFont.alignment = TextAnchor.UpperLeft;
+
+                    ManModGUI.styleLabelLargerFont = new GUIStyle(AltUI.MenuGUI.label);
+                    ManModGUI.styleLabelLargerFont.fontSize = 16;
+
+                    ManModGUI.styleButtonHugeFont = new GUIStyle(AltUI.MenuGUI.button);
+                    ManModGUI.styleButtonHugeFont.fontSize = 20;
+
+                    ManModGUI.styleButtonGinormusFont = new GUIStyle(AltUI.ButtonBlueLarge);
+                    ManModGUI.styleButtonGinormusFont.fontSize = 38;
+
                     Debug_TTExt.Log("TerraTechETCUtil: ManModGUI performed first setup");
+                    AltUI.EndUI();
                 }
-                Window = GUI.Window(ID, Window, GUIFormat.RunGUI, context);
-                AltUI.EndUI();
+                if (Window.height > 400)
+                {
+                    Window = AltUI.Window(ID, Window, GUIFormat.RunGUI, context, alpha, Hide);
+                }
+                else
+                {
+                    AltUI.StartUI(alpha, alpha);
+                    Window = GUI.Window(ID, Window, GUIFormat.RunGUI, context);
+                    AltUI.EndUI();
+                }
             }
         }
 
-        internal void SetupGUI(GUIMiniMenu newType, GUIDisplayStats stats, int IDSet)
+        internal void SetupGUI<T>(GUIDisplayStats stats, int IDSet)
+            where T : GUIMiniMenu<T>, new()
         {
             if (GUIFormat != null)
             {
-                if (typeHash != newType.GetHashCode())
+                if (typeHash != typeof(T).GetHashCode())
                 {
                     Debug_TTExt.Assert("TerraTechETCUtil: SetupGUI - Illegal type change on inited GUIPopupDisplay!");
                     GUIFormat.OnRemoval();
@@ -493,42 +613,54 @@ namespace TerraTechETCUtil
             if (stats != null)
             {
                 Window = new Rect(stats.windowSize);
-                isOpaque = stats.Opaque;
+                if (stats.alpha >= 0)
+                    alpha = stats.alpha;
             }
+            T newType = new T
+            {
+                Display = this
+            };
             typeHash = newType.typeHash;
             GUIFormat = newType;
             ID = IDSet;
-            GUIFormat.OnOpen(stats);
+            GUIFormat.Setup(stats);
+        }
+        internal void SetupExistingGUI<T>(T instance, GUIDisplayStats stats, int IDSet)
+            where T : GUIMiniMenu<T>, new()
+        {
+            if (GUIFormat != null)
+            {
+                if (typeHash != typeof(T).GetHashCode())
+                {
+                    Debug_TTExt.Assert("TerraTechETCUtil: SetupGUI - Illegal type change on inited GUIPopupDisplay!");
+                    GUIFormat.OnRemoval();
+                    GUIFormat = null;
+                }
+            }
+            if (stats != null)
+            {
+                Window = new Rect(stats.windowSize);
+                if (stats.alpha >= 0)
+                    alpha = stats.alpha;
+            }
+            instance.Display = this;
+            typeHash = instance.typeHash;
+            GUIFormat = instance;
+            ID = IDSet;
+            GUIFormat.Setup(stats);
         }
     }
 
     public class GUIDisplayStats
     {
         public Rect windowSize = new Rect(ManModGUI.DefaultWindow);
-        public bool Opaque = false;
+        public float alpha = -1;
     }
-
-    /// <summary>
-    /// A universal menu for use
-    /// </summary>
-    public class GUIMiniMenu
+    public abstract class GUIMiniMenu
     {
         internal int typeHash => GetType().GetHashCode();
-        public GUIPopupDisplay Display { get; private set; }
+        public GUIPopupDisplay Display { get; internal set; }
 
-        public GUIMiniMenu(GUIPopupDisplay Display)
-        {
-            this.Display = Display;
-        }
-
-        public static bool RegisterMenuToManager<T>(T manager, string name, GUIDisplayStats stats = null) where T : GUIMiniMenu
-        {
-            return ManModGUI.AddPopupSingle(name, manager, stats);
-        }
-        public static bool Register1StackableMenuToManager<T>(T manager, string name, GUIDisplayStats stats = null) where T : GUIMiniMenu
-        {
-            return ManModGUI.AddPopupStackable(name, manager, stats);
-        }
         public bool ShowPopup()
         {
             return ManModGUI.ShowPopup(Display);
@@ -551,16 +683,41 @@ namespace TerraTechETCUtil
         }
 
 
-        public virtual void OnOpen(GUIDisplayStats stats) { }
+        public abstract void Setup(GUIDisplayStats stats);
 
-        public virtual void RunGUI(int ID)
+        public abstract void RunGUI(int ID);
+
+        public abstract void DelayedUpdate();
+        public abstract void FastUpdate();
+        public abstract void OnRemoval();
+
+        public virtual void OnOpen() { }
+    }
+
+    /// <summary>
+    /// A universal menu for use
+    /// </summary>
+    public abstract class GUIMiniMenu<T> : GUIMiniMenu where T : GUIMiniMenu<T>, new()
+    {
+        public static bool RegisterMenuToManager(string name, GUIDisplayStats stats = null)
+        {
+            return ManModGUI.AddPopupSingle<T>(name, stats);
+        }
+        public static bool Register1StackableMenuToManager(string name, GUIDisplayStats stats = null)
+        {
+            return ManModGUI.AddPopupStackable<T>(name, stats);
+        }
+    }
+    public class GUIMiniMenuBasic : GUIMiniMenu<GUIMiniMenuBasic>
+    {
+        public override void Setup(GUIDisplayStats stats) { }
+
+        public override void RunGUI(int ID)
         {
         }
 
-        public virtual void DelayedUpdate() { }
-        public virtual void FastUpdate() { }
-        public virtual void OnRemoval() { }
-
-        internal virtual void OnOpen() { }
+        public override void DelayedUpdate() { }
+        public override void FastUpdate() { }
+        public override void OnRemoval() { }
     }
 }

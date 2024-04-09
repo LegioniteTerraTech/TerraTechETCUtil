@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+#if !EDITOR
 using HarmonyLib;
+#endif
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -86,8 +88,41 @@ namespace TerraTechETCUtil
         }
 
 
-        private static List<IntVector2> circleElements = new List<IntVector2>();
         public static IEnumerable<IntVector2> IterateCircleVolume(this IntVector2 iVec2, float radius)
+        {
+            //tan = sin/cos
+            yield return iVec2;
+            int outerLim = Mathf.RoundToInt(radius);
+            for (int step = 1; step < outerLim; step++)
+            {
+                yield return new IntVector2(step, 0) + iVec2;
+                yield return new IntVector2(0, step) + iVec2;
+                yield return new IntVector2(-step, 0) + iVec2;
+                yield return new IntVector2(0, -step) + iVec2;
+            }
+            //Debug_TTExt.Log("IterateCircleVolume(1) iterated " + circleElements.Count.ToString() + " entries for radius " + radius);
+            // does one QUADRANT and then re-uses that
+            // a^2 = b^2 + c^2
+            for (int x = 1; x < outerLim; x++)
+            {
+                int widthOffset = x - iVec2.x;
+                int yMax = Mathf.RoundToInt(Mathf.Sqrt((radius * radius) - (widthOffset * widthOffset)) + iVec2.y);
+                for (int y = 1; y < yMax; y++)
+                {
+                    yield return new IntVector2(x, y) + iVec2;
+                    yield return new IntVector2(-x, y) + iVec2;
+                    yield return new IntVector2(x, -y) + iVec2;
+                    yield return new IntVector2(-x, -y) + iVec2;
+                }
+            }
+            /*Debug_TTExt.Log("IterateCircleVolume(2) iterated " + circleElements.Count.ToString() + " entries for radius " + radius);
+            foreach (var item in circleElements)
+            {
+                Debug_TTExt.Log(item.ToString());
+            }*/
+        }
+        private static List<IntVector2> circleElements = new List<IntVector2>();
+        public static IEnumerable<IntVector2> IterateCircleVolume_LEGACY(this IntVector2 iVec2, float radius)
         {
             //tan = sin/cos
             circleElements.Clear();
@@ -122,7 +157,54 @@ namespace TerraTechETCUtil
             }*/
             return circleElements;
         }
+        public static IEnumerable<IntVector2> IterateRectVolume(this IntVector2 iVec2, IntVector2 Dimensions)
+        {
+            for (int x = 0; x < Dimensions.x; x++)
+            {
+                for (int y = 0; y < Dimensions.y; y++)
+                {
+                    yield return new IntVector2(x, y) + iVec2;
+                }
+            }
+        }
+        public static IEnumerable<IntVector2> IterateRectVolumeCentered(this IntVector2 iVec2, IntVector2 Dimensions)
+        {
+            return IterateRectVolume(new IntVector2(iVec2.x + (Dimensions.x / 2), iVec2.y + (Dimensions.y / 2)), Dimensions);
+        }
 
+        public static void LogGameObjectHierachy(GameObject GO, int Maxdepth = 16)
+        {
+            ExtractGameObjectHierachy_Internal(GO,0, Maxdepth);
+        }
+        private static void ExtractGameObjectHierachy_Internal(GameObject GO, int depth, int leftoverDepth)
+        {
+            leftoverDepth--;
+            string depthParse = "";
+            for (int i = 0; i < depth; i++)
+                depthParse += "  ";
+            Debug_TTExt.Log(depthParse + "{");
+            Transform trans = GO.transform;
+            Debug_TTExt.Log(depthParse + "Name:     " + (GO.name.NullOrEmpty() ? "<NULL_NAME>" : GO.name));
+            Debug_TTExt.Log(depthParse + "Pos:      " + trans.position.ToString());
+            Debug_TTExt.Log(depthParse + "Rot:      " + trans.eulerAngles.ToString());
+            if (trans.parent != null)
+                Debug_TTExt.Log(depthParse + "Parent:   " + (trans.parent.name.NullOrEmpty() ? "<NULL_NAME>" : trans.parent.name));
+            else
+                Debug_TTExt.Log(depthParse + "Parent:   <NONE>");
+            foreach (var item in GO.GetComponents<Component>())
+            {
+                Debug_TTExt.Log(depthParse + "Component: " + item.GetType());
+            }
+            if (leftoverDepth > 0)
+            {
+                depth++;
+                for (int i = 0; i < trans.childCount; i++)
+                {
+                    ExtractGameObjectHierachy_Internal(trans.GetChild(i).gameObject, depth, leftoverDepth);
+                }
+            }
+            Debug_TTExt.Log(depthParse + "}");
+        }
 
 
 

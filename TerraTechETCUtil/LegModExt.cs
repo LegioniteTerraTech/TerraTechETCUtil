@@ -5,10 +5,11 @@ using System.Text;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
+#if !EDITOR
 using HarmonyLib;
-using FMOD;
-using FMODUnity;
+#endif
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public static class LegModExt
@@ -73,7 +74,7 @@ namespace TerraTechETCUtil
                     {
                         if (!Directory.Exists(exportDir))
                             Directory.CreateDirectory(exportDir);
-                        FileUtils.SaveTexture(tex.texture, exportDir + tex.texture.name + ".png");
+                        FileUtils.SaveTexture(tex.texture, Path.Combine(exportDir, tex.texture.name) + ".png");
                     }
                     else
                         Debug_TTExt.Log("Failed to export sprite - texture null");
@@ -90,7 +91,7 @@ namespace TerraTechETCUtil
                 {
                     if (!Directory.Exists(exportDir))
                         Directory.CreateDirectory(exportDir);
-                    FileUtils.SaveTexture(tex, exportDir + tex.name + ".png");
+                    FileUtils.SaveTexture(tex, Path.Combine(exportDir, tex.name) + ".png");
                 }
                 else
                     Debug_TTExt.Log("Failed to export texture - texture null");
@@ -140,7 +141,7 @@ namespace TerraTechETCUtil
             try
             {
                 WorldDeformer.Init();
-                InvokeHelper.Invoke(ExtractOnce, 3f);
+                //InvokeHelper.Invoke(ExtractOnce, 3f);
                 UIHelpersExt.InsureNetHooks();
 
                 //new ManAbilities.AbilityButton("DebugPower", ManIngameWiki.BlocksSprite, DoUIAbilityTestCall, 1.5f);
@@ -164,7 +165,7 @@ namespace TerraTechETCUtil
                     throw new Exception("TerraTechETCUtil failed to perform finer patches", e);
                 }
                 UIHelpersExt.Init();
-                ManIngameWiki.InitWiki();
+                ResourcesHelper.PostBlocksLoadEvent.Subscribe(ManIngameWiki.InitWiki);
                 patched = true;
             }
             catch (Exception e)
@@ -178,6 +179,7 @@ namespace TerraTechETCUtil
         {
             if (!patched)
                 return;
+            ResourcesHelper.PostBlocksLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt");
             try
             {
@@ -206,7 +208,7 @@ namespace TerraTechETCUtil
             /// </summary>
             private static void OnPool_Postfix(Projectile __instance)
             {
-                //Debug_TTExt.Log("RandomAdditions: Patched Projectile OnPool(WeightedProjectile)");
+                //Debug_TTExt.Log("TTExtUtil: Patched Projectile OnPool(WeightedProjectile)");
                 if (ProjBase.PrePoolTryApplyThis(__instance))
                 {
                     var ModuleCheck = __instance.gameObject.GetComponent<ProjBase>();
@@ -229,7 +231,7 @@ namespace TerraTechETCUtil
             /// </summary>
             private static void HandleCollision_Prefix(Projectile __instance, ref Damageable damageable, ref Vector3 hitPoint, ref Collider otherCollider, ref bool ForceDestroy)//
             {
-                //Debug_TTExt.Log("RandomAdditions: Patched Projectile HandleCollision(KeepSeekingProjectile & OHKOProjectile)");
+                //Debug_TTExt.Log("TTExtUtil: Patched Projectile HandleCollision(KeepSeekingProjectile & OHKOProjectile)");
                 var ModuleCheckR = __instance.GetComponent<ProjBase>();
                 if (ModuleCheckR != null)
                 {
@@ -249,68 +251,15 @@ namespace TerraTechETCUtil
     }
     public class Patches
     {
-        /*
-         //Terrain Amplifier - BORKED
-        [HarmonyPatch(typeof(TileManager))]
-        [HarmonyPatch("CreateTile")]// Setup new WorldTile
-        internal static class ExpandWorld
+        [HarmonyPatch(typeof(ManSpawn))]
+        [HarmonyPatch("OnDLCLoadComplete")]//
+        private class AfterLoadingBlocksEvent
         {
-            private static void Postfix(TileManager __instance, ref WorldTile tile)
+            private static void Postfix(ManSpawn __instance)
             {
-                if (tile != null)
-                {
-                    TerrainOperations.AmplifyTerrain(tile.Terrain);
-                    if (WorldDeformer.inst && 
-                        WorldDeformer.inst.TerrainModsActive.TryGetValue(tile.Coord, out var posSet))
-                    {
-                        posSet.Flush();
-                    }
-                }
+                ResourcesHelper.PostBlocksLoadEvent.Send();
             }
         }
-        [HarmonyPatch(typeof(MapGenerator.Operation))]
-        [HarmonyPatch("Evaluate", new Type[2] { typeof(float), typeof(MapGenerator.Operation.ParamBuffer) })]// Setup new WorldTile
-        internal static class ExpandWorld2
-        {
-            private static void Postfix(ref float __result)
-            {
-                __result = __result * TerrainOperations.RescaleFactor;
-            }
-        }
-        [HarmonyPatch(typeof(MapGenerator.Operation))]
-        [HarmonyPatch("Evaluate", new Type[2] { typeof(float), typeof(float) })]// Setup new WorldTile
-        internal static class ExpandWorld3
-        {
-            private static void Postfix(ref float __result)
-            {
-                __result = __result / TerrainOperations.RescaleFactor;
-            }
-        }
-        */
-
-        /*
-        [HarmonyPatch(typeof(ManSaveGame.StoredVisible))]
-        [HarmonyPatch("GetBackwardsCompatiblePosition")]// Setup new WorldTile
-        internal static class ExpandWorld2
-        {
-            private static void Postfix(ManSaveGame.StoredVisible __instance, ref float __result)
-            {
-                __result += TerrainOperations.DownwardsOffset;
-            }
-        }
-        [HarmonyPatch(typeof(ManSaveGame.StoredTile))]
-        [HarmonyPatch("GetBackwardsCompatiblePosition")]// Setup new WorldTile
-        internal static class ExpandWorld3
-        {
-            private static void Prefix(ManSaveGame.StoredTile __instance, ref ManSaveGame.StoredVisible storedVisible)
-            {
-                Vector3 offset = Vector3.down * TerrainOperations.DownwardsOffset;
-                storedVisible.m_Position = storedVisible.m_Position + offset;
-                storedVisible.m_WorldPosition = WorldPosition.FromGameWorldPosition(
-                    storedVisible.m_WorldPosition.GameWorldPosition + offset);
-            }
-        }*/
-
 
 
         [HarmonyPatch(typeof(ManWorld))]
@@ -342,24 +291,21 @@ namespace TerraTechETCUtil
                 return true;
             }
         }
+    
         [HarmonyPatch(typeof(Localisation))]
         [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(LocalisationEnums.StringBanks), typeof(int), typeof(Localisation.GlyphInfo[]) })]//
         private class ShoehornText2
         {
             private static bool Prefix(Localisation __instance, ref LocalisationEnums.StringBanks bankName, ref int stringID, ref string __result)
             {
-                if (bankName == LocalisationExt.LocalisationExtID)
+                if (bankName < (LocalisationEnums.StringBanks)0)
                 {
-                    throw new NotImplementedException("TerraTechETCUtil.LocalizationExt is still not complete and may not be used");
-                    if (LocalisationExt.LOCExt.Count > stringID && stringID >= 0)
-                    {
-                        __result = LocalisationExt.LOCExt[stringID];
-                    }
-                    else
+                    //throw new NotImplementedException("TerraTechETCUtil.LocalizationExt is still not complete and may not be used");
+                    if (!LocalisationExt.TryGetFrom(bankName,stringID, ref __result))
                         __result = "ERROR - LocalizedStringExt of ID " + stringID + " could not be found!!!";
                     return false;
                 }
-                return true;
+                return !LocalisationExt.TryGetFrom(bankName, stringID, ref __result);
             }
         }
         [HarmonyPatch(typeof(UILoadingScreenHints))]
@@ -389,3 +335,4 @@ namespace TerraTechETCUtil
         }
     }
 }
+#endif

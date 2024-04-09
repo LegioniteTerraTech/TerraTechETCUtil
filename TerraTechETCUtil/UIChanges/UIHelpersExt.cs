@@ -15,7 +15,7 @@ namespace TerraTechETCUtil
         private static FieldInfo dist = typeof(ManHUD).GetField("m_RadialMouseDistanceThreshold", BindingFlags.NonPublic | BindingFlags.Instance);
         private static MethodInfo overlays = typeof(ManOverlay).GetMethod("AddQueuedOverlay", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        internal static Sprite NullSprite => ManUI.inst.GetSprite(ObjectTypes.Block, -1);
+        public static Sprite NullSprite => ManUI.inst.GetSprite(ObjectTypes.Block, -1);
         internal static bool UseNullIfNoSpriteProvided = true;
         internal static float _ROROpenTimeDelay = 0.10f;
         public static float ROROpenTimeDelay => _ROROpenTimeDelay;
@@ -28,7 +28,6 @@ namespace TerraTechETCUtil
 
         public static void ReleaseControl(string Name = null)
         {
-            string focused = GUI.GetNameOfFocusedControl();
             if (Name == null)
             {
                 GUI.FocusControl(null);
@@ -37,7 +36,7 @@ namespace TerraTechETCUtil
             }
             else
             {
-                if (focused == Name)
+                if (GUI.GetNameOfFocusedControl() == Name)
                 {
                     GUI.FocusControl(null);
                     GUI.UnfocusWindow();

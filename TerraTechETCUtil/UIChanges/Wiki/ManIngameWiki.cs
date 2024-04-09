@@ -5,12 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
     public class ManIngameWiki : TinySettings
     {
+        public static Event<Wiki> OnModWikiCreated = new Event<Wiki>();
+        private static byte renderedIcon = 0;
+
         private static Sprite infoSprite;
         public static Sprite InfoSprite {
             get
@@ -28,19 +30,21 @@ namespace TerraTechETCUtil
             }
         }
         public static Sprite CorpsSprite => ManUI.inst.GetModernCorpIcon(FactionSubTypes.GSO);
+        public static Sprite ChunksSprite => ManUI.inst.GetSprite(ObjectTypes.Chunk, (int)ChunkTypes.Wood);
         public static Sprite BlocksSprite => ManUI.inst.GetSprite(ObjectTypes.Block, (int)BlockTypes.GSOBlock_111);
+        public static Sprite ScenerySprite => ManUI.inst.GetSprite(ObjectTypes.Scenery, (int)SceneryTypes.GrasslandRock);
 
         public static void ApplyNewWikiBlockDescOverride(string typeName, string newName)
         {
-            WikiPageBlock.SpecialNames[typeName] = newName;
+            AutoDataExtractor.SpecialNames[typeName] = newName;
         }
-        public static void IgnoreWikiBlockExtModule<T>(T toIgnore) where T : ExtModule
+        public static void IgnoreWikiBlockExtModule<T>() where T : ExtModule
         {
-            WikiPageBlock.ignoreTypes.Add(typeof(T));
+            AutoDataExtractor.ignoreTypes.Add(typeof(T));
         }
-        public static void RecurseCheckWikiBlockExtModule<T>(T toIncludeInCollection)
+        public static void RecurseCheckWikiBlockExtModule<T>()
         {
-            WikiPageBlock.AllowedTypes.Add(typeof(T));
+            AutoDataExtractor.AllowedTypes.Add(typeof(T));
         }
 
         public static void ReplaceDescription(string ModID, string Title, Action replacement)
@@ -81,12 +85,39 @@ namespace TerraTechETCUtil
             throw new InvalidOperationException("ManIngameWiki.ReplaceDescription cannot be replaced because the ModID or title does not match");
         }
 
+        public struct WikiLink
+        {
+            public readonly WikiPage linked;
+            public WikiLink(WikiPage theLink)
+            {  linked = theLink; }
+            public bool OnGUI(GUIStyle style)
+            {
+                if (linked.icon != null && linked.icon != UIHelpersExt.NullSprite)
+                    return AltUI.SpriteButton(linked.icon, style, GUILayout.Height(28), GUILayout.Width(28));
+                else
+                {
+                    linked.GetIcon();
+                    return GUILayout.Button(linked.title, style);
+                }
+            }
+            public bool OnGUILarge(GUIStyle style, GUIStyle styleText)
+            {
+                GUILayout.BeginHorizontal(style);
+                if (linked.icon != null && linked.icon != UIHelpersExt.NullSprite)
+                    AltUI.Sprite(linked.icon, AltUI.TRANSPARENT, GUILayout.Height(32), GUILayout.Width(32));
+                else
+                    linked.GetIcon();
+                GUILayout.Label(linked.title, styleText);
+                GUILayout.EndHorizontal();
+                return GUI.Button(GUILayoutUtility.GetLastRect(), string.Empty, AltUI.TRANSPARENT);
+            }
+        }
 
         public abstract class WikiPage : GUILayoutHelpers.SlowSortable
         {
             public readonly Wiki wiki;
             public readonly string title;
-            public readonly Sprite icon = null;
+            public Sprite icon { get; protected set; } = null;
             public string name => title;
             public Action infoOverride = null;
             protected WikiPage(string ModID, string Title, Sprite Icon)
@@ -114,8 +145,8 @@ namespace TerraTechETCUtil
                 wiki = InsureWiki(ModID);
                 title = Title;
                 icon = Icon;
-                InsureWikiGroup(wiki.ModID, WikiGroupName, IconGroup).NestedPages.Add(this);
-                wiki.RegisterPage(this, false);
+                if (wiki.RegisterPage(this, false))
+                    InsureWikiGroup(wiki.ModID, WikiGroupName, IconGroup).NestedPages.Add(this);
             }
             public abstract void DisplaySidebar();
             internal void DoDisplayGUI()
@@ -132,6 +163,96 @@ namespace TerraTechETCUtil
                 GUILayout.Label("UNDER CONSTRUCTION", AltUI.LabelBlueTitle);
                 GUILayout.FlexibleSpace();
             }
+            public virtual void GetIcon() { }
+            private static List<MonoBehaviour> wasActiveMB = new List<MonoBehaviour>();
+            public void GetIconDelayed(GameObject GO, bool wasActive, Action removalCallback)
+            {
+                try
+                {
+                    try
+                    {
+                        Bounds approxBounds = default;
+                        foreach (var item in GO.GetComponentsInChildren<Collider>(true))
+                        {
+                            if (approxBounds == default)
+                                approxBounds = item.bounds;
+                            else
+                                approxBounds.Encapsulate(item.bounds);
+                        }
+                        if (approxBounds == default)
+                            approxBounds = new Bounds(new Vector3(0, 3, 0), new Vector3(5, 6, 5));
+                        Texture2D tex = ResourcesHelper.GeneratePreviewForGameObject(GO, approxBounds, 
+                            new Vector3(1, 0.25f, 1).normalized * approxBounds.size.magnitude);
+                        tex.Apply();
+                        icon = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.zero);
+                        if (!wasActive)
+                            GO.SetActive(false);
+                    }
+                    finally
+                    {
+                        foreach (var item in wasActiveMB)
+                            item.enabled = false;
+                        wasActiveMB.Clear();
+                        removalCallback.Invoke();
+                    }
+                }
+                catch (Exception e)
+                {
+                    icon = UIHelpersExt.NullSprite;
+                    throw new OperationCanceledException("We tried to recover from a crash while handling" +
+                        " GameObject \"" + (GO.name.NullOrEmpty() ? "<NULL>" : GO.name) +
+                        "\" in the spriter, but we failed.  It is now compromised", e);
+                }
+            }
+            public void GetIcon(GameObject GO, Action removalCallback)
+            {
+                try
+                {
+                    try
+                    {
+                        foreach (var item in GO.GetComponentsInChildren<MonoBehaviour>(true))
+                        {
+                            if (item.enabled)
+                            {
+                                item.enabled = false;
+                                wasActiveMB.Add(item);
+                            }
+                        }
+                        bool wasActive = GO.gameObject.activeSelf;
+                        if (!wasActive)
+                            GO.SetActive(true);
+                        GetIconDelayed(GO, wasActive, removalCallback);
+                        //InvokeHelper.Invoke(GetIconDelayed, 1.001f,GO, wasActive, removalCallback);
+                    }
+                    catch (Exception e)
+                    {
+                        foreach (var item in wasActiveMB)
+                            item.enabled = false;
+                        wasActiveMB.Clear();
+                        icon = UIHelpersExt.NullSprite;
+                        removalCallback.Invoke();
+                    }
+                }
+                catch (Exception e)
+                {
+                    icon = UIHelpersExt.NullSprite;
+                    throw new OperationCanceledException("We tried to recover from a crash while handling" +
+                        " GameObject \"" + (GO.name.NullOrEmpty() ? "<NULL>" : GO.name) +
+                        "\" in the spriter, but we failed.  It is now compromised", e);
+                }
+            }
+            public IEnumerable<T> IterateForInfo<T>() where T : WikiPage
+            {
+                foreach (var item in AllWikis)
+                {
+                    foreach (var item2 in item.Value.ALLPages)
+                    {
+                        if (item2.Value is T pageC)
+                            yield return pageC;
+                    }
+                }
+            }
+            public virtual void OnBeforeDisplay() { }
             public abstract bool ReleaseAsMuchAsPossible();
 
             public void ReplaceThis(WikiPage replacement)
@@ -145,10 +266,7 @@ namespace TerraTechETCUtil
                     {
                         int val = grouper.NestedPages.IndexOf(this);
                         if (val != -1)
-                        {
-                            grouper.NestedPages.RemoveAt(val);
-                            grouper.NestedPages.Insert(val, replacement);
-                        }
+                            grouper.NestedPages[val] = replacement;
                     }
                 }
                 wiki.ALLPages[replacement.title] = replacement;
@@ -175,11 +293,35 @@ namespace TerraTechETCUtil
             protected void ButtonGUIDisp()
             {
                 GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
-                if (AltUI.Button(title, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35)))
-                    GoHere();
-                if (icon && AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35)))
-                    GoHere();
+                GUILayout.Label(title, AltUI.LabelWhite, GUILayout.Height(35));
+                if (icon)
+                    AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
                 GUILayout.EndHorizontal();
+                Rect lastRect = GUILayoutUtility.GetLastRect();
+                if (GUI.Button(lastRect, string.Empty, AltUI.TRANSPARENT))
+                {
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Select);
+                    GoHere();
+                }
+            }
+            protected void ButtonGUIDispLateIcon()
+            {
+                if (icon == null && renderedIcon == 0)
+                {
+                    renderedIcon = 2;
+                    GetIcon();
+                }
+                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
+                GUILayout.Label(title, AltUI.LabelWhite, GUILayout.Height(35));
+                if (icon)
+                    AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
+                GUILayout.EndHorizontal();
+                Rect lastRect = GUILayoutUtility.GetLastRect();
+                if (GUI.Button(lastRect, string.Empty, AltUI.TRANSPARENT))
+                {
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Select);
+                    GoHere();
+                }
             }
 
             public void GoBack()
@@ -210,6 +352,7 @@ namespace TerraTechETCUtil
             public List<WikiPage> NestedPages = new List<WikiPage>();
             public string searchQuery = "";
             public GUILayoutHelpers.SlowSorter<WikiPage> PageHunter;
+            public Action onOpen = null;
             public bool open = false;
             public WikiPageGroup(string ModID, string Title, Sprite Icon = null) : base(ModID, Title, Icon, null)
             {
@@ -217,22 +360,29 @@ namespace TerraTechETCUtil
             public override void DisplaySidebar()
             {
                 GUILayout.BeginHorizontal(open ? AltUI.ButtonBlueActive : AltUI.ButtonBlue, GUILayout.Height(35));
-                if (AltUI.Button(title, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35)))
-                    open = !open;
-                if (icon && AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35)))
-                    open = !open;
+                GUILayout.Label(title, AltUI.LabelWhite, GUILayout.Height(35));
+                if (icon)
+                    AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
                 GUILayout.EndHorizontal();
+                Rect lastRect = GUILayoutUtility.GetLastRect();
+                if (GUI.Button(lastRect, string.Empty, AltUI.TRANSPARENT))
+                {
+                    open = !open;
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Select);
+                    if (open && onOpen != null)
+                        onOpen();
+                }
                 if (open)
                 {
                     GUILayout.BeginVertical(AltUI.TextfieldBordered);
-                    if (NestedPages.Count >= 32)
+                    if (NestedPages.Count >= 16)
                     {
                         if (PageHunter == null)
                         {
                             PageHunter = new GUILayoutHelpers.SlowSorter<WikiPage>(32);
                             PageHunter.SetSearchArrayAndSearchQuery(NestedPages.ToArray(), searchQuery, true);
                         }
-                        if (GUILayoutHelpers.GUITextFieldDisp("Block Name:", ref searchQuery))
+                        if (GUILayoutHelpers.GUITextFieldDisp("Search:", ref searchQuery))
                             PageHunter.SetNewSearchQueryIfNeeded(searchQuery, true);
                         if (PageHunter.namesValid.Count > 0)
                         {
@@ -287,31 +437,49 @@ namespace TerraTechETCUtil
             internal List<WikiPage> Pages => MainPage.NestedPages;
             internal Dictionary<string, WikiPage> ALLPages = new Dictionary<string, WikiPage>();
 
-            private int registeredNum = 0;
+            public int RegisteredPagesCount => ALLPages.Count;
 
             public Wiki(string ModID)
             {
                 this.ModID = ModID;
                 Wikis.Add(ModID, this);
-                MainPage = new WikiPageGroup(ModID, ModID);
+                if (ModID == VanillaGameName)
+                    MainPage = new WikiPageGroup(ModID, "Vanilla - Terra Tech");
+                else
+                    MainPage = new WikiPageGroup(ModID, "Mod - " + ModID);
+                Debug_TTExt.Log("Prepared wiki for " + ModID);
             }
-            internal void Prepare()
+            internal void PrepareModded()
             {
-                MainPage = new WikiPageGroup(ModID, ModID);
+                var corps = modContainer?.Contents?.m_Corps;
+                if (corps != null && corps.Any())
+                {
+                    WikiPageGroup corpsPage = (WikiPageGroup)GetPage("Corporations");
+                    if (corpsPage == null)
+                        corpsPage = new WikiPageGroup(ModID, "Corporations", CorpsSprite);
+                    foreach (var item in corps)
+                    {
+                        new WikiPageCorp(ModID, (int)ManMods.inst.GetCorpIndex(item.m_ShortName), corpsPage);
+                    }
+                }
+                MainPage.onOpen = null;
             }
-            internal int RegisterPage(WikiPage page, bool rootLevel = true, bool throwOnOverlap = false)
+            internal bool RegisterPage(WikiPage page, bool rootLevel = true, bool throwOnOverlap = false)
             {
                 if (ALLPages.TryGetValue(page.title, out var pageInst))
                 {
                     if (throwOnOverlap)
                         throw new InvalidOperationException("(throwOnOverlap) ~ Cannot add two pages of the exact same title to a wiki!");
                     pageInst.ReplaceThis(page);
-                    return registeredNum;
+                    return false;
                 }
-                ALLPages.Add(page.title, page);
-                if (rootLevel && MainPage != null)
-                    Pages.Add(page);
-                return registeredNum++;
+                else
+                {
+                    ALLPages.Add(page.title, page);
+                    if (rootLevel && MainPage != null)
+                        Pages.Add(page);
+                    return true;
+                }
             }
         }
 
@@ -319,6 +487,7 @@ namespace TerraTechETCUtil
         {
             return InsureWiki(ModID);
         }
+        public static bool TryGetModWiki(string ModID, out Wiki wiki) => Wikis.TryGetValue(ModID, out wiki);
 
         private static bool TryCleanupHint(string item, string name)
         {
@@ -359,7 +528,50 @@ namespace TerraTechETCUtil
             }
         }
 
+        private static void GUITools()
+        {
+            if (ActiveGameInterop.inst && ActiveGameInterop.IsReady)
+            {
+                if (!DebugExtUtilities.AllowEnableDebugGUIMenu_KeypadEnter)
+                    DebugExtUtilities.AllowEnableDebugGUIMenu_KeypadEnter = true;
+                if (GUILayout.Button("Unhook from Editor", AltUI.ButtonBlueLarge))
+                    ActiveGameInterop.DeInitBothEnds();
+            }
+            else if (ActiveGameInterop.inst)
+            {
+                if (GUILayout.Button("Waiting For Editor...", AltUI.ButtonGreyLarge))
+                    ActiveGameInterop.DeInitJustThisSide();
+                GUILayout.Label("You might have to hover your mouse over UnityEditor to get it to update");
+            }
+            else if (GUILayout.Button("Try Hook To UnityEditor", AltUI.ButtonOrangeLarge))
+            {
+                ActiveGameInterop.Init();
+                InvokeHelper.InvokeSingleRepeat(ActiveGameInterop.UpdateNow, 1);
+            }
+            if (ActiveGameInterop.inst)
+            {
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Update", AltUI.ButtonGreen))
+                    ActiveGameInterop.UpdateNow();
+                if (ActiveGameInterop.IsReceiving)
+                    GUILayout.Label("Receiving");
+                else
+                    GUILayout.Label("Transmitting");
+                GUILayout.EndHorizontal();
+                if (ActiveGameInterop.IsReady && GUILayout.Button("Say Whoa", AltUI.ButtonBlue))
+                    ActiveGameInterop.TryTransmitTest("Whoa");
+                GUILayout.Label(ActiveGameInterop._debug, AltUI.TextfieldBlackHuge);
+            }
+
+            if (DebugExtUtilities.AllowEnableDebugGUIMenu_KeypadEnter &&
+                GUILayout.Button("Open Mod Developer Tools", AltUI.ButtonOrangeLarge))
+                DebugExtUtilities.Open();
+
+            GUILayout.FlexibleSpace();
+        }
+
         internal static FieldInfo
+            Biomes = typeof(BiomeMap).GetField("m_BiomeGroups", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatch = typeof(ManHints).GetField("m_HintDefinitions", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatchCore = typeof(HintDefinitionList).GetField("m_HintsList", BindingFlags.NonPublic | BindingFlags.Instance);
         private static void AutoPopulateVanilla(Wiki wiki)
@@ -369,6 +581,7 @@ namespace TerraTechETCUtil
             {
                 if (ManSpawn.inst.IsBlockAllowedInLaunchedConfig((BlockTypes)step) &&
                     ManSpawn.inst.IsBlockAllowedInCurrentGameMode((BlockTypes)step) &&
+                    //ManSpawn.inst.IsBlockUsageRestrictedInGameMode((BlockTypes)step) &&
                     !wiki.ALLPages.ContainsKey(StringLookup.GetItemName(ObjectTypes.Block, step)))
                 {
                     new WikiPageBlock(step);
@@ -382,6 +595,42 @@ namespace TerraTechETCUtil
                     new WikiPageCorp(wiki.ModID, step, corps);
                 }
             }
+            WikiPageGroup chunks = new WikiPageGroup(wiki.ModID, "Chunks", ChunksSprite);
+            for (int step = 0; step < Enum.GetValues(typeof(ChunkTypes)).Length; step++)
+            {
+                if (!StringLookup.GetItemName(ObjectTypes.Chunk, step).StartsWith("ERROR:"))
+                {
+                    new WikiPageChunk(step, chunks);
+                }
+            }
+            HashSet<Biome> biomesCollected = new HashSet<Biome>();
+            BiomeGroup[] groups = (BiomeGroup[])Biomes.GetValue(ManWorld.inst.CurrentBiomeMap);
+            for (int i = 0; i < groups.Length; i++)
+            {
+                BiomeGroup item = groups[i];
+                //Debug_TTExt.Log("Biome Group " + item.name + " - Distance Multi " + item.WeightingByDistance);
+                for (int j = 0; j < item.Biomes.Length; j++)
+                {
+                    Biome item2 = item.Biomes[j];
+                    //Debug_TTExt.Log("  " + item2.name + " - Type " + item2.BiomeType + ", Weight " + item.BiomeWeights[j]);
+                    if (!biomesCollected.Contains(item2))
+                        biomesCollected.Add(item2);
+                }
+            }
+            WikiPageGroup biomes = new WikiPageGroup(wiki.ModID, "Biomes", ScenerySprite);
+            foreach (var biome in biomesCollected)
+            {
+                new WikiPageBiome(biome, biomes);
+            }
+
+            WikiPageGroup scenery = new WikiPageGroup(wiki.ModID, "Resources", ScenerySprite);
+            for (int step = 0; step < Enum.GetValues(typeof(SceneryTypes)).Length; step++)
+            {
+                if (!StringLookup.GetItemName(ObjectTypes.Scenery, step).StartsWith("ERROR:"))
+                {
+                    new WikiPageScenery(step, scenery);
+                }
+            }
             List<ManHints.HintDefinition> lingo = (List<ManHints.HintDefinition>)hintBatchCore.GetValue(
                 (HintDefinitionList)hintBatch.GetValue(ManHints.inst));
             foreach (var item in lingo)
@@ -389,6 +638,8 @@ namespace TerraTechETCUtil
                 if (item.m_HintMessage != null && item.m_HintMessage.IsValid)
                     InjectHint(VanillaGameName, "General", item.m_HintMessage.Value);
             }
+            new WikiPageInfo(wiki.ModID, "Tools", UIHelpersExt.NullSprite, GUITools);
+            
             InvokeHelper.Invoke(FinishVanillaWikiSearch, 3f);
         }
         private static void AutoPopulateWiki(Wiki wiki)
@@ -398,15 +649,11 @@ namespace TerraTechETCUtil
                 AutoPopulateVanilla(wiki);
             }
             else
-            {
+            {   // Modded
                 var MC = wiki.modContainer;
                 if (MC != null)
                 {
                     var contents = MC.Contents;
-                    WikiPageGroup corps = null;
-                    if (contents.m_Corps != null && contents.m_Corps.Any())
-                        corps = new WikiPageGroup(wiki.ModID, "Corporations", CorpsSprite);
-                    WikiPageGroup blocks = null;
                     if (contents.m_Blocks != null && contents.m_Blocks.Any())
                     {
                         foreach (var item in contents.m_Blocks)
@@ -417,15 +664,21 @@ namespace TerraTechETCUtil
                             }
                         }
                     }
-                    if (corps != null)
+                    var corps = contents.m_Corps;
+                    if (corps != null && corps.Any())
                     {
-                        foreach (var item in contents.m_Corps)
+                        WikiPageGroup corpsPage = (WikiPageGroup)GetPage("Corporations");
+                        if (corpsPage == null)
+                            corpsPage = new WikiPageGroup(MC.ModID, "Corporations", CorpsSprite);
+                        foreach (var item in corps)
                         {
-                            if (!wiki.ALLPages.ContainsKey(item.m_DisplayName))
-                            {
-                                new WikiPageCorp(wiki.ModID, (int)ManMods.inst.GetCorpIndex(item.name), corps);
-                            }
+                            new WikiPageCorp(MC.ModID, (int)ManMods.inst.GetCorpIndex(item.m_ShortName), corpsPage);
                         }
+                    }
+                    if (TryGetModWiki(MC.ModID, out Wiki wiki2))
+                    {
+                        wiki2.MainPage.onOpen = wiki2.PrepareModded;
+                        OnModWikiCreated.Send(wiki);
                     }
                 }
             }
@@ -462,11 +715,33 @@ namespace TerraTechETCUtil
                 return new WikiPageGroup(ModID, WikiGroupName, Icon);
         }
 
+        public static WikiPage GetPage(string pageName)
+        {
+            try
+            {
+                return Wikis.Values.FirstOrDefault(x => x.ALLPages.ContainsKey(pageName))?.ALLPages[pageName];
+            }
+            catch
+            {
+                return null;
+            }
+        }
         public static WikiPageBlock GetBlockPage(string blockName)
         {
             try
             {
                 return (WikiPageBlock)Wikis.Values.FirstOrDefault(x => x.ALLPages.ContainsKey(blockName))?.ALLPages[blockName];
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        public static WikiPageChunk GetChunkPage(string chunkName)
+        {
+            try
+            {
+                return (WikiPageChunk)Wikis.Values.FirstOrDefault(x => x.ALLPages.ContainsKey(chunkName))?.ALLPages[chunkName];
             }
             catch
             {
@@ -480,6 +755,7 @@ namespace TerraTechETCUtil
 
         private static ManIngameWiki inst = new ManIngameWiki();
         private static Dictionary<string, Wiki> Wikis = new Dictionary<string, Wiki>();
+        public static Dictionary<string, Wiki> AllWikis => Wikis;
 
         private static WikiPage DefaultWikiPage = new WikiPageMainDefault(VanillaGameName, "Terra Tech Wiki V0.1", UIHelpersExt.NullSprite);
 
@@ -496,6 +772,8 @@ namespace TerraTechETCUtil
                     backtrace.Add(curWikiPage);
                     if (backtrace.Count > 64)
                         backtrace.RemoveAt(0);
+                    if (value != null)
+                        value.OnBeforeDisplay();
                 }
                 curWikiPage = value;
                 if (!assignedQuit)
@@ -537,14 +815,19 @@ namespace TerraTechETCUtil
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Open);
                     else
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
-                    WikiButton.SetToggleState(open);
+                    try
+                    {
+                        WikiButton.SetToggleState(open);
+                    }
+                    catch { }
                 }
             }
             public void Update()
             {
                 if (Input.GetKeyDown(WikiButtonKeybind))
                     ToggleGUI();
-                tooltip.DoUpdate();
+                if (renderedIcon > 0)
+                    renderedIcon--;
             }
             public void OnGUI()
             {  
@@ -607,21 +890,24 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
 
-            tooltip.EndDisplayGUIToolTip();
+            //tooltip.EndDisplayGUIToolTip();
             GUI.DragWindow();
         }
 
 
         internal static void ToggleGUI()
         {
+            InitWiki();
             instGUI.ToggleGUI();
         }
-        internal static void  SetGUI(bool state)
+        internal static void SetGUI(bool state)
         {
+            InitWiki();
             instGUI.SetGUI(state);
         }
         internal static void CloseGUI()
         {
+            InitWiki();
             instGUI.SetGUI(false);
             ReleaseAsMuchMemoryAsPossible();
         }
@@ -636,12 +922,14 @@ namespace TerraTechETCUtil
             InfoSprite, SetGUI);
         internal static void InitWiki()
         {
-            LoadPage();
             _ = InfoSprite;
 
             if (instGUI == null)
             {
                 instGUI = new GameObject("ManIngameWiki").AddComponent<GUIInst>();
+                LoadPage();
+                Debug_TTExt.Log("TerraTechETCUtil: InitWiki()");
+                //WikiPageBlock.GetImagesForPending();
             }
             //InvokeHelper.InvokeSingleRepeat(SpamIt, 0.1f);
             /*
@@ -691,8 +979,9 @@ namespace TerraTechETCUtil
 
         private static void LoadPage()
         {   // Loading from memory
-            inst.TryLoadFromDisk(ref inst);
-            if (!inst.wikiID.NullOrEmpty() && Wikis.TryGetValue(inst.wikiID, out var wiki))
+            
+            if (inst.TryLoadFromDisk(ref inst) && 
+                !inst.wikiID.NullOrEmpty() && Wikis.TryGetValue(inst.wikiID, out var wiki))
             { 
                 if (!inst.pageName.NullOrEmpty() && wiki.ALLPages.ContainsKey(inst.pageName))
                 {

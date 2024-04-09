@@ -6,9 +6,11 @@ using System.Text;
 using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
+#if !EDITOR
 using ModManager;
 using Steamworks;
 using Payload.UI.Commands.Steam;
+#endif
 
 namespace TerraTechETCUtil
 {
@@ -21,6 +23,7 @@ namespace TerraTechETCUtil
         UpToDate,
         ModUpdating,
         NeedsToBeUpdated,
+        ModIDMismatch,
         MightBeOutOfDate,
         MissingFromDisk,
         FailedToFetch,
@@ -139,7 +142,9 @@ namespace TerraTechETCUtil
 
     public class ModStatusChecker : TinySettings
     {
+#if !EDITOR
         private static readonly FieldInfo SessionData = typeof(ManMods).GetField("m_CurrentSession", BindingFlags.Instance | BindingFlags.NonPublic);
+#endif
         private static readonly string DataDirectory = "ModKickStartHelper";
 
         private static Rect guiWindow = new Rect(20, 20, 800, 600);
@@ -371,7 +376,7 @@ namespace TerraTechETCUtil
             context = Context;
             Debug_TTExt.Log(Context);
         }
-        public static void EncapsulateSafeInit(string name, Action init, Action onFail = null, bool doChainFail = false)
+        public static void EncapsulateSafeInit(string ModID, Action init, Action onFail = null, bool doChainFail = false)
         {
             try
             {
@@ -390,10 +395,17 @@ namespace TerraTechETCUtil
                     }
                     else
                         ShowErrorLog("First Initialization");
+
+                    if (ActiveGameInterop.CheckIfInteropActiveGameOnly())
+                    {
+                        ShowErrorLog("Editor Detected, Hooked Up!");
+                        ActiveGameInterop.Init();
+                        InvokeHelper.InvokeSingleRepeat(ActiveGameInterop.UpdateNow, 1);
+                    }
                 }
-                var status = CheckStatusOfMod(name);
-                if (!modStatuses.ContainsKey(name))
-                    modStatuses.Add(name, status);
+                var status = CheckStatusOfMod(ModID);
+                if (!modStatuses.ContainsKey(ModID))
+                    modStatuses.Add(ModID, status);
                 if (!chainFailed)
                     init.Invoke();
                 switch (inst.ShowSetting)
@@ -420,6 +432,8 @@ namespace TerraTechETCUtil
                                     break;
                                 case EModStatus.MightBeOutOfDate:
                                     break;
+                                case EModStatus.ModIDMismatch:
+                                    break;
                                 case EModStatus.MissingFromDisk:
                                     break;
                                 case EModStatus.FailedToFetch:
@@ -431,40 +445,47 @@ namespace TerraTechETCUtil
                         switch (status.status)
                         {
                             case EModStatus.ModManagerMissing:
-                                ShowErrorLog(name + " - Mod needs 0ModManager to function.  Failed to boot correctly.");
+                                ShowErrorLog(ModID + " - Mod needs 0ModManager to function.  Failed to boot correctly.");
                                 break;
                             case EModStatus.Exception:
                                 break;
                             case EModStatus.TTExtUtilOutdated:
                                 string lazyCombiner = "";
+
+#if !EDITOR
                                 foreach (var item in ResourcesHelper.GUIManaged.infoCache)
                                 {
                                     lazyCombiner += item.Key.ModID + ", ";
                                 }
-                                ShowErrorLog(name + " - Mod Shared API is outdated.\nInsure the following mods are updated on Steam Workshop:\n" +
+                                ShowErrorLog(ModID + " - Mod Shared API is outdated.\nInsure the following mods are updated on Steam Workshop:\n" +
                                     lazyCombiner);
+#endif
                                 break;
                             case EModStatus.GameOutdated:
-                                ShowErrorLog(name + " - TerraTech is outdated.\nInstall the latest game update");
+                                ShowErrorLog(ModID + " - TerraTech is outdated.\nInstall the latest game update");
                                 break;
                             case EModStatus.UpToDate:
                                 break;
                             case EModStatus.ModUpdating:
-                                ShowErrorLog(name + " - Mod is updating!\nMake sure Steam Workshop is finished downloading as mods that aren't downloaded fully cannot be executed.");
+                                ShowErrorLog(ModID + " - Mod is updating!\nMake sure Steam Workshop is finished downloading as mods that aren't downloaded fully cannot be executed.");
                                 break;
                             case EModStatus.NeedsToBeUpdated:
                                 if (ShowWarnings)
-                                    ShowErrorLog(name + " - Mod is outdated.\nIf it crashes, insure the mod is updated on Steam Workshop");
+                                    ShowErrorLog(ModID + " - Mod is outdated.\nIf it crashes, insure the mod is updated on Steam Workshop");
+                                break;
+                            case EModStatus.ModIDMismatch:
+                                ShowErrorLog(ModID + " - Mod ID in the DLL is incorrect and ResourceHelper cannot access the data correctly. " +
+                                    "If a crash happens it may be due to not being able to access it's resources!");
                                 break;
                             case EModStatus.MightBeOutOfDate:
                                 if (ShowWarnings)
-                                    ShowErrorLog(name + " - Mod may not work in the Unstable.\nIf it crashes, insure the mod is updated on Steam Workshop");
+                                    ShowErrorLog(ModID + " - Mod may not work in the Unstable.\nIf it crashes, insure the mod is updated on Steam Workshop");
                                 break;
                             case EModStatus.MissingFromDisk:
-                                ShowErrorLog(name + " - Mod is missing or corrupted.\nThis might be due to parental controls or a security program.");
+                                ShowErrorLog(ModID + " - Mod is missing or corrupted.\nThis might be due to parental controls or a security program.");
                                 break;
                             case EModStatus.FailedToFetch:
-                                ShowErrorLog(name + " - Could not fetch data for mod.\nThis might be due to parental controls or a security program.");
+                                ShowErrorLog(ModID + " - Could not fetch data for mod.\nThis might be due to parental controls or a security program.");
                                 break;
                             default:
                                 break;
@@ -477,8 +498,8 @@ namespace TerraTechETCUtil
                 failed = true;
                 if (doChainFail)
                     chainFailed = true;
-                selected = modStatuses[name];
-                string failReport = "Initialization Failiure within " + name + ": " + e;
+                selected = modStatuses[ModID];
+                string failReport = "Initialization Failiure within " + ModID + ": " + e;
                 Debug_TTExt.Log(failReport);
                 if (onFail != null)
                     onFail.Invoke();
@@ -488,14 +509,14 @@ namespace TerraTechETCUtil
                     errorReport = failReport;
                     InvokeHelper.InvokeSingleRepeat(ThrowDelayedErrorForRandAdd, 1);
                 }
-                modStatuses[name].status = EModStatus.Exception;
-                modStatuses[name].exception = e.ToString();
+                modStatuses[ModID].status = EModStatus.Exception;
+                modStatuses[ModID].exception = e.ToString();
                 switch (inst.ShowSetting)
                 {
                     case 0:
                     case 1:
                     case 2:
-                        ShowErrorLog(name + " - " + modStatuses[name].exception);
+                        ShowErrorLog(ModID + " - " + modStatuses[ModID].exception);
                         break;
                 }
             }
@@ -574,6 +595,18 @@ namespace TerraTechETCUtil
             {
                 if (modStatuses.TryGetValue(name, out ModStatus mStatus))
                     return mStatus;
+                if (!ResourcesHelper.TryGetModContainer(name, out _))
+                {
+                    StringBuilder SB = new StringBuilder();
+                    SB.AppendLine(">- " + name);
+                    foreach (var item in ResourcesHelper.GetAllMods().Values)
+                    {
+                        SB.AppendLine(" - " + item.ModID);
+                    }
+                    Debug_TTExt.LogError("ModID " + name + " is invalid: \n" + SB.ToString());
+                    return new ModStatus(name, EModStatus.ModIDMismatch);
+                }
+#if !EDITOR
                 var ID = new PublishedFileId_t(modID);
                 if (SteamUGC.GetItemInstallInfo(ID, out ulong sizeBytes, out string directed, 512U, out uint lastUpdateTime))
                 {
@@ -614,7 +647,7 @@ namespace TerraTechETCUtil
                                         return new ModStatus(name, EModStatus.TTExtUtilOutdated);
                                     DateTime DT = Directory.GetLastWriteTime(directory.ToString());
                                     DateTime DTM = File.GetLastWriteTime(Assembly.GetAssembly(typeof(TankBlock)).Location);
-                                    Debug_TTExt.Log("Time is " + DT.ToString() + " vs " + DTM.ToString());
+                                    //Debug_TTExt.Log("Time is " + DT.ToString() + " vs " + DTM.ToString());
                                     if (DT < DTM)
                                         return new ModStatus(name, EModStatus.MightBeOutOfDate);
                                 }
@@ -626,6 +659,7 @@ namespace TerraTechETCUtil
                     }
                     return new ModStatus(name, status);
                 }
+#endif
                 return new ModStatus(name, EModStatus.FailedToFetch);
             }
             catch (Exception e)

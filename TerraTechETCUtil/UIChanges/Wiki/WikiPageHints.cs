@@ -21,10 +21,7 @@ namespace TerraTechETCUtil
         {
             hints.Add(firstHint);
         }
-        public override void DisplaySidebar()
-        {
-            ButtonGUIDisp();
-        }
+        public override void DisplaySidebar() => ButtonGUIDisp();
         public override bool ReleaseAsMuchAsPossible()
         {
             return false;

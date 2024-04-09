@@ -23,10 +23,7 @@ namespace TerraTechETCUtil
             information = "";
             infoOverride = Info;
         }
-        public override void DisplaySidebar()
-        {
-            ButtonGUIDisp();
-        }
+        public override void DisplaySidebar() => ButtonGUIDisp();
         public override bool ReleaseAsMuchAsPossible()
         {
             return false;

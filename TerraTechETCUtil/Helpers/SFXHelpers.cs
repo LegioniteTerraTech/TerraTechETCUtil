@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
-namespace TerraTechETCUtil
+namespace TerraTechETCUtil 
 {
     /// <summary>
     /// Handle ingame SFX here

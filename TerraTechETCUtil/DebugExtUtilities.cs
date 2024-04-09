@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public static class PoolExtensionsExt
@@ -20,7 +21,7 @@ namespace TerraTechETCUtil
     }
     public class DebugExtUtilities : MonoBehaviour
     {
-        public static bool allowEnableDebugMenu_KeypadEnter = false;
+        private static bool allowEnableDebugMenu_KeypadEnter = false;
         /// <summary>
         /// Allow the Debug menu of ExtUtil to be accessable from in-game with (HOLD) End, (PRESS) Return.
         /// </summary>
@@ -356,7 +357,15 @@ namespace TerraTechETCUtil
             }
             //Debug_TTExt.Log("Debug_TTExt: Debugger StaticUpdate()");
         }
-        private static void Close()
+        internal static void Open()
+        {
+            if (!UIIsCurrentlyOpen)
+            {
+                UIIsCurrentlyOpen = true;
+                GUIWindow.SetActive(true);
+            }
+        }
+        internal static void Close()
         {
             if (UIIsCurrentlyOpen)
             {
@@ -398,3 +407,4 @@ namespace TerraTechETCUtil
         }
     }
 }
+#endif

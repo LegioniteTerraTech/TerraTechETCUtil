@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
+using System.Collections;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public class SpawnHelper : MonoBehaviour
@@ -20,6 +22,54 @@ namespace TerraTechETCUtil
         private Dictionary<SceneryTypes, Dictionary<BiomeTypes, List<TerrainObject>>> objs = new Dictionary<SceneryTypes, Dictionary<BiomeTypes, List<TerrainObject>>>();
         private Dictionary<string, TerrainObject> objsNonRes = new Dictionary<string, TerrainObject>();
 
+        private static HashSet<int> captured = new HashSet<int>();
+        public static IEnumerable<SceneryTypes> IterateSceneryTypesByIngredient(ChunkTypes type)
+        {
+            GrabInitList();
+            captured.Clear();
+            foreach (var item in inst.objs.Values)
+            {
+                foreach (var item2 in item)
+                {
+                    foreach (var item3 in item2.Value)
+                    {
+                        ResourceDispenser RD = item3.GetComponent<ResourceDispenser>();
+                        Visible vis = item3.GetComponent<Visible>();
+                        if (RD != null && captured.Contains(vis.ItemType) && RD.AllDispensableItems().Any(x => x == type))
+                        {
+                            captured.Add(vis.ItemType);
+                            yield return (SceneryTypes)vis.ItemType;
+                        }
+                    }
+                }
+            }
+        }
+        public static Dictionary<BiomeTypes, List<TerrainObject>> GetSceneryByType(SceneryTypes type)
+        {
+            GrabInitList();
+            inst.objs.TryGetValue(type, out var outcome);
+            return outcome;
+        }
+        public static IEnumerable<TerrainObject> IterateSceneryByBiome(BiomeTypes type)
+        {
+            GrabInitList();
+            foreach (var item in inst.objs.Values)
+            {
+                if (item.TryGetValue(type, out var TOs))
+                {
+                    foreach (var item2 in TOs)
+                        yield return item2;
+                }
+            }
+        }
+        public static IEnumerable<Dictionary<BiomeTypes, List<TerrainObject>>> IterateSceneryTypes()
+        {
+            GrabInitList();
+            foreach (var item in inst.objs)
+            {
+                yield return item.Value;
+            }
+        }
 
         public static BiomeTypes GetBiomeFromName(string name)
         {
@@ -209,13 +259,28 @@ namespace TerraTechETCUtil
                 TerrainObject TO = GetResourceNodePrefab(type, biome);
                 TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
                 ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
-                RD.RemoveFromWorld(false, false, true, false);
-                RD.SetRegrowOverrideTime(2); // Check later - spawns too quickly after first spawn
                 return RD;
             }
             catch (Exception e)
             {
-                throw new NullReferenceException("RandomAdditions: SpawnResourceNode encountered an error - " + e.Message, e);
+                throw new NullReferenceException("TTExtUtil: SpawnResourceNode encountered an error - " + e.Message, e);
+            }
+        }
+        public static ResourceDispenser SpawnResourceNodeAnimated(Vector3 scenePos, Quaternion rotation, SceneryTypes type, BiomeTypes biome)
+        {
+            GrabInitList();
+            try
+            {
+                TerrainObject TO = GetResourceNodePrefab(type, biome);
+                TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
+                ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
+                RD.RemoveFromWorld(false, false, true, false);
+                RD.SetRegrowOverrideTime(0.1f); // Check later - spawns too quickly after first spawn
+                return RD;
+            }
+            catch (Exception e)
+            {
+                throw new NullReferenceException("TTExtUtil: SpawnResourceNodeAnimated encountered an error - " + e.Message, e);
             }
         }
         public static void DestroyResourceNode(ResourceDispenser resDisp, Vector3 impactVec, bool spawnChunks)
@@ -234,9 +299,21 @@ namespace TerraTechETCUtil
 
 
         private static FieldInfo SetPiecesGet = typeof(ManWorld).GetField("m_AllSetPieces", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static List<TerrainSetPiece> piecesCached = new List<TerrainSetPiece>();
         public static List<TerrainSetPiece> GetAllSetPieces()
         {
-            return (List<TerrainSetPiece>)SetPiecesGet.GetValue(ManWorld.inst);
+            piecesCached.Clear();
+            foreach (var item in (List<TerrainSetPiece>)SetPiecesGet.GetValue(ManWorld.inst))
+            {
+                if (item.name.StartsWith("SPM") || item.name.StartsWith("RD") || item.name.StartsWith("EXP"))
+                { 
+                    if (ManDLC.inst.HasAnyDLCOfType(ManDLC.DLCType.RandD))
+                        piecesCached.Add(item);
+                }
+                else
+                    piecesCached.Add(item);
+            }
+            return piecesCached;
         }
         public static IEnumerable<string> GetAllSetPieceNames()
         {
@@ -326,7 +403,7 @@ namespace TerraTechETCUtil
             }
             catch (Exception e)
             {
-                throw new NullReferenceException("RandomAdditions: SpawnObject encountered an error - " + e.Message, e);
+                throw new NullReferenceException("TTExtUtil: SpawnObject encountered an error - " + e.Message, e);
             }
         }
 
@@ -473,6 +550,7 @@ namespace TerraTechETCUtil
             private static bool showSetPieceContents = false;
             private static TerrainSetPiece selectedSP = null;
             private static TerrainObject unmanaged = null;
+            private static Vector2 scroller5 = Vector2.zero;
             private static void GUISetPieces()
             {
                 showSetPieces = AltUI.Toggle(showSetPieces, "Spawn Set Pieces");
@@ -482,7 +560,7 @@ namespace TerraTechETCUtil
                     showALLSetPieces = AltUI.Toggle(showALLSetPieces, "Show Set Pieces");
                     if (showALLSetPieces)
                     {
-                        GUILayout.BeginVertical(AltUI.TextfieldBordered);
+                        scroller5 = GUILayout.BeginScrollView(scroller5,AltUI.TextfieldBordered, GUILayout.Height(300));
                         GUILayout.Label("Set Pieces:");
                         foreach (var item in GetAllSetPieceNames())
                         {
@@ -534,3 +612,4 @@ namespace TerraTechETCUtil
         }
     }
 }
+#endif

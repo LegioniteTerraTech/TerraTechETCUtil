@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-    internal class TerrainOperations
+    public class TerrainOperations
     {
         public const float RescaleFactor = 4;
         public const float DownwardsOffset = 0;

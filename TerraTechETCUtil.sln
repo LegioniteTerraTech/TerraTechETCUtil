@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30523.141
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34322.80
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerraTechETCUtil", "TerraTechETCUtil\TerraTechETCUtil.csproj", "{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}"
 EndProject
@@ -10,6 +10,7 @@ Global
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 		Steam|Any CPU = Steam|Any CPU
+		SteamEditor|Any CPU = SteamEditor|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -18,6 +19,8 @@ Global
 		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.Steam|Any CPU.ActiveCfg = Steam|Any CPU
 		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.Steam|Any CPU.Build.0 = Steam|Any CPU
+		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.SteamEditor|Any CPU.ActiveCfg = SteamEditor|Any CPU
+		{3A873A88-7A7E-40BF-BE0E-C6B0E75E4C92}.SteamEditor|Any CPU.Build.0 = SteamEditor|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

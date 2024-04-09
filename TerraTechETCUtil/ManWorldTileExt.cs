@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public interface ITileLoader
@@ -524,3 +525,4 @@ namespace TerraTechETCUtil
     }
 
 }
+#endif

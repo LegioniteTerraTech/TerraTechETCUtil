@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+#if !EDITOR
 using HarmonyLib;
+#endif
 using UnityEngine;
 using System.Reflection;
 
+#if !EDITOR
 namespace TerraTechETCUtil
 {
     public static class MassPatcher
@@ -92,6 +95,9 @@ namespace TerraTechETCUtil
                                         case "Postfix":
                                             MPT.postfix = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
                                             break;
+                                        case "Transpiler":
+                                            MPT.transpiler = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
+                                            break;
                                         default:
                                             break;
                                     }
@@ -108,6 +114,9 @@ namespace TerraTechETCUtil
                                             break;
                                         case "Postfix":
                                             MPT.postfix = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
+                                            break;
+                                        case "Transpiler":
+                                            MPT.transpiler = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
                                             break;
                                         default:
                                             break;
@@ -126,6 +135,10 @@ namespace TerraTechETCUtil
                                         if (MPT.postfix == null)
                                             MPT.postfix = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
                                         break;
+                                    case "Transpiler":
+                                        if (MPT.transpiler == null)
+                                            MPT.transpiler = new HarmonyMethod(AccessTools.Method(typeCase, item.Name));
+                                        break;
                                     default:
                                         break;
                                 }
@@ -136,10 +149,10 @@ namespace TerraTechETCUtil
                         {
                             try
                             {
-                                if (item.Value.prefix != null || item.Value.postfix != null)
+                                if (item.Value.prefix != null || item.Value.postfix != null || item.Value.transpiler != null)
                                 {
                                     MethodInfo methodCase = AccessTools.Method(patcherType, item.Key);
-                                    inst.Patch(methodCase, item.Value.prefix, item.Value.postfix);
+                                    inst.Patch(methodCase, item.Value.prefix, item.Value.postfix, item.Value.transpiler);
                                     Debug_TTExt.Info(modName + ": (" + item.Value.fullName + ") Patched " + item.Key + " of " + ToPatch.Name);//+ "  prefix: " + (item.Value.prefix != null) + "  postfix: " + (item.Value.postfix != null)
                                 }
                             }
@@ -237,6 +250,8 @@ namespace TerraTechETCUtil
             internal string fullName = null;
             internal HarmonyMethod prefix = null;
             internal HarmonyMethod postfix = null;
+            internal HarmonyMethod transpiler = null;
         }
     }
 }
+#endif

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
+using Newtonsoft.Json;
 
 #if !STEAM
 using Nuterra.BlockInjector;
@@ -19,7 +20,7 @@ namespace TerraTechETCUtil
         public static bool isBlockInjectorPresent = false;
         public static string FolderDivider = "/";
 
-        private static bool spamLog = true;
+        private static bool spamLog = false;
         private static BlockIndexer inst;
         private static bool Compiled = false;
 
@@ -679,25 +680,252 @@ namespace TerraTechETCUtil
         }
 
 
+#if !EDITOR
         internal class GUIManaged : GUILayoutHelpers
         {
             private static bool controlledDisp = false;
+            private static bool controlledDisp2 = false;
+            private static bool controlledDisp3 = false;
             private static HashSet<string> enabledTabs = null;
             private static BiomeTypes curBiome = BiomeTypes.Grassland;
             private static bool showUtils = false;
+            private static Visible Vis = null;
+            private static GameObject GrabbedObject;
+            private static Biome biome;
+            private static Tank tank => Vis ? Vis.isActive ? Vis?.tank : null : null;
+            private static TankBlock block => Vis ? Vis.isActive ? Vis?.block : null : null;
+            private static ResourceDispenser node => Vis ? Vis.isActive ? Vis?.resdisp : null : null;
+            private static ResourcePickup chunk => Vis ? Vis.isActive ? Vis?.pickup : null : null;
+            private static Visible visible => Vis ? Vis.isActive ? Vis : null : null;
+            private static int ItemID;
+            private static ManIngameWiki.WikiPage Page;
+
+
+
             private static bool snapTerrain = false;
             private static string Tech = "";
+            private static int mask = Globals.inst.layerTank.mask | Globals.inst.layerTerrain.mask | Globals.inst.layerScenery.mask | 
+                Globals.inst.layerPickup.mask | Globals.inst.layerLandmark.mask;
+            public static void OnGrab(ManPointer.Event eventC, bool down, bool clicked)
+            {
+                if (clicked && !ManPointer.inst.IsInteractionBlocked &&
+                    Physics.Raycast(ManUI.inst.ScreenPointToRay(ManPointer.inst.DragPositionOnScreen),
+                    out var hit, float.MaxValue, mask, QueryTriggerInteraction.Ignore))
+                {
+                    GrabbedObject = hit.collider.gameObject;
+                    Vis = Visible.FindVisibleUpwards(hit.collider);
+                    biome = null;
+                    Page = null;
+                    if (tank)
+                    {
+                    }
+                    else if (node)
+                    {
+                        ItemID = Vis.m_ItemType.ItemType;
+                        Page = ManIngameWiki.GetPage(StringLookup.GetItemName(ObjectTypes.Scenery, ItemID));
+                    }
+                    else if (block)
+                    {
+                        ItemID = Vis.m_ItemType.ItemType;
+                        Page = ManIngameWiki.GetPage(StringLookup.GetItemName(ObjectTypes.Block, ItemID));
+                    }
+                    else if (chunk)
+                    {
+                        ItemID = Vis.m_ItemType.ItemType;
+                        Page = ManIngameWiki.GetPage(StringLookup.GetItemName(ObjectTypes.Chunk, ItemID));
+                    }
+                    else
+                    {
+                        if (hit.collider.GetComponent<Terrain>() && 
+                            ManWorld.inst.TileManager.LookupTile(hit.point) != null)
+                        {
+                            biome = ManWorld.inst.GetBiomeWeightsAtScenePosition(hit.point).Biome(0);
+                            if (biome)
+                            {
+                                string name = WikiPageBiome.CleanupName(biome.name);
+                                ItemID = (int)biome.BiomeType;
+                                Page = ManIngameWiki.GetPage(name);
+                            }
+                        }
+                        else if (GrabbedObject)
+                        {
+                        }
+                    }
+                }
+            }
             public static void GUIGetTotalManaged()
             {
                 if (enabledTabs == null)
                 {
                     enabledTabs = new HashSet<string>();
                 }
-                GUILayout.Box("--- RawTechs --- ");
-                bool show = controlledDisp && Singleton.playerTank;
-                if (GUILayout.Button(" Enabled Loading: " + show))
+                GUILayout.Box("--- Info Extractor --- ");
+                if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
+                {
                     controlledDisp = !controlledDisp;
+                    if (controlledDisp)
+                        ManPointer.inst.MouseEvent.Subscribe(OnGrab);
+                    else
+                        ManPointer.inst.MouseEvent.Unsubscribe(OnGrab);
+                }
                 if (controlledDisp)
+                {
+                    try
+                    {
+                        if (visible)
+                        {
+                            GUILayout.BeginHorizontal();
+                            if (tank)
+                            {
+                                GUILayout.Label("Selected Tech: ");
+                                GUILayout.Label(tank.name);
+                            }
+                            else if (node)
+                            {
+                                GUILayout.Label("Selected Scenery: ");
+                                GUILayout.Label(node.name);
+                            }
+                            else if (block)
+                            {
+                                GUILayout.Label("Selected Block: ");
+                                GUILayout.Label(block.name);
+                            }
+                            else if (chunk)
+                            {
+                                GUILayout.Label("Selected Chunk: ");
+                                GUILayout.Label(chunk.name);
+                            }
+                            else
+                            {
+                                GUILayout.Label("Selected Visible: ");
+                                GUILayout.Label(visible.name);
+                            }
+                            GUILayout.FlexibleSpace();
+                            GUILayout.EndHorizontal();
+
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Type: ");
+                            GUILayout.Label(visible.type.ToString());
+                            GUILayout.FlexibleSpace();
+                            GUILayout.EndHorizontal();
+
+                            if (Page != null)
+                                Page.DisplayGUI();
+
+                            if (tank)
+                            {
+                                GUILayout.BeginHorizontal();
+                                GUILayout.Label("Block Count: ");
+                                GUILayout.Label(tank.blockman.blockCount.ToString());
+                                GUILayout.FlexibleSpace();
+                                GUILayout.EndHorizontal();
+                            }
+                            else if (node)
+                            {
+                                GUILayout.FlexibleSpace();
+                                if (GUILayout.Button("Open In Wiki", AltUI.ButtonOrangeLarge))
+                                {
+                                    ManIngameWiki.GetBlockPage(StringLookup.GetItemName(ObjectTypes.Scenery, ItemID)).GoHere();
+                                    ManIngameWiki.SetGUI(true);
+                                    DebugExtUtilities.Close();
+                                }
+                            }
+                            else if (block)
+                            {
+                                GUILayout.FlexibleSpace();
+                                if (GUILayout.Button("Open In Wiki", AltUI.ButtonOrangeLarge))
+                                {
+                                    ManIngameWiki.GetBlockPage(StringLookup.GetItemName(ObjectTypes.Block, ItemID)).GoHere();
+                                    ManIngameWiki.SetGUI(true);
+                                    DebugExtUtilities.Close();
+                                }
+                            }
+                            else if (chunk)
+                            {
+                                GUILayout.FlexibleSpace();
+                                if (GUILayout.Button("Open In Wiki", AltUI.ButtonOrangeLarge))
+                                {
+                                    ManIngameWiki.GetBlockPage(StringLookup.GetItemName(ObjectTypes.Chunk, ItemID)).GoHere();
+                                    ManIngameWiki.SetGUI(true);
+                                    DebugExtUtilities.Close();
+                                }
+                            }
+                            else
+                            {
+                                GUILayout.BeginHorizontal();
+                                GUILayout.Label("Selected Visible: ");
+                                GUILayout.Label(visible.name);
+                                GUILayout.FlexibleSpace();
+                                GUILayout.EndHorizontal();
+                            }
+                        }
+                        else if (biome != null)
+                        {
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Selected Biome: ");
+                            string name = WikiPageBiome.CleanupName(biome.name);
+                            GUILayout.Label(name);
+                            GUILayout.FlexibleSpace();
+                            GUILayout.EndHorizontal();
+
+                            if (Page != null)
+                                Page.DisplayGUI();
+                            if (GUILayout.Button("Open In Wiki", AltUI.ButtonOrangeLarge))
+                            {
+                                Page.GoHere();
+                                ManIngameWiki.SetGUI(true);
+                                DebugExtUtilities.Close();
+                            }
+                        }
+                        else if (GrabbedObject)
+                        {
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Selected Object: ");
+                            GUILayout.Label(GrabbedObject.name.NullOrEmpty() ? "<NULL>" : GrabbedObject.name);
+                            GUILayout.FlexibleSpace();
+                            GUILayout.EndHorizontal();
+                        }
+                        else
+                        {
+                            GUILayout.Label("Click on something to scan it!");
+                        }
+                    }
+                    catch (ExitGUIException e)
+                    {
+                        throw e;
+                    }
+                    catch { controlledDisp = false; }
+                }
+
+
+                GUILayout.Box("--- Blocks Indexing --- ");
+                if (GUILayout.Button(" Enabled Loading: " + controlledDisp2))
+                {
+                    controlledDisp2 = !controlledDisp2;
+                }
+                if (controlledDisp2)
+                {
+                    try
+                    { 
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Blocks Registered In Lookup:");
+                        GUILayout.Label(errorNames.Count.ToString());
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+                    }
+                    catch (ExitGUIException e)
+                    {
+                        throw e;
+                    }
+                    catch { controlledDisp2 = false; }
+                }
+
+
+                GUILayout.Box("--- RawTechs --- ");
+                bool show = controlledDisp3 && Singleton.playerTank;
+                if (GUILayout.Button(" Enabled Loading: " + show))
+                    controlledDisp3 = !controlledDisp3;
+                if (controlledDisp3)
                 {
                     try
                     {
@@ -714,7 +942,13 @@ namespace TerraTechETCUtil
                             {
                                 if (GUILayout.Button("Export RawTech"))
                                 {
-                                    Tech = "\"" + RawTechTemplate.TechToJSONExternal(playerT).Replace("\"", "\\\"") + "\"";
+                                    Tech = "\"" + RawTechBase.TechToJSONExternal(playerT).Replace("\"", "\\\"") + "\"";
+                                }
+                                if (GUILayout.Button("Export RawTechTemplate"))
+                                {
+                                    TechData TD = RawTechBase.CreateNewTechData();
+                                    TD.SaveTech(Singleton.playerTank);
+                                    Tech = JsonConvert.SerializeObject(new RawTechTemplate(TD));
                                 }
                                 if (!Tech.NullOrEmpty())
                                 {
@@ -741,6 +975,20 @@ namespace TerraTechETCUtil
                                                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.AnchorFailed);
                                             }
                                         }
+                                        if (GUILayout.Button("Spawn RawTechTemplate"))
+                                        {
+                                            try
+                                            {
+                                                JsonConvert.DeserializeObject<RawTechTemplate>(Tech).SpawnRawTech(
+                                                    playerT.boundsCentreWorld + playerT.rootBlockTrans.forward * 100, ManPlayer.inst.PlayerTeam,
+                                                    -playerT.rootBlockTrans.forward);
+                                                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.AIFollow);
+                                            }
+                                            catch
+                                            {
+                                                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.AnchorFailed);
+                                            }
+                                        }
                                     }
                                     else
                                         GUILayout.Button("Spawn RawTech needs Creative");
@@ -756,10 +1004,11 @@ namespace TerraTechETCUtil
                     {
                         throw e;
                     }
-                    catch { }
+                    catch { controlledDisp3 = false; }
                 }
             }
         }
+#endif
 
 
         [Serializable]

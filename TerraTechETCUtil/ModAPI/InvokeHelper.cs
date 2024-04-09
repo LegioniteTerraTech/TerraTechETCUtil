@@ -401,9 +401,9 @@ namespace TerraTechETCUtil
                         step++;
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on " + ele.Key.Name + " init, aborting...");
+                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on " + ele.Key.Name + " init, aborting... " + e);
                     invokeSingleRepeat.Remove(ele.Key);
                 }
             }
@@ -420,9 +420,9 @@ namespace TerraTechETCUtil
                     else
                         ele.Value.Invoke();
                 }
-                catch
+                catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingles - Error on " + ele.Key.Name + " init, aborting...");
+                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingles - Error on " + ele.Key.Name + " init, aborting... " + e);
                 }
                 invokeSingles.Remove(ele.Key);
             }
@@ -453,9 +453,9 @@ namespace TerraTechETCUtil
                         continue;
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokes - Error on " + ele.Key.Name + " init, aborting...");
+                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokes - Error on " + ele.Key.Name + " init, aborting... " + e);
                 }
                 invokes.Remove(ele.Key);
             }

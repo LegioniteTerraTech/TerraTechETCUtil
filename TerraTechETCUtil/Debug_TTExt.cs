@@ -60,7 +60,11 @@ namespace TerraTechETCUtil
         {
             try
             {
+#if EDITOR
+                Debug.LogError(modName + ": ENCOUNTERED CRITICAL ERROR: " + e);
+#else
                 ManUI.inst.ShowErrorPopup(modName + ": ENCOUNTERED CRITICAL ERROR: " + e);
+#endif
             }
             catch { }
             Debug.Log(modName + ": ENCOUNTERED CRITICAL ERROR");

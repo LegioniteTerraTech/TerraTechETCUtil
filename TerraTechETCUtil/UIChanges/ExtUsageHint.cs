@@ -294,6 +294,10 @@ namespace TerraTechETCUtil
                     }
                     return true;
                 }
+                else
+                    Debug_TTExt.Log("ShowHint FAILED call for hintID " + hintID + " - time " + displayTime + ", manHints " + ManHints.inst.HintsEnabled +
+                        ", hintHud " + ManHUD.inst.IsHudElementVisible(ManHUD.HUDElementType.HintFloating) + ", registered " + extHints.Exists(x => x.m_HintId.Value == (int)hintID) +
+                        ", active " + extHintsActive.ContainsKey(hintID));
             }
             return false;
         }

@@ -6,6 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using FMOD;
 
 namespace TerraTechETCUtil
 {
@@ -45,6 +46,7 @@ namespace TerraTechETCUtil
         }
         public class ToolbarToggle : ToolbarElement
         {
+            private static readonly FieldInfo TogInfo = typeof(UIHUDToggleButton).GetField("m_ToggleButton", BindingFlags.Instance | BindingFlags.NonPublic);
             public readonly UnityAction<bool> Callback;
             private UIHUDToggleButton togUI;
             public ToolbarToggle(string name, Sprite iconSprite, UnityAction<bool> callback) :
@@ -56,13 +58,30 @@ namespace TerraTechETCUtil
             internal override void Initiate()
             {
                 inst = MakePrefabToggle(Name, Sprite, Callback).gameObject;
-                togUI = inst.GetComponentInChildren<UIHUDToggleButton>(true);
+                togUI = inst.transform.parent.GetComponentInChildren<UIHUDToggleButton>(true);
                 Active.Add(this);
             }
             public void SetToggleState(bool state)
             {
+                //if (togUI == null)
+                //    togUI = inst.transform.parent.GetComponentInChildren<UIHUDToggleButton>(true);
+                if (togUI == null)
+                {
+                    Utilities.LogGameObjectHierachy(inst.transform.parent.gameObject);
+                    throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the Toggle Controller UI instance!");
+                }
                 if (inst && togUI)
+                {
                     togUI.SetToggledState(state);
+                    Toggle tog = (Toggle)TogInfo.GetValue(togUI);
+                    if (tog == null)
+                        throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the Toggle visual UI instance!");
+                    tog.isOn = state;
+                    Debug_TTExt.Log("TerraTechModExt: Closed ManToolbar.ToolbarToggle");
+                    togUI.Collapse(null);
+                }
+                else
+                    Debug_TTExt.Log("TerraTechModExt: FAILED to close ManToolbar.ToolbarToggle");
             }
         }
         private static bool ready = false;
