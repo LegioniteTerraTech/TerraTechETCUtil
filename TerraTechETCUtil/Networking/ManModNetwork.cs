@@ -1,7 +1,6 @@
 ﻿
 using System;
 using System.Collections.Generic;
-using System.Linq;
 #if !EDITOR
 using HarmonyLib;
 #endif
@@ -35,7 +34,7 @@ namespace TerraTechETCUtil
         }
         internal static bool UnRegister(NetworkHook hook)
         {
-            throw new Exception("Cannot unregister hooks!");
+            throw new InvalidOperationException("Cannot unregister hooks!");
             if (hooks.Remove(hook.AssignedID))
             {
 

@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -1401,7 +1400,7 @@ namespace TerraTechETCUtil
             ExtrasBase.clipping = TextClipping.Overflow;
             WindowHeaderBlue = NewGUIElement(ExtrasBase, ref WindowHeaderBlueStyle, WindowHeaderBlueTex, ColorDefaultGrey);
             ExtrasBase.overflow = new RectOffset(100, 4, 4, 4);
-            ExtrasBase.border = new RectOffset(100, 0, 0, 0);
+            ExtrasBase.border = new RectOffset(100, 4, 4, 4);
             ExtrasBase.margin = new RectOffset(4, 0, 0, 0);
             ExtrasBase.stretchWidth = false;
             ExtrasBase.stretchHeight = true;
@@ -2064,7 +2063,7 @@ namespace TerraTechETCUtil
                 }
             }, string.Empty, options);
             if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
-                ManModGUI.IsMouseOverOtherModGUI = true;
+                ManModGUI.IsMouseOverAnyModGUI = 2;
             EndUI();
             return rect;
         }
@@ -2088,7 +2087,7 @@ namespace TerraTechETCUtil
                 }
             }, string.Empty, options);
             if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
-                ManModGUI.IsMouseOverOtherModGUI = true;
+                ManModGUI.IsMouseOverAnyModGUI = 4;
             EndUI();
             return rect;
         }
@@ -2224,7 +2223,22 @@ namespace TerraTechETCUtil
             return outP;
         }
 
-
+        public static void AttachIcon(Sprite sprite, Vector2 pos, Vector2 scale, bool alphaBlend = false)
+        {
+            pos.Clamp(Vector2.zero, Vector2.one);
+            scale.Clamp(Vector2.zero, Vector2.one);
+            Rect revised = GUILayoutUtility.GetLastRect();
+            float anonWidth = revised.width * scale.x;
+            float anonHeight = revised.height * scale.y;
+            revised.position = revised.position + new Vector2(
+                pos.x * (revised.width - anonWidth),
+                pos.y * (revised.height - anonWidth));
+            revised.width = anonWidth;
+            revised.height = anonHeight;
+            DrawSprite(revised, sprite, alphaBlend);
+        }
+        public static void AttachModWrenchIcon() =>
+            AttachIcon(UIHelpersExt.ModContentIcon, Vector2.zero, new Vector2(0.35f, 0.35f));
         public static void Sprite(Sprite sprite, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, options);
@@ -2247,10 +2261,8 @@ namespace TerraTechETCUtil
         }
         public static void DrawSprite(Rect pos, Sprite sprite, bool alphaBlend = true)
         {
-            Rect rescaled = new Rect(sprite.rect.position, 
-                new Vector2((float)sprite.rect.width / sprite.texture.width,
-                (float)sprite.rect.height / sprite.texture.height));
-            GUI.DrawTextureWithTexCoords(pos, sprite.texture, rescaled, alphaBlend);
+            GUI.DrawTextureWithTexCoords(pos, sprite.texture, new Rect(sprite.rect.position.x / sprite.texture.width, sprite.rect.position.y / 
+                sprite.texture.height, sprite.rect.width / sprite.texture.width, sprite.rect.height / sprite.texture.height), alphaBlend);
         }
         public static bool SpriteButton(Sprite sprite, params GUILayoutOption[] options)
         {
@@ -2274,10 +2286,8 @@ namespace TerraTechETCUtil
         }
         public static bool DrawSpriteButton(Rect pos, Sprite sprite, bool alphaBlend = true)
         {
-            Rect rescaled = new Rect(sprite.rect.position,
-                new Vector2((float)sprite.rect.width / sprite.texture.width,
-                (float)sprite.rect.height / sprite.texture.height));
-            GUI.DrawTextureWithTexCoords(pos, sprite.texture, rescaled, alphaBlend);
+            GUI.DrawTextureWithTexCoords(pos, sprite.texture, new Rect(sprite.rect.position.x, sprite.rect.position.y,
+                sprite.rect.width / sprite.texture.width, sprite.rect.height / sprite.texture.height), alphaBlend);
             return GUI.Button(pos, string.Empty, TRANSPARENT);
         }
         /*

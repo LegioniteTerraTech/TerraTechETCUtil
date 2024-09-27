@@ -116,9 +116,10 @@ namespace TerraTechETCUtil
 
         private static void UpdateStatic()
         {
+            //Debug_TTExt.Log("UpdateStatic...");
             if (ManGameMode.inst.GetCurrentGameType() != ManGameMode.GameType.Attract)
             {
-                //DebugTAC_AI.Log("Resetting Camera...");
+                //Debug_TTExt.Log("Resetting Camera...");
                 CameraManager.inst.GetCamera<TankCamera>().SetFollowTech(null);
                 UseFollowCam = false;
             }

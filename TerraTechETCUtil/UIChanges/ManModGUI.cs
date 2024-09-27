@@ -178,30 +178,86 @@ namespace TerraTechETCUtil
         }
 
         public static bool IsMouseOverModGUI { get; private set; } = false;
-        public static bool IsMouseOverOtherModGUI = false;
+        private static bool UIKickoffState = false;
+        public static int IsMouseOverAnyModGUI = 0;
         public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked || IsMouseOverModGUI;
         public static bool IsUIInteractionBlocked => ManPointer.inst.DraggingItem;
-        private static void UpdateMouseOverAnyWindow()
+        public static void HideAllObstructingUI()
         {
-            bool isCurrent = false;
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockControl);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockControlOnOff);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockRecipeSelect);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockOptionsContextMenu);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.PowerToggleBlockMenu);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.RaDTestChamber);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.TechManager);
+            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.WorldMap);
+            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.BlockPalette);
+            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.BlockShop);
+            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.TechLoader);
+        }
+        private static FieldInfo lmb = typeof(ManPointer).GetField("m_LMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo rmb = typeof(ManPointer).GetField("m_RMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo mmb = typeof(ManPointer).GetField("m_MMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static void ReleaseMouse()
+        {
+            Vector3 RMB = (Vector3)rmb.GetValue(ManPointer.inst);
+            if (RMB.x != -1)
+            {
+                ManPointer.inst.MouseEvent.Send(ManPointer.Event.RMB, false, Input.mousePosition == RMB);
+                rmb.SetValue(ManPointer.inst, RMB.SetX(-1f));
+            }
+            /*
+            Vector3 LMB = (Vector3)lmb.GetValue(ManPointer.inst);
+            if (LMB.x != -1)
+            {
+                ManPointer.inst.MouseEvent.Send(ManPointer.Event.LMB, false, Input.mousePosition == LMB);
+                lmb.SetValue(ManPointer.inst, LMB.SetX(-1f));
+            }
+            */
+            Vector3 MMB = (Vector3)mmb.GetValue(ManPointer.inst);
+            if (MMB.x != -1)
+            {
+                ManPointer.inst.MouseEvent.Send(ManPointer.Event.MMB, false, Input.mousePosition == MMB);
+                mmb.SetValue(ManPointer.inst, MMB.SetX(-1f));
+            }
+        }
+        internal static void MainUpdateMouseOverAnyWindow()
+        {
+            if (UIKickoffState != IsMouseOverModGUI && !Input.GetMouseButton(0))
+            {
+                UIKickoffState = IsMouseOverModGUI;
+                //Debug_TTExt.Log("ManModGUI.UI_released - " + mouseOverMenu);
+                ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, IsMouseOverModGUI);
+                if (IsMouseOverModGUI)
+                {
+                    HideAllObstructingUI();
+                    ReleaseMouse();
+                }
+                else
+                    UIHelpersExt.ReleaseControl();
+            }
+        }
+        internal static void UpdateMouseOverAnyWindow()
+        {
+            bool mouseOverMenu = false;
             foreach (var item in AllPopups)
             {
                 if (item.isOpen && UIHelpersExt.MouseIsOverSubMenu(item.Window))
                 {
-                    isCurrent = true;
+                    IsMouseOverAnyModGUI = 2;
                     break;
                 }
             }
-            if (IsMouseOverOtherModGUI)
-                isCurrent = true;
-            if (isCurrent != IsMouseOverModGUI)
+            if (IsMouseOverAnyModGUI > 0)
+                mouseOverMenu = true;
+            if (mouseOverMenu != IsMouseOverModGUI)
             {
-                IsMouseOverModGUI = isCurrent;
-                ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, isCurrent);
-                if (!isCurrent)
-                    UIHelpersExt.ReleaseControl();
+                //Debug_TTExt.Log("ManModGUI.released - " + mouseOverMenu);
+                IsMouseOverModGUI = mouseOverMenu;
             }
-            IsMouseOverOtherModGUI = false;
+            else if (IsMouseOverAnyModGUI > 0)
+                IsMouseOverAnyModGUI--;
         }
 
 
@@ -465,7 +521,6 @@ namespace TerraTechETCUtil
 
         private void Update()
         {
-            UpdateMouseOverAnyWindow();
             UpdateAllFast();
             if (updateClock > updateClockDelay)
             {

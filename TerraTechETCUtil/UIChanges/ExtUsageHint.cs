@@ -10,6 +10,7 @@ namespace TerraTechETCUtil
 
     public class ExtUsageHint : TinySettings
     {
+        public const string prefix = "ⁿ_";
         public class UsageHint
         {
             public readonly string modID;
@@ -50,7 +51,6 @@ namespace TerraTechETCUtil
         private static ExtUsageHint inst = new ExtUsageHint();
         private static List<ManHints.HintDefinition> extHints = new List<ManHints.HintDefinition>();
         private static Dictionary<GameHints.HintID, Action> extHintsActive = new Dictionary<GameHints.HintID, Action>();
-        private static HashSet<string> extHintsAuto = new HashSet<string>();
         private static Dictionary<string, int> extHintsIDLookup = new Dictionary<string, int>();
         private static Dictionary<int, string> extHintsIDLookupInv = new Dictionary<int, string>();
 
@@ -66,7 +66,8 @@ namespace TerraTechETCUtil
         }
 
         public string HintsSeenSAV = "";
-        private static int HintsSeenETCIndex = 5000;
+        public const int HintsSeenETCIndexStart = 5000;
+        private static int HintsSeenETCIndex = HintsSeenETCIndexStart;
 
         private static void InsureInit()
         {
@@ -83,66 +84,74 @@ namespace TerraTechETCUtil
             {
                 InsureInit();
                 string subjectID = UH.stringID;
-                if (extHintsAuto.Contains(subjectID))
+                if (extHintsIDLookup.ContainsKey(subjectID))
                     throw new Exception("Hint of ID " + subjectID + " is already registered");
-                ManIngameWiki.InjectHint(UH.modID, "General", UH.desc);
+                LocalisedString LS = new LocalisedString()
+                {
+                    m_Bank = subjectID,
+                    m_Id = prefix + subjectID,
+                };
+                EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
                 int intID = HintsSeenETCIndex;
                 HintsSeenETCIndex++;
                 UH.assignedID = intID;
-                ManHints.HintDefinition HD = new ManHints.HintDefinition();
-                HD.m_HintIcon = UIHints.IconType.None;
-                LocalisedString LS = new LocalisedString();
+                defD.SetValue(ES, intID);
+                ManHints.HintDefinition HD = new ManHints.HintDefinition()
+                {
+                    m_HintMessage = LS,
+                    m_HintIcon = UIHints.IconType.None,
+                    m_HintId = ES,
+                    m_UseDifferentHintMessageForPad = false
+                };
+                ManIngameWiki.InjectHint(UH.modID, "General", UH.desc);
                 string HintDescription = UH.desc;
-                LS.m_Bank = subjectID;
-                LS.m_Id = "ⁿ_" + subjectID;
-                HD.m_HintMessage = LS;
-                extHintsAuto.Add(subjectID);
                 extHints.Add(HD);
                 extHintsIDLookup.Add(subjectID, intID);
                 extHintsIDLookupInv.Add(intID, subjectID);
-                EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
-                defD.SetValue(ES, intID);
-                HD.m_HintId = ES;
                 try
                 {
                     Dictionary<int, string> lingo = (Dictionary<int, string>)locFA.GetValue(Localisation.inst);
                     int lingoSearch = (LS.m_Bank + LS.m_Id).GetHashCode();
                     if (lingo.TryGetValue(lingoSearch, out _))
                     {
-                        lingo.Remove(lingoSearch);
-                        lingo.Add(lingoSearch, HintDescription);
-                        //Debug_TTExt.Log("TerraTechModExt: Refreshed the loc desc for gameObject " + subjectName);
+                        lingo[lingoSearch] = HintDescription;
+                        Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.RegisterHint Refreshed the loc desc for UsageHint " + UH.assignedID);
                     }
                     else
                         lingo.Add(lingoSearch, HintDescription);
                     locFA.SetValue(Localisation.inst, lingo);
-                    //Debug_TTExt.Log("TerraTechModExt: Saved the loc desc for gameObject " + subjectName);
+                    Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.RegisterHint Saved the loc desc for UsageHint " + UH.assignedID);
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.RegisterHint TECHINCAL ERROR - loc fail \n" + e);
                 }
             }
             catch (Exception e)
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR - " + e);
+                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.RegisterHint TECHINCAL ERROR - " + e);
             }
         }
         internal static void UpdateHint(UsageHint UH)
         {
             try
             {
-                ManHints.HintDefinition HD = new ManHints.HintDefinition();
-                HD.m_HintIcon = UIHints.IconType.None;
-                LocalisedString LS = new LocalisedString();
                 string subjectID = UH.stringID;
                 string HintDescription = UH.desc;
-                LS.m_Bank = subjectID;
-                LS.m_Id = "ⁿ_" + subjectID;
-                HD.m_HintMessage = LS;
+                LocalisedString LS = new LocalisedString()
+                {
+                    m_Bank = subjectID,
+                    m_Id = prefix + subjectID,
+                };
                 EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
                 defD.SetValue(ES, UH.assignedID);
-                HD.m_HintId = ES;
+                ManHints.HintDefinition HD = new ManHints.HintDefinition()
+                {
+                    m_HintMessage = LS,
+                    m_HintIcon = UIHints.IconType.None,
+                    m_HintId = ES,
+                    m_UseDifferentHintMessageForPad = false
+                };
                 if (!extHints.Contains(HD))
                     extHints.Add(HD);
                 try
@@ -153,21 +162,21 @@ namespace TerraTechETCUtil
                     {
                         lingo.Remove(lingoSearch);
                         lingo.Add(lingoSearch, HintDescription);
-                        //Debug_TTExt.Log("TerraTechModExt: Refreshed the loc desc for gameObject " + subjectName);
+                        Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.UpdateHint Refreshed the loc desc for UsageHint " + UH.assignedID);
                     }
                     else
                         lingo.Add(lingoSearch, HintDescription);
                     locFA.SetValue(Localisation.inst, lingo);
-                    //Debug_TTExt.Log("TerraTechModExt: Saved the loc desc for gameObject " + subjectName);
+                    Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.UpdateHint Saved the loc desc for UsageHint " + UH.assignedID);
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR - loc fail \n" + e);
                 }
             }
             catch
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
+                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
             }
         }
 
@@ -176,62 +185,90 @@ namespace TerraTechETCUtil
             try
             {
                 InsureInit();
-                string bank = "ⁿ_" + ManMods.inst.FindBlockName(blockID);
-                ManHints.HintDefinition HD = new ManHints.HintDefinition();
-                HD.m_HintIcon = UIHints.IconType.None;
-                LocalisedString LS = new LocalisedString();
-                LS.m_Bank = bank;
-                LS.m_Id = "ⁿ_" + blockID.ToString();
-                HD.m_HintMessage = LS;
-                if (!extHintsAuto.Contains(bank))
+                string bank = prefix + subjectName;
+                EnumString ES;
+                LocalisedString LS = new LocalisedString()
                 {
+                    m_Bank = bank,
+                    m_Id = ManMods.inst.FindBlockName(blockID),//prefix + blockID.ToString();
+                };
+                if (extHintsIDLookup.TryGetValue(bank, out int val))
+                {
+                    ES = new EnumString(typeof(GameHints.HintID), 1);
+                    defD.SetValue(ES, val);
+                }
+                else
+                {
+                    //Debug_TTExt.Log("TerraTechModExt: ModuleUsageHint.EditHint add new for gameObject " + subjectName);
                     int intID = HintsSeenETCIndex;
                     HintsSeenETCIndex++;
-                    extHintsAuto.Add(bank);
+                    ES = new EnumString(typeof(GameHints.HintID), 1);
+                    defD.SetValue(ES, intID);
+                    ManHints.HintDefinition HD = new ManHints.HintDefinition()
+                    {
+                        m_HintMessage = LS,
+                        m_HintIcon = UIHints.IconType.None,
+                        m_HintId = ES,
+                        m_UseDifferentHintMessageForPad = false
+                    };
                     extHints.Add(HD);
                     extHintsIDLookup.Add(bank, intID);
                     extHintsIDLookupInv.Add(intID, bank);
                 }
-                EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
-                defD.SetValue(ES, blockID);
-                HD.m_HintId = ES;
                 try
                 {
                     Dictionary<int, string> lingo = (Dictionary<int, string>)locFA.GetValue(Localisation.inst);
                     int lingoSearch = (LS.m_Bank + LS.m_Id).GetHashCode();
                     if (lingo.TryGetValue(lingoSearch, out _))
                     {
-                        lingo.Remove(lingoSearch);
-                        lingo.Add(lingoSearch, HintDescription);
-                        //Debug_TTExt.Log("TerraTechModExt: Refreshed the loc desc for gameObject " + subjectName);
+                        lingo[lingoSearch] = HintDescription;
+                        Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.EditHint Refreshed the loc desc for gameObject " + subjectName);
                     }
                     else
                         lingo.Add(lingoSearch, HintDescription);
                     locFA.SetValue(Localisation.inst, lingo);
-                    //Debug_TTExt.Log("TerraTechModExt: Saved the loc desc for gameObject " + subjectName);
+                    Debug_TTExt.Info("TerraTechModExt: ModuleUsageHint.EditHint Saved the loc desc for gameObject " + subjectName);
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR - loc fail \n" + e);
                 }
             }
             catch
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
+                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
             }
         }
 
-        public static void ShowBlockHint(int blockID)
+        public static void ShowRandomExternalHint()
+        {
+            if (extHintsIDLookupInv.Any())
+            {
+                var entry = extHintsIDLookupInv.ToList().GetRandomEntry();
+                ShowHint((GameHints.HintID)entry.Key, 3, true);
+            }
+        }
+        public static void ShowBlockHint(string subjectName, int blockID)
         {
             try
             {
-                string bank = "ⁿ_" + ManMods.inst.FindBlockName(blockID);
-                if (!HintsSeen.Contains(bank) && extHintsIDLookup.TryGetValue(bank, out var val))
-                    ShowHint((GameHints.HintID)val, defaultHintDisplayTime, false);
+                string bank = prefix + subjectName;
+                if (!HintsSeen.Contains(bank))
+                {
+                    if (extHintsIDLookup.TryGetValue(bank, out var val))
+                        ShowHint((GameHints.HintID)val, defaultHintDisplayTime, false);
+                    else
+                        Debug_TTExt.Assert(true, "ShowBlockHint failed on blockID " + blockID +
+                            " - For some reason the block \"" + ManMods.inst.FindBlockName(blockID) + 
+                            "\" is not registered but was called for a hint!?");
+                }
+                else
+                    Debug_TTExt.Info("ShowBlockHint show on blockID " + blockID +
+                        " - Hint already shown");
             }
             catch (Exception e)
             {
-                Debug_TTExt.Assert(true, "ShowExistingHint failed on blockID "  + blockID + " - " + e.Message);
+                Debug_TTExt.Assert(true, "ShowBlockHint crashed on blockID " + blockID + " - " + e.Message);
             }
         }
         public static bool ShowExistingHint(UsageHint UH)
@@ -295,7 +332,8 @@ namespace TerraTechETCUtil
                     return true;
                 }
                 else
-                    Debug_TTExt.Log("ShowHint FAILED call for hintID " + hintID + " - time " + displayTime + ", manHints " + ManHints.inst.HintsEnabled +
+                    Debug_TTExt.Log("ShowHint FAILED call for hintID " + hintID + " - time " +
+                        displayTime + ", manHints " + ManHints.inst.HintsEnabled +
                         ", hintHud " + ManHUD.inst.IsHudElementVisible(ManHUD.HUDElementType.HintFloating) + ", registered " + extHints.Exists(x => x.m_HintId.Value == (int)hintID) +
                         ", active " + extHintsActive.ContainsKey(hintID));
             }

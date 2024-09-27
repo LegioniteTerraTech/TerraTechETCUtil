@@ -22,6 +22,7 @@ namespace TerraTechETCUtil
             private string name;
             private int step;
             private int stepRate;
+            private Func<T, bool> selector;
             private HashSet<T> Iterated;
             private Dictionary<string, int> names;
             public List<string> namesValid;
@@ -37,6 +38,20 @@ namespace TerraTechETCUtil
                 valid = new List<T>();
                 name = "";
                 step = 0;
+                selector = null;
+            }
+            public SlowSorter(int iterations, Func<T, bool> acceptor)
+            {
+                stepRate = iterations;
+                updating = false;
+                arrayCache = null;
+                Iterated = new HashSet<T>();
+                names = new Dictionary<string, int>();
+                namesValid = new List<string>();
+                valid = new List<T>();
+                name = "";
+                step = 0;
+                selector = acceptor;
             }
 
             public void SetNewSearchQueryIfNeeded(string query, bool allowDupes)
@@ -63,7 +78,7 @@ namespace TerraTechETCUtil
             {
                 if (!updating)
                 {
-                    InvokeHelper.Invoke(Update, 0.04f);
+                    InvokeHelper.Invoke(Update, 0);
                     updating = true;
                 }
             }
@@ -93,22 +108,19 @@ namespace TerraTechETCUtil
                         nameGet = sortable.name;
                     else
                         throw new InvalidCastException("SlowSorter must have a type that is either UnityEngine.Object or SlowSortable");
-                    if (Iterated.Add(item))
+                    if (Iterated.Add(item) && (selector == null || selector(item)))
                     {
-                        if (names.TryGetValue(nameGet, out int stepName))
+                        if (names.TryGetValue(nameGet, out int stepName) && showDuplicates)
                         {
-                            if (showDuplicates)
+                            if (nameGet.ToLower().Contains(name))
                             {
-                                if (nameGet.ToLower().Contains(name))
-                                {
-                                    namesValid.Add(nameGet + "(" + stepName + ")");
-                                    valid.Add(item);
-                                    step++;
-                                    names[nameGet] = stepName + 1;
-                                    continue;
-                                }
+                                namesValid.Add(nameGet + "(" + stepName + ")");
+                                valid.Add(item);
+                                step++;
                                 names[nameGet] = stepName + 1;
+                                continue;
                             }
+                            names[nameGet] = stepName + 1;
                         }
                         else
                         {
@@ -129,7 +141,7 @@ namespace TerraTechETCUtil
                     updating = false;
                 }
                 else
-                    InvokeHelper.Invoke(Update, 0.04f);
+                    InvokeHelper.Invoke(Update, 0);
             }
         }
         public struct SlowSorterString : SlowSorter
@@ -295,6 +307,27 @@ namespace TerraTechETCUtil
                 foreach (T item in Enum.GetValues(typeof(T)))
                 {
                     if (GUILayout.Button(" Type: " + item.ToString()))
+                    {
+                        enumTypeAct.Invoke(item);
+                    }
+                }
+            }
+        }
+        public static void GUICategoryDisp<T>(ref HashSet<string> enabledTabs, string name, Action<T> enumTypeAct, Func<T, bool> selector)
+            where T : Enum
+        {
+            if (GUILayout.Button(name + " | Total: " + Enum.GetValues(typeof(ManSFX.MiscSfxType)).Length))
+            {
+                if (enabledTabs.Contains(name))
+                    enabledTabs.Remove(name);
+                else
+                    enabledTabs.Add(name);
+            }
+            if (enabledTabs.Contains(name))
+            {
+                foreach (T item in Enum.GetValues(typeof(T)))
+                {
+                    if (selector(item) && GUILayout.Button(" Type: " + item.ToString()))
                     {
                         enumTypeAct.Invoke(item);
                     }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
-using System.Collections;
 
 #if !EDITOR
 namespace TerraTechETCUtil
@@ -18,8 +17,10 @@ namespace TerraTechETCUtil
 
 
         private static SpawnHelper inst;
+        public static Dictionary<string, Biome> BiomesByName = new Dictionary<string, Biome>();
+        public static Dictionary<BiomeTypes, Biome> FirstBiomesByType = new Dictionary<BiomeTypes, Biome>();
 
-        private Dictionary<SceneryTypes, Dictionary<BiomeTypes, List<TerrainObject>>> objs = new Dictionary<SceneryTypes, Dictionary<BiomeTypes, List<TerrainObject>>>();
+        private Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>> objs = new Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>>();
         private Dictionary<string, TerrainObject> objsNonRes = new Dictionary<string, TerrainObject>();
 
         private static HashSet<int> captured = new HashSet<int>();
@@ -44,13 +45,13 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public static Dictionary<BiomeTypes, List<TerrainObject>> GetSceneryByType(SceneryTypes type)
+        public static Dictionary<string, List<TerrainObject>> GetSceneryByType(SceneryTypes type)
         {
             GrabInitList();
             inst.objs.TryGetValue(type, out var outcome);
             return outcome;
         }
-        public static IEnumerable<TerrainObject> IterateSceneryByBiome(BiomeTypes type)
+        public static IEnumerable<TerrainObject> IterateSceneryByBiome(string type)
         {
             GrabInitList();
             foreach (var item in inst.objs.Values)
@@ -62,7 +63,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public static IEnumerable<Dictionary<BiomeTypes, List<TerrainObject>>> IterateSceneryTypes()
+        public static IEnumerable<Dictionary<string, List<TerrainObject>>> IterateSceneryTypes()
         {
             GrabInitList();
             foreach (var item in inst.objs)
@@ -73,56 +74,243 @@ namespace TerraTechETCUtil
 
         public static BiomeTypes GetBiomeFromName(string name)
         {
-            if (name.Contains("SaltFlats"))
+            if (name.Contains("SaltFlats") || name.Contains("Flats"))
                 return BiomeTypes.SaltFlats;
-            if (name.Contains("Mountain"))
+            if (name.Contains("Mountain") || name.Contains("Biome7"))
                 return BiomeTypes.Mountains;
-            if (name.Contains("Pillar"))
+            if (name.Contains("Pillar") || name.Contains("Biome5") || name.Contains("5thBiome"))
                 return BiomeTypes.Pillars;
             if (name.Contains("Desert"))
                 return BiomeTypes.Desert;
-            if (name.Contains("Biome7"))
-                return (BiomeTypes)7;
             if (name.Contains("Ice"))
                 return BiomeTypes.Ice;
             return BiomeTypes.Grassland;
         }
-        private SpawnHelper()
+        public static void RefetchResources(BiomeMap ToMap = null) => inst.RefreshResources(ToMap);
+        public void RefreshBiomeResources(BiomeMap ToMap = null)
+        {
+            //Debug_TTExt.Log("RefreshBiomeResources attempt");
+            objs.Clear();
+            BiomesByName.Clear();
+            FirstBiomesByType.Clear();
+            if (ToMap == null)
+                ToMap = ModeMain.inst.m_BiomeMaps.MapStack.SelectCompatibleBiomeMap();
+            foreach (var item in ToMap.IterateBiomes())
+            {
+                var BT = item.BiomeType;
+                //Debug_TTExt.Log("- " + item.name + " | " + BT);
+                BiomesByName.Add(item.name, item);
+                if (FirstBiomesByType.ContainsKey(BT))
+                    FirstBiomesByType.Add(BT, item);
+                if (item.DetailLayers != null)
+                {
+                    foreach (var item2 in item.DetailLayers)
+                    {
+                        if (item2.distributor.basic != null)
+                        {
+                            foreach (var item4 in item2.distributor.basic.terrainObject)
+                            {
+                                if (item4 == null) break;
+                                var scenery = item4.GetComponent<ResourceDispenser>();
+                                if (scenery == null)
+                                    break;
+                                SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
+                               // Debug_TTExt.Log("1- " + item.name + " | " + BT + " | " + ST);
+                                List<TerrainObject> objRand;
+                                Dictionary<string, List<TerrainObject>> objBiome;
+                                if (objs.TryGetValue(ST, out objBiome))
+                                {
+                                    if (objBiome.TryGetValue(item.name, out objRand))
+                                        objRand.Add(item4);
+                                    else
+                                    {
+                                        objRand = new List<TerrainObject> { item4 };
+                                        objBiome.Add(item.name, objRand);
+                                    }
+                                }
+                                else
+                                {
+                                    objRand = new List<TerrainObject> { item4 };
+                                    objBiome = new Dictionary<string, List<TerrainObject>>()
+                                    {
+                                        { item.name, objRand }
+                                    };
+                                    objs.Add(ST, objBiome);
+                                }
+                            }
+                        }
+                        if (item2.distributor.decoration != null)
+                        {
+                            foreach (var item4 in item2.distributor.decoration.terrainObject)
+                            {
+                                if (item4 == null) break;
+                                var scenery = item4.GetComponent<ResourceDispenser>();
+                                if (scenery == null)
+                                    break;
+                                SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
+                               /// Debug_TTExt.Log("2- " + item.name + " | " + BT + " | " + ST);
+                                List<TerrainObject> objRand;
+                                Dictionary<string, List<TerrainObject>> objBiome;
+                                if (objs.TryGetValue(ST, out objBiome))
+                                {
+                                    if (objBiome.TryGetValue(item.name, out objRand))
+                                        objRand.Add(item4);
+                                    else
+                                    {
+                                        objRand = new List<TerrainObject> { item4 };
+                                        objBiome.Add(item.name, objRand);
+                                    }
+                                }
+                                else
+                                {
+                                    objRand = new List<TerrainObject> { item4 };
+                                    objBiome = new Dictionary<string, List<TerrainObject>>()
+                                    {
+                                        { item.name, objRand }
+                                    };
+                                    objs.Add(ST, objBiome);
+                                }
+                            }
+                        }
+                        if (item2.distributor.variants != null)
+                        {
+                            foreach (var item3 in item2.distributor.variants)
+                            {
+                                if (item3.terrainObject != null)
+                                {
+                                    foreach (var item4 in item3.terrainObject)
+                                    {
+                                        if (item4 == null) break;
+                                        var scenery = item4.GetComponent<ResourceDispenser>();
+                                        if (scenery == null)
+                                            break;
+                                        SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
+                                       // Debug_TTExt.Log("3- " + item.name + " | " + BT + " | " + ST);
+                                        List<TerrainObject> objRand;
+                                        Dictionary<string, List<TerrainObject>> objBiome;
+                                        if (objs.TryGetValue(ST, out objBiome))
+                                        {
+                                            if (objBiome.TryGetValue(item.name, out objRand))
+                                                objRand.Add(item4);
+                                            else
+                                            {
+                                                objRand = new List<TerrainObject> { item4 };
+                                                objBiome.Add(item.name, objRand);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            objRand = new List<TerrainObject> { item4 };
+                                            objBiome = new Dictionary<string, List<TerrainObject>>()
+                                            {
+                                                { item.name, objRand }
+                                            };
+                                            objs.Add(ST, objBiome);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (item2.distributor.upgradeRules != null)
+                        {
+                            foreach (var item3 in item2.distributor.upgradeRules)
+                            {
+                                if (item3.upgrade?.terrainObject != null)
+                                {
+                                    foreach (var item4 in item3.upgrade.terrainObject)
+                                    {
+                                        if (item4 == null) break;
+                                        var scenery = item4.GetComponent<ResourceDispenser>();
+                                        if (scenery == null)
+                                            break;
+                                        SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
+                                        // Debug_TTExt.Log("4- " + item.name + " | " + BT + " | " + ST);
+                                        List<TerrainObject> objRand;
+                                        Dictionary<string, List<TerrainObject>> objBiome;
+                                        if (objs.TryGetValue(ST, out objBiome))
+                                        {
+                                            if (objBiome.TryGetValue(item.name, out objRand))
+                                                objRand.Add(item4);
+                                            else
+                                            {
+                                                objRand = new List<TerrainObject> { item4 };
+                                                objBiome.Add(item.name, objRand);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            objRand = new List<TerrainObject> { item4 };
+                                            objBiome = new Dictionary<string, List<TerrainObject>>()
+                                            {
+                                                { item.name, objRand }
+                                            };
+                                            objs.Add(ST, objBiome);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!objs.Any())
+                Debug_TTExt.Log("RefreshBiomeResources NOTHING");
+        }
+        public void RefreshResources(BiomeMap ToMap = null)
         {
             try
             {
-                FieldInfo sce = typeof(ManSpawn).GetField("spawnableScenery", BindingFlags.NonPublic | BindingFlags.Instance);
+                objsNonRes.Clear();
+                FieldInfo sce = typeof(ManSpawn).GetField("m_TerrainObjectTable", BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo sce2 = typeof(TerrainObjectTable).GetField("m_GUIDToPrefabLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+                var lookup = sce.GetValue(ManSpawn.inst);
+                if (lookup == null) throw new NullReferenceException("SpawnHelper: ManSpawn.inst has not allocated m_TerrainObjectTable for some reason and SpawnHelper fetch failed");
 
-                List<Visible> objsRaw = (List<Visible>)sce.GetValue(ManSpawn.inst);
-                if (objsRaw == null) throw new NullReferenceException("SpawnHelper: ManSpawn.inst has not allocated spawnableScenery for some reason and SpawnHelper fetch failed");
-                foreach (var item in objsRaw)
+                if (ManWorld.inst.CurrentBiomeMap.GetNumBiomes() == 0)
                 {
+                    Debug_TTExt.Log("No biomes?");
+                    objs.Clear();
+                }
+
+                Dictionary<string, TerrainObject> objsRaw = (Dictionary<string, TerrainObject>)sce2.GetValue(lookup);
+                if (objsRaw == null) throw new NullReferenceException("SpawnHelper: TerrainObjectTable has not allocated m_GUIDToPrefabLookup for some reason and SpawnHelper fetch failed");
+                RefreshBiomeResources(ToMap);
+                bool gatherResTemp = !objs.Any();
+                foreach (var itemPair in objsRaw)
+                {
+                    TerrainObject item = itemPair.Value;
+                    Visible scenery = item?.GetComponent<Visible>();
                     try
                     {
-                        if (item == null || item.GetComponent<TerrainObject>() == null)
+                        if (item == null)
                             return;
                         if (item.GetComponent<ResourceDispenser>())
                         {
-                            SceneryTypes ST = (SceneryTypes)item.ItemType;
+                            // Do it in the previous loop
+                            if (!gatherResTemp)
+                                continue;
+                            SceneryTypes ST = (SceneryTypes)scenery.ItemType;
                             BiomeTypes BT = GetBiomeFromName(item.name);
                             //Debug_TTExt.Log("- " + item.name + " | " + BT + " | " + ST);
                             List<TerrainObject> objRand;
-                            Dictionary<BiomeTypes, List<TerrainObject>> objBiome;
+                            Dictionary<string, List<TerrainObject>> objBiome;
                             if (objs.TryGetValue(ST, out objBiome))
                             {
-                                if (objBiome.TryGetValue(BT, out objRand))
+                                if (objBiome.TryGetValue(BT.ToString(), out objRand))
                                     objRand.Add(item.GetComponent<TerrainObject>());
                                 else
                                 {
                                     objRand = new List<TerrainObject> { item.GetComponent<TerrainObject>() };
-                                    objBiome.Add(BT, objRand);
+                                    objBiome.Add(BT.ToString(), objRand);
                                 }
                             }
                             else
                             {
                                 objRand = new List<TerrainObject> { item.GetComponent<TerrainObject>() };
-                                objBiome = new Dictionary<BiomeTypes, List<TerrainObject>>();
-                                objBiome.Add(BT, objRand);
+                                objBiome = new Dictionary<string, List<TerrainObject>>
+                                {
+                                    { BT.ToString(), objRand }
+                                };
                                 objs.Add(ST, objBiome);
                             }
                         }
@@ -151,6 +339,10 @@ namespace TerraTechETCUtil
             if (objs.Count == 0)
                 Debug_TTExt.Assert("SpawnHelper grabbed no resource nodes.  Did we init too early or are there none in this game mode?");
         }
+        private SpawnHelper()
+        {
+            RefreshResources();
+        }
 
         public static void GrabInitList(bool forceReInit = false)
         {
@@ -159,33 +351,33 @@ namespace TerraTechETCUtil
             inst = new SpawnHelper();
         }
 
-        public static void PrintAllRegisteredResourceNodes()
+        public static void PrintAllRegisteredResourceNodes(StringBuilder SB)
         {
             GrabInitList();
-            Debug_TTExt.Log("Resources:");
+            SB.AppendLine("Resources:");
             foreach (var item in inst.objs)
             {
-                Debug_TTExt.Log("  Type: " + item.Key);
+                SB.AppendLine("  Type: " + item.Key);
                 foreach (var item2 in item.Value)
                 {
-                    Debug_TTExt.Log("   Biome: " + item2.Key);
+                    SB.AppendLine("   Biome: " + item2.Key);
                     foreach (var item3 in item2.Value)
                     {
-                        Debug_TTExt.Log("     Name: " + item3.name);
+                        SB.AppendLine("     Name: " + (item3.name.NullOrEmpty() ? "<NULL>" : item3.name));
                     }
                 }
             }
-            Debug_TTExt.Log("END");
+            SB.AppendLine("END");
         }
-        public static void PrintAllRegisteredNonResourceObjects()
+        public static void PrintAllRegisteredNonResourceObjects(StringBuilder SB)
         {
             GrabInitList();
-            Debug_TTExt.Log("TerrainObject:");
+            SB.AppendLine("TerrainObject:");
             foreach (var item in inst.objsNonRes)
             {
-                Debug_TTExt.Log("  Name: " + item.Key);
+                SB.AppendLine("  Name: " + (item.Value.name.NullOrEmpty() ? "<NULL>" : item.Value.name));
             }
-            Debug_TTExt.Log("END");
+            SB.AppendLine("END");
         }
 
 
@@ -203,7 +395,7 @@ namespace TerraTechETCUtil
             throw new NullReferenceException("GetNonResourcePrefab entry for " + Name + " has no match!");
         }
 
-        public static TerrainObject GetResourceNodePrefab(SceneryTypes type, BiomeTypes biome)
+        public static TerrainObject GetResourceNodePrefab(SceneryTypes type, string biomeName)
         {
             GrabInitList();
             try
@@ -211,14 +403,14 @@ namespace TerraTechETCUtil
                 TerrainObject TO = null;
                 if (inst.objs.TryGetValue(type, out var objBiome))
                 {
-                    if (objBiome.TryGetValue(biome, out var objRand))
+                    if (objBiome.TryGetValue(biomeName, out var objRand))
                     {
                         TO = objRand.GetRandomEntry();
                     }
                     else
-                        TO = objBiome[BiomeTypes.Grassland].GetRandomEntry();
+                        TO = objBiome[BiomeTypes.Grassland.ToString()].GetRandomEntry();
                     if (TO == null)
-                        throw new NullReferenceException("GetResourceNodePrefab entry for Biome " + biome.ToString() + " has NO entries!");
+                        throw new NullReferenceException("GetResourceNodePrefab entry for Biome " + biomeName + " has NO entries!");
                 }
                 else
                     throw new NullReferenceException("GetResourceNodePrefab entry for Scenery " + type.ToString() + " has NO entries!");
@@ -226,13 +418,42 @@ namespace TerraTechETCUtil
             }
             catch (Exception)
             {
-                throw new NullReferenceException("GetResourceNodePrefab entry for " + type.ToString() + " | " + biome.ToString() + " has NO entries!");
+                throw new NullReferenceException("GetResourceNodePrefab entry for " + type.ToString() + " | " + biomeName + " has NO entries!");
             }
         }
-        public static void SpawnResourceNodeExplosion(Vector3 scenePos, SceneryTypes type, BiomeTypes biome)
+        public static TerrainObject GetResourceNodePrefab(string name)
+        {
+            if (name.NullOrEmpty())
+                throw new ArgumentNullException("name null or empty");
+            GrabInitList();
+            try
+            {
+                TerrainObject TO = null;
+                foreach (var item in inst.objs)
+                {
+                    foreach (var item2 in item.Value)
+                    {
+                        if (item2.Value != null)
+                        {
+                            foreach (var item3 in item2.Value)
+                            {
+                                if (item3.name == name)
+                                    return item3;
+                            }
+                        }
+                    }
+                }
+                throw new NullReferenceException("GetResourceNodePrefab entry for Scenery " + name + " has NO entries!");
+            }
+            catch (Exception)
+            {
+                throw new NullReferenceException("GetResourceNodePrefab entry for " + name + " has NO entries!");
+            }
+        }
+        public static void SpawnResourceNodeExplosion(Vector3 scenePos, SceneryTypes type, string biomeName)
         {
             GrabInitList();
-            var resDisp = GetResourceNodePrefab(type, biome).GetComponent<ResourceDispenser>();
+            var resDisp = GetResourceNodePrefab(type, biomeName).GetComponent<ResourceDispenser>();
             ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
             ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
         }
@@ -243,20 +464,20 @@ namespace TerraTechETCUtil
             ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
             ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
         }
-        public static ResourceDispenser SpawnResourceNodeSnapTerrain(Vector3 scenePos, SceneryTypes type, BiomeTypes biome)
+        public static ResourceDispenser SpawnResourceNodeSnapTerrain(Vector3 scenePos, SceneryTypes type, string biomeName)
         {
             GrabInitList();
             Vector3 pos = scenePos;
             ManWorld.inst.GetTerrainHeight(pos, out pos.y);
             Quaternion flatRot = Quaternion.LookRotation((UnityEngine.Random.rotation * Vector3.forward).SetY(0).normalized, Vector3.up);
-            return SpawnResourceNode(pos, flatRot, type, biome);
+            return SpawnResourceNode(pos, flatRot, type, biomeName);
         }
-        public static ResourceDispenser SpawnResourceNode(Vector3 scenePos, Quaternion rotation, SceneryTypes type, BiomeTypes biome)
+        public static ResourceDispenser SpawnResourceNode(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
         {
             GrabInitList();
             try
             {
-                TerrainObject TO = GetResourceNodePrefab(type, biome);
+                TerrainObject TO = GetResourceNodePrefab(type, biomeName);
                 TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
                 ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
                 return RD;
@@ -266,12 +487,12 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("TTExtUtil: SpawnResourceNode encountered an error - " + e.Message, e);
             }
         }
-        public static ResourceDispenser SpawnResourceNodeAnimated(Vector3 scenePos, Quaternion rotation, SceneryTypes type, BiomeTypes biome)
+        public static ResourceDispenser SpawnResourceNodeAnimated(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
         {
             GrabInitList();
             try
             {
-                TerrainObject TO = GetResourceNodePrefab(type, biome);
+                TerrainObject TO = GetResourceNodePrefab(type, biomeName);
                 TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
                 ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
                 RD.RemoveFromWorld(false, false, true, false);
@@ -486,7 +707,7 @@ namespace TerraTechETCUtil
         {
             private static bool controlledDisp = false;
             private static HashSet<string> enabledTabs = null;
-            private static BiomeTypes curBiome = BiomeTypes.Grassland;
+            private static int curBiome = 0;
             private static bool showRes = false;
             private static bool snapTerrain = false;
             public static void GUIGetTotalManaged()
@@ -523,12 +744,15 @@ namespace TerraTechETCUtil
                 if (showRes)
                 {
                     Vector3 spawnPos = Singleton.playerTank.boundsCentreWorld + (Singleton.cameraTrans.forward * 64);
-                    curBiome = (BiomeTypes)GUIToolbarCategoryDisp<BiomeTypes>((int)curBiome);
+                    curBiome = GUIVertToolbar(curBiome, BiomesByName.Keys.ToArray());
                     if (GUILayout.Button("Set Biome Based On Own Tech"))
-                        curBiome = ManWorld.inst.GetBiomeWeightsAtScenePosition(Singleton.playerTank.boundsCentreWorld).Biome(0).BiomeType;
+                    {
+                        var biomeThis = ManWorld.inst.GetBiomeWeightsAtScenePosition(Singleton.playerTank.boundsCentreWorld).Biome(0);
+                        curBiome = BiomesByName.Values.ToList().FindIndex(x => x == biomeThis);
+                    }
                     snapTerrain = AltUI.Toggle(snapTerrain, "Snap To Terrain");
-                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Explosions", x => SpawnResourceNodeExplosion(spawnPos, x, curBiome));
-                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Nodes", x => SpawnResourceNode(spawnPos, Quaternion.identity, x, curBiome)); 
+                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Explosions", x => SpawnResourceNodeExplosion(spawnPos, x, BiomesByName.Keys.ToArray()[curBiome]));
+                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Nodes", x => SpawnResourceNode(spawnPos, Quaternion.identity, x, BiomesByName.Keys.ToArray()[curBiome])); 
                     if (GUILayout.Button("Destroy Close Resource Node"))
                     {
                         var iterate = ManVisible.inst.VisiblesTouchingRadius(spawnPos, 64, new Bitfield<ObjectTypes>(new ObjectTypes[1] { ObjectTypes.Scenery }));
@@ -565,7 +789,7 @@ namespace TerraTechETCUtil
                         foreach (var item in GetAllSetPieceNames())
                         {
                             GUILayout.BeginHorizontal();
-                            if (GUILayout.Button(item))
+                            if (GUILayout.Button(item.NullOrEmpty() ? "<NULL>" : item))
                             {
                                 selectedSP = GetSetPiece(item);
                             }

@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.IO;
 using System.Reflection;
+using System.Reflection.Emit;
+using FMOD.Studio;
 using UnityEngine;
 #if !EDITOR
 using HarmonyLib;
@@ -134,22 +135,24 @@ namespace TerraTechETCUtil
             UIHelpersExt.BigF5broningBanner("Ability - Test", false);
             ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Craft);
         }
+
         public static void InsurePatches()
         {
             if (patched)
                 return;
             try
             {
-                WorldDeformer.Init();
                 //InvokeHelper.Invoke(ExtractOnce, 3f);
                 UIHelpersExt.InsureNetHooks();
+
+                ResourcesHelper.ModsPostLoadEvent.Subscribe(ManAudioExt.RegisterAllSounds);
 
                 //new ManAbilities.AbilityButton("DebugPower", ManIngameWiki.BlocksSprite, DoUIAbilityTestCall, 1.5f);
                 //ManAbilities.InitAbilityBar();
                 try
                 {
                     harmonyInstance.MassPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt", true);
-                    Debug_TTExt.Info("TerraTechETCUtil: Mass patched");
+                    Debug_TTExt.Log("TerraTechETCUtil: Mass patched");
                 }
                 catch (Exception e)
                 {
@@ -165,7 +168,10 @@ namespace TerraTechETCUtil
                     throw new Exception("TerraTechETCUtil failed to perform finer patches", e);
                 }
                 UIHelpersExt.Init();
-                ResourcesHelper.PostBlocksLoadEvent.Subscribe(ManIngameWiki.InitWiki);
+                ResourcesHelper.ModsPreLoadEvent.Send();
+                ResourcesHelper.ModsPreLoadEvent.Subscribe(WikiPageDamageStats.ResetAllCustomDamageables);
+
+                ResourcesHelper.ModsPostLoadEvent.Subscribe(ManIngameWiki.InitWiki);
                 patched = true;
             }
             catch (Exception e)
@@ -179,7 +185,9 @@ namespace TerraTechETCUtil
         {
             if (!patched)
                 return;
-            ResourcesHelper.PostBlocksLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
+            ResourcesHelper.ModsPostLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
+            WorldTerraformer.DeInit();
+
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt");
             try
             {
@@ -251,13 +259,149 @@ namespace TerraTechETCUtil
     }
     public class Patches
     {
-        [HarmonyPatch(typeof(ManSpawn))]
-        [HarmonyPatch("OnDLCLoadComplete")]//
-        private class AfterLoadingBlocksEvent
+        [HarmonyPatch(typeof(ModuleBlockAttributes))]
+        [HarmonyPatch("InitBlockAttributes")]//
+        internal static class InsureModdedIsRight
         {
-            private static void Postfix(ManSpawn __instance)
+            internal static FieldInfo generator = typeof(ModuleEnergy).GetField(
+                "m_OutputConditions", BindingFlags.NonPublic | BindingFlags.Instance);
+            internal static FieldInfo generatorValue = typeof(ModuleEnergy).GetField(
+                "m_OutputPerSecond", BindingFlags.NonPublic | BindingFlags.Instance);
+            internal static FieldInfo anchorRequired = typeof(ModuleItemConsume).GetField(
+                "m_NeedsToBeAnchored", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            private static void Prefix(ref ModuleBlockAttributes __instance, Visible visible)
             {
-                ResourcesHelper.PostBlocksLoadEvent.Send();
+                int errorcode = 0;
+                try
+                {
+                    try
+                    {
+                        errorcode = 1;
+                        if (visible.ItemType >= Enum.GetValues(typeof(BlockTypes)).Length)
+                        {
+                            errorcode = 2;
+                            int hash = visible.m_ItemType.GetHashCode();
+                            BlockAttributes blockAttributeFlags = (BlockAttributes)ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<BlockAttributes>(hash);
+                            errorcode = 3;
+                            var booster = __instance.GetComponent<ModuleBooster>();
+                            if (booster)
+                            {
+                                if (booster.transform.GetComponentInChildren<BoosterJet>(true))
+                                    blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.FuelConsumer);
+                            }
+                            errorcode = 4;
+                            var energy = __instance.GetComponent<ModuleEnergy>();
+                            if (energy)
+                            {
+                                try
+                                {
+                                    if (energy.UpdateConsumeEvent.HasSubscribers())
+                                        blockAttributeFlags.SetFlags(BlockAttributes.PowerConsumer, true);
+                                }
+                                catch { }
+                                if ((float)generatorValue.GetValue(energy) > 0f)
+                                {
+                                    blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.PowerProducer);
+                                    ModuleEnergy.OutputConditionFlags flags = (ModuleEnergy.OutputConditionFlags)generator.GetValue(energy);
+                                    if ((flags & ModuleEnergy.OutputConditionFlags.Thermal) != 0)
+                                        blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.Steam);
+                                    if ((flags & ModuleEnergy.OutputConditionFlags.Anchored) != 0)
+                                        blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.Anchored);
+                                }
+                            }
+                            errorcode = 5;
+
+                            var consume = __instance.GetComponent<ModuleItemConsume>();
+                            if (consume)
+                            {
+                                blockAttributeFlags.SetFlags(BlockAttributes.ResourceBased, true);
+                                if ((bool)anchorRequired.GetValue(consume))
+                                    blockAttributeFlags.SetFlags(BlockAttributes.Anchored, true);
+                            }
+                            errorcode = 6;
+                            if (__instance.GetComponent<ModuleAIBot>())
+                                blockAttributeFlags.SetFlags(BlockAttributes.AI, true);
+                            else if (__instance.GetComponent<ModuleTechController>() &&
+                                __instance.GetComponent<ModuleTechController>().m_PlayerInput)
+                                blockAttributeFlags.SetFlags(BlockAttributes.PlayerCab, true);
+                            errorcode = 7;
+                            if (__instance.GetComponent<ModuleItemProducer>())
+                                blockAttributeFlags.SetFlags(BlockAttributes.Mining, true);
+                            var circuits = __instance.GetComponent<ModuleCircuitNode>();
+                            if (circuits && (circuits.Dispensor || circuits.IsChargeCarrier))
+                                blockAttributeFlags.SetFlags(BlockAttributes.CircuitsEnabled, true);
+                            errorcode = 9;
+                            if (__instance.GetComponent<ModuleEnergyStore>())
+                                blockAttributeFlags.SetFlags(BlockAttributes.PowerStorage, true);
+                            errorcode = 10;
+                            if (__instance.GetComponent<ModuleHeart>())
+                                blockAttributeFlags.SetFlags(BlockAttributes.BlockStorage, true);
+                            errorcode = 11;
+                            if (__instance.GetComponent<ModuleAnchor>() &&
+                                __instance.GetComponent<ModuleAnchor>().AllowsRotation)
+                                blockAttributeFlags.SetFlags(BlockAttributes.AnchoredMobile, true);
+                            errorcode = 12;
+                            ManSpawn.inst.VisibleTypeInfo.SetDescriptorFlags<BlockAttributes>(hash, (int)blockAttributeFlags);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (!__instance)
+                            throw new NullReferenceException("__instance is null");
+                        if (!visible)
+                            throw new NullReferenceException("visible is null");
+                        if (ManSpawn.inst?.VisibleTypeInfo == null)
+                            throw new NullReferenceException("ManSpawn.inst.VisibleTypeInfo is null");
+                        if (generator == null)
+                            throw new NullReferenceException("generator is null");
+                        if (generatorValue == null)
+                            throw new NullReferenceException("generatorValue is null");
+                        if (anchorRequired == null)
+                            throw new NullReferenceException("anchorRequired is null");
+                        throw e;
+                    }
+                }
+                catch (Exception e) 
+                { 
+                    Debug_TTExt.Log("Failure on InsureModdedIsRight(InitBlockAttributes) " +
+                        "while properly indexing modded block for rapid database lookup with errorCode(" + errorcode + ") - " + e);
+                }
+            }
+        }
+
+
+
+        [HarmonyPatch(typeof(ManPointer))]
+        [HarmonyPatch("UpdateMouseEvents")]//
+        internal static class LockMouseWhenOverSubMenu
+        {
+            private static bool Prefix(ref ManPointer __instance)
+            {
+                return __instance.DraggingItem != null || !ManModGUI.IsMouseOverModGUI;
+            }
+        }
+        [HarmonyPatch(typeof(FMODEventInstance))]
+        [HarmonyPatch("start")]//
+        internal static class GetDatas
+        {
+            private static void Prefix(ref FMODEventInstance __instance)
+            {
+                if (SFXHelpers.FetchSound && __instance.m_EventInstance.isValid() && !__instance.m_EventPath.NullOrEmpty())
+                {
+                    SFXHelpers.FetchSound = false;
+                    Debug_TTExt.Log("FMODEventInstance - " + __instance.m_EventPath);
+                    __instance.m_EventInstance.getParameterCount(out int num);
+                    for (int i = 0; i < num; i++)
+                    {
+                        ParameterInstance parameterInstance;
+                        __instance.m_EventInstance.getParameterByIndex(i, out parameterInstance);
+                        PARAMETER_DESCRIPTION parameter_DESCRIPTION;
+                        parameterInstance.getDescription(out parameter_DESCRIPTION);
+                        parameterInstance.getValue(out float value);
+                        Debug_TTExt.Log(" - " + parameter_DESCRIPTION.name + ", [" + i + "] = " + value.ToString("F"));
+                    }
+                }
             }
         }
 
@@ -333,6 +477,40 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        [HarmonyPatch(typeof(ManProfile.Profile))]
+        [HarmonyPatch("SetHintSeen")]//
+        private class DontSaveModdedHint
+        {
+            private static bool Prefix(ref GameHints.HintID hintId)
+            {
+                return (int)hintId < ExtUsageHint.HintsSeenETCIndexStart;
+            }
+        }
+
+        [HarmonyPatch(typeof(ManWorld), "TryProjectToGround",
+            new Type[] { typeof(Vector3), typeof(Vector3), typeof(bool) },
+            new ArgumentType[] { ArgumentType.Ref, ArgumentType.Out, ArgumentType.Normal, })]//
+        private static class InsureGroundHit
+        {
+            private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> collection)
+            {
+                int Ldc_R4Count = 0;
+                foreach (var item in collection)
+                {
+                    if (item.opcode == OpCodes.Ldc_R4)
+                    {
+                        if (item.operand is float floatC && floatC == 250f)
+                        {
+                            Ldc_R4Count++;
+                            Debug_TTExt.Log("Adjusted ground raycasting(" + Ldc_R4Count + ")");
+                            item.operand = 550f;
+                        }
+                    }
+                    yield return item;
+                }
+            }
+        }
+
     }
 }
 #endif

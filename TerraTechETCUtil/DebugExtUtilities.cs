@@ -98,6 +98,7 @@ namespace TerraTechETCUtil
         /// <param name="color">Color to display the Directional Indicator</param>
         public static void DrawDirIndicator(GameObject obj, int num, Vector3 endPosGlobalSpaceOffset, Color color)
         {
+            InsureDirPrefab();
             GameObject gO;
             Transform trans;
             string lineName = "DebugLine " + num;
@@ -336,7 +337,16 @@ namespace TerraTechETCUtil
             GUIWindow = new GameObject();
             GUIWindow.AddComponent<GUIDisplayExtUtil>();
             GUIWindow.SetActive(false);
+            ManGameMode.inst.ModeStartEvent.Subscribe(OnModeStart);
             InvokeHelper.InvokeSingleRepeat(StaticUpdate, 0);
+        }
+        private static void OnModeStart(Mode mode)
+        {
+            if (mode.IsMultiplayer)
+            {
+                Close();
+                AllowEnableDebugGUIMenu_KeypadEnter = false;
+            }
         }
         private static void DeInit()
         {
@@ -344,6 +354,7 @@ namespace TerraTechETCUtil
                 return;
             Debug_TTExt.Log("Debug_TTExt: Debugger Disabled");
             InvokeHelper.CancelInvokeSingleRepeat(StaticUpdate);
+            ManGameMode.inst.ModeStartEvent.Unsubscribe(OnModeStart);
             Destroy(GUIWindow);
             GUIWindow = null;
         }
@@ -400,6 +411,7 @@ namespace TerraTechETCUtil
             InvokeHelper.GUIManaged.GUIGetTotalManaged();
             SFXHelpers.GUIManaged.GUIGetTotalManaged();
             SpawnHelper.GUIManaged.GUIGetTotalManaged();
+            ManWorldTileExt.GUIManaged.GUIGetTotalManaged();
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
             GUILayout.EndScrollView();

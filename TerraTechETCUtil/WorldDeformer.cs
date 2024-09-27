@@ -134,6 +134,8 @@ namespace TerraTechETCUtil
             Slope
         }
 
+
+
         /*
         private static float applyStrength => 0.01f / TerrainOperations.RescaleFactor;
         private static float levelingStrength => 0.1f / TerrainOperations.RescaleFactor;
@@ -340,10 +342,6 @@ namespace TerraTechETCUtil
             {
                 item.Value.FlushApply(1, new WorldPosition(item.Key, Vector3.zero).ScenePosition);
             }
-        }
-
-        public static void AddTerrainDefault()
-        { 
         }
 
     }

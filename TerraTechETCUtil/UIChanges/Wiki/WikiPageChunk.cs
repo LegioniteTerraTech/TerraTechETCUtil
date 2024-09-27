@@ -49,6 +49,7 @@ namespace TerraTechETCUtil
             return false;
         }
         private static List<ChunkDataInfo> Combiler = new List<ChunkDataInfo>();
+        public override void GetIcon() { }
         public override void OnBeforeDisplay()
         {
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, chunkID);

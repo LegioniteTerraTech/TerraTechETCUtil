@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace TerraTechETCUtil
 {
@@ -102,6 +100,8 @@ namespace TerraTechETCUtil
                     return FactionLevel.VEN;
                 case FactionSubTypes.HE:
                     return FactionLevel.HE;
+                case FactionSubTypes.SJ:
+                    return FactionLevel.SJ;
                 case FactionSubTypes.BF:
                     return FactionLevel.BF;
                 default:
@@ -194,6 +194,19 @@ namespace TerraTechETCUtil
             return (FactionTypesExt)Singleton.Manager<ManSpawn>.inst.GetCorporation(BT);
         }
 
+        public static BlockTypes GetFirstBlock(this List<RawBlockMem> tank)
+        {
+            if (tank == null || !tank.Any())
+                return BlockTypes.GSOAIController_111;
+            return tank.First().typeSlow;
+        }
+        public static BlockTypes GetFirstBlock(this List<RawBlock> tank)
+        {
+            if (tank == null || !tank.Any())
+                return BlockTypes.GSOAIController_111;
+            return tank.First().typeSlow;
+        }
+
 
         private static StringBuilder RAW = new StringBuilder();
         private static StringBuilder RAWCase = new StringBuilder();
@@ -201,7 +214,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Checks all of the blocks in a BaseTemplate Tech to make sure it's safe to spawn as well as calculate other requirements for it.
         /// </summary>
-        public static bool ValidateBlocksInTech(this RawTechTemplate templateToCheck)
+        public static bool ValidateBlocksInTech(this RawTechTemplate templateToCheck, bool removeInvalid, bool throwOnFail)
         {
             try
             {
@@ -245,49 +258,94 @@ namespace TerraTechETCUtil
                     return false;
                 }
                 int basePrice = 0;
-                foreach (RawBlockMem bloc in nonAlloc)
+                for (int step = 0; step < nonAlloc.Count;)
                 {
-                    BlockTypes type = BlockIndexer.StringToBlockType(bloc.t);
-                    if (!Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(type))
+                    RawBlockMem bloc = nonAlloc[step];
+                    try
                     {
-                        valid = false;
-                        continue;
-                    }
+                        if (!BlockIndexer.StringToBlockType(bloc.t, out BlockTypes type))
+                            throw new NullReferenceException("Block does not exists - \nBlockName: " +
+                                (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
+                        if (!ManMods.inst.IsModdedBlock(type) && !ManSpawn.inst.IsTankBlockLoaded(type))
+                            throw new NullReferenceException("Block is not loaded - \nBlockName: " +
+                                (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
 
-                    FactionSubTypes FST = Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
-                    FactionLevel FL = GetFactionLevel(FST);
-                    if (FL >= FactionLevel.ALL)
-                    {
-                        if (ManMods.inst.IsModdedCorp(FST))
+
+                        FactionSubTypes FST = Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
+                        FactionLevel FL = GetFactionLevel(FST);
+                        if (FL >= FactionLevel.ALL)
                         {
-                            ModdedCorpDefinition MCD = ManMods.inst.GetCorpDefinition(FST);
-                            if (Enum.TryParse(MCD.m_RewardCorp, out FactionSubTypes FST2))
+                            try
                             {
-                                FST = FST2;
+                                if (ManMods.inst.IsModdedCorp(FST))
+                                {
+                                    ModdedCorpDefinition MCD = ManMods.inst.GetCorpDefinition(FST);
+                                    if (Enum.TryParse(MCD.m_RewardCorp, out FactionSubTypes FST2))
+                                    {
+                                        FST = FST2;
+                                    }
+                                    else
+                                        throw new InvalidOperationException("Block with invalid m_RewardCorp - \nBlockType: " + type.ToString());
+                                }
+                                else
+                                    throw new InvalidOperationException("Block with invalid corp - \nCorp Level: " + FL.ToString() + " \nBlockType: " + type.ToString());
                             }
-                            else
-                                throw new Exception("There's a block given that has an invalid corp \nBlockType: " + type);
+                            catch (InvalidOperationException e)
+                            {
+                                throw e;
+                            }
+                            catch (Exception)
+                            {
+                                throw new Exception("Block with invalid data - \nBlockType: <?NULL?>");
+                            }
                         }
-                        else
-                            throw new Exception("There's a block given that has an invalid corp \nCorp: " + FL + " \nBlockType: " + type);
+                        if (greatestFaction < FL)
+                            greatestFaction = FL;
+                        basePrice += Singleton.Manager<RecipeManager>.inst.GetBlockBuyPrice(type);
+                        bloc.t = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type).name;
+                        step++;
                     }
-                    if (greatestFaction < FL)
-                        greatestFaction = FL;
-                    basePrice += Singleton.Manager<RecipeManager>.inst.GetBlockBuyPrice(type);
-                    bloc.t = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type).name;
+                    catch (Exception e)
+                    {
+                        if (removeInvalid)
+                            nonAlloc.RemoveAt(step);
+                        else
+                            throw e;
+                    }
                 }
                 templateToCheck.baseCost = basePrice;
                 templateToCheck.factionLim = greatestFaction;
                 templateToCheck.blockCount = nonAlloc.Count;
 
                 // Rebuild in workable format
-                templateToCheck.savedTech = RawTechTemplate.MemoryToJSONExternal(nonAlloc);
+                templateToCheck.savedTech = RawTechBase.MemoryToJSONExternal(nonAlloc);
 
                 return valid;
             }
-            catch
+            catch (Exception e)
             {
-                Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech was corrupted via unexpected mod changes!");
+                if (throwOnFail)
+                {
+                    try
+                    {
+                        throw new Exception("RawTech: ValidateBlocksInTech - Tech " + templateToCheck.techName + " is invalid!", e);
+                    }
+                    catch (Exception)
+                    {
+                        throw new Exception("RawTech: ValidateBlocksInTech - Tech <?NULL?> is invalid!", e);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech " + templateToCheck.techName + " is invalid! - " + e);
+                    }
+                    catch (Exception)
+                    {
+                        Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech <?NULL?> is invalid! - " + e);
+                    }
+                }
                 return false;
             }
             finally
@@ -296,6 +354,7 @@ namespace TerraTechETCUtil
                 RAW.Clear();
             }
         }
+
 #endif
     }
 #if !EDITOR
@@ -540,6 +599,7 @@ namespace TerraTechETCUtil
         VEN,
         HE,
         BF,
+        SJ,
         EXP,
         ALL,
         MOD,

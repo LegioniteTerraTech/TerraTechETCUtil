@@ -14,13 +14,21 @@ namespace TerraTechETCUtil
 
         public int blockID;
         public string desc = "unset";
+        public TankBlock inst;
         internal ModuleInfo mainInfo;
         internal ModuleInfo damage;
         internal ModuleInfo damageable;
         internal ModuleInfo[] modules;
+        private static Sprite GetSprite(int itemType)
+        {
+            Sprite sprite = ManUI.inst.GetSprite(ObjectTypes.Block, itemType);
+            if (sprite == UIHelpersExt.NullSprite)
+                return null;
+            return sprite;
+        }
         public WikiPageBlock(int BlockID) :
             base(GetBlockModName(BlockID), StringLookup.GetItemName(ObjectTypes.Block, BlockID),
-            ManUI.inst.GetSprite(ObjectTypes.Block, BlockID), "Blocks", ManIngameWiki.BlocksSprite)
+            GetSprite(BlockID), "Blocks", ManIngameWiki.BlocksSprite)
         {
             blockID = BlockID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Block, BlockID);
@@ -36,7 +44,7 @@ namespace TerraTechETCUtil
         }
         public WikiPageBlock(int BlockID, ManIngameWiki.WikiPageGroup group) : 
             base(GetBlockModName(BlockID), StringLookup.GetItemName(ObjectTypes.Block, BlockID),
-            ManUI.inst.GetSprite(ObjectTypes.Block, BlockID), group)
+            GetSprite(BlockID), group)
         {
             blockID = BlockID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Block, BlockID);
@@ -63,6 +71,13 @@ namespace TerraTechETCUtil
             */
         }
 
+        public static bool ValidBlockSearchQuery(ManIngameWiki.WikiPage page)
+        {
+            if (page is WikiPageBlock WPB)
+                return ManSpawn.inst.IsBlockAllowedInCurrentGameMode((BlockTypes)WPB.blockID) &&
+                    ManGameMode.inst.CheckBlockAllowed((BlockTypes)WPB.blockID);
+            return true;
+        }
 
         public override void DisplaySidebar() => ButtonGUIDispLateIcon();
         public override bool ReleaseAsMuchAsPossible()
@@ -86,67 +101,69 @@ namespace TerraTechETCUtil
             if (ManMods.inst.IsModdedBlock((BlockTypes)blockID))
                 icon = ManUI.inst.GetSprite(ObjectTypes.Block, blockID);
         }
+        private void OnFirstInitGUI()
+        {
+            BlockTypes BT = (BlockTypes)blockID;
+            var inst = ManSpawn.inst.GetBlockPrefab(BT);
+            if (inst)
+            {
+                try
+                {
+                    var modulesC = ModuleInfo.TryGetModules(inst);
+                    foreach (var item in modulesC)
+                    {
+                        if (item.name == "General")
+                        {
+                            item.infos.Add("Base Name", inst.name);
+                            item.infos.Add("Block ID", blockID);
+                            item.infos.Add("Is Vanilla", blockID <= Enum.GetValues(typeof(BlockTypes)).Length);
+                            item.infos.Add("Cost", RecipeManager.inst.GetBlockBuyPrice(BT));
+                            int chunkCount = 0;
+                            List<KeyValuePair<int, ManIngameWiki.WikiLink>> links =
+                                new List<KeyValuePair<int, ManIngameWiki.WikiLink>>();
+                            RecipeManager.inst.recipeTable.m_RecipeLists.Find(x =>
+                            x.m_Recipes.Exists(y =>
+                            {
+                                if (y.m_OutputType == RecipeTable.Recipe.OutputType.Items &&
+                                    y.m_OutputItems.Any(z =>
+                                        z.m_Item.ObjectType == ObjectTypes.Block &&
+                                        z.m_Item.ItemType == blockID
+                                    ))
+                                {
+                                    foreach (var item2 in y.m_InputItems)
+                                    {
+                                        chunkCount += item2.m_Quantity;
+                                        links.Add(new KeyValuePair<int, ManIngameWiki.WikiLink>(item2.m_Quantity,
+                                        new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
+                                            StringLookup.GetItemName(item2.m_Item.ObjectType, item2.m_Item.ItemType)))));
+                                    }
+                                    return true;
+                                }
+                                return false;
+                            }));
+                            item.infos.Add("Ingredient Count", chunkCount);
+                            item.infos.Add("Ingredients", links);
+                            mainInfo = item;
+                        }
+                        else if (item.name == "Armoring")
+                            damageable = item;
+                        else if (item.name == "Durability")
+                            damage = item;
+                        else
+                            Combiler.Add(item);
+                    }
+                    modules = Combiler.ToArray();
+                }
+                finally
+                {
+                    Combiler.Clear();
+                }
+            }
+        }
         public override void DisplayGUI()
         {
             if (modules == null)
-            {
-                BlockTypes BT = (BlockTypes)blockID;
-                var prefab = ManSpawn.inst.GetBlockPrefab(BT);
-                if (prefab)
-                {
-                    try
-                    {
-                        var modulesC = ModuleInfo.TryGetModules(prefab);
-                        foreach (var item in modulesC)
-                        {
-                            if (item.name == "General")
-                            {
-                                item.infos.Add("Base Name", prefab.name);
-                                item.infos.Add("Block ID", blockID);
-                                item.infos.Add("Is Vanilla", blockID <= Enum.GetValues(typeof(BlockTypes)).Length);
-                                item.infos.Add("Cost", RecipeManager.inst.GetBlockBuyPrice(BT));
-                                int chunkCount = 0;
-                                List<KeyValuePair<int, ManIngameWiki.WikiLink>> links = 
-                                    new List<KeyValuePair<int, ManIngameWiki.WikiLink>>();
-                                RecipeManager.inst.recipeTable.m_RecipeLists.Find(x =>
-                                x.m_Recipes.Exists(y =>
-                                {
-                                    if (y.m_OutputType == RecipeTable.Recipe.OutputType.Items &&
-                                        y.m_OutputItems.Any(z =>
-                                            z.m_Item.ObjectType == ObjectTypes.Block &&
-                                            z.m_Item.ItemType == blockID
-                                        ))
-                                    {
-                                        foreach (var item2 in y.m_InputItems)
-                                        {
-                                            chunkCount += item2.m_Quantity;
-                                            links.Add(new KeyValuePair<int, ManIngameWiki.WikiLink>(item2.m_Quantity,
-                                            new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
-                                                StringLookup.GetItemName(item2.m_Item.ObjectType, item2.m_Item.ItemType)))));
-                                        }
-                                        return true;
-                                    }
-                                    return false;
-                                }));
-                                item.infos.Add("Ingredient Count", chunkCount);
-                                item.infos.Add("Ingredients", links);
-                                mainInfo = item;
-                            }
-                            else if (item.name == "Armoring")
-                                damageable = item;
-                            else if (item.name == "Durability")
-                                damage = item;
-                            else
-                                Combiler.Add(item);
-                        }
-                        modules = Combiler.ToArray();
-                    }
-                    finally
-                    {
-                        Combiler.Clear();
-                    }
-                }
-            }
+                OnFirstInitGUI();
             GUILayout.BeginHorizontal();
             AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
@@ -158,6 +175,9 @@ namespace TerraTechETCUtil
                 damageable.DisplayGUI();
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+
+            if (ActiveGameInterop.IsReady && GUILayout.Button("Try Export GameObject hierarchy"))
+                ActiveGameInterop.TransmitBlock(ManSpawn.inst.GetBlockPrefab((BlockTypes)blockID));
 
             GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
 
@@ -192,7 +212,7 @@ namespace TerraTechETCUtil
         }
 
 
-        internal class ModuleInfo : AutoDataExtractor
+        internal class ModuleInfo : AutoDataExtractorInst
         {
             private static HashSet<object> grabbed = new HashSet<object>();
             private static List<ModuleInfo> cacher = new List<ModuleInfo>();
@@ -234,7 +254,7 @@ namespace TerraTechETCUtil
                 }
             }
 
-            public ModuleInfo(Type grabbedType, object prefab, HashSet<object> grabbedAlready) : base (
+            public ModuleInfo(Type grabbedType, MonoBehaviour prefab, HashSet<object> grabbedAlready) : base (
                 SpecialNames.TryGetValue(grabbedType.Name, out string altName) ? altName : 
                 grabbedType.Name.Replace("Module", "").ToString().SplitCamelCase(), 
                 grabbedType, prefab, grabbedAlready)

@@ -16,6 +16,7 @@ namespace TerraTechETCUtil
     public class ManWorldTileExt
     {
         private static bool init = false;
+        public static Bounds BoundsPhysics = default;
         public static Dictionary<IntVector2, WorldTile.State> RequestedLoaded => LoadedTileCoords;
         public static Dictionary<IntVector2, WorldTile.State> Perimeter => PerimeterTileSubLoaded;
         private static readonly Dictionary<IntVector2, float> TempLoaders = new Dictionary<IntVector2, float>();
@@ -40,6 +41,7 @@ namespace TerraTechETCUtil
             InvokeHelper.InvokeSingleRepeat(UpdateTileLoading, 0.6f);
             MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldTilePatches), "TerraTechModExt");
         }
+
 
         public static void ClearAll()
         {
@@ -119,6 +121,15 @@ namespace TerraTechETCUtil
                 return true;
             return false;
         }
+
+        public static void ReloadENTIREScene()
+        {
+            foreach (var item in ManWorld.inst.TileManager.IterateTiles(WorldTile.State.Created))
+            {
+                ReloadTile(item.Coord);
+            }
+        }
+
         public static bool RegisterDynamicTileLoader(ITileLoader loader)
         {
             InsureInit();
@@ -153,6 +164,8 @@ namespace TerraTechETCUtil
             if (LoadedTileCoords != null)
             {
                 LoadedTileCoords.Clear();
+                if (ManWorld.inst.TileManager.IsClearing || ManWorld.inst.TileManager.IsCleared)
+                    return;
                 foreach (var item in TempLoaders.Keys)
                 {
                     if (!LoadedTileCoords.ContainsKey(item))
@@ -224,39 +237,64 @@ namespace TerraTechETCUtil
             PerimeterTileSubLoaded.Clear();
             foreach (var item in LoadedTileCoords)
             {
-                AddActiveTilePerimeterAroundPosition(item.Key, ref PerimeterTileSubLoaded);
+                TryAddTilePerimeterAtPosition(item.Key, ref PerimeterTileSubLoaded, WorldTile.State.Created);
+                //AddActiveTilePerimeterAroundPosition(item.Key, ref PerimeterTileSubLoaded);
             }
             foreach (var item in LoadedTileCoords)
             {
                 PerimeterTileSubLoaded.Remove(item.Key);
             }
         }
+        private static void AddTilePerimeterAroundPosition(IntVector2 posSpot, 
+            ref Dictionary<IntVector2, WorldTile.State> perimeter, WorldTile.State state = WorldTile.State.Loaded)
+        {
+            for (int i = -1; i < 1; i++)
+            {
+                for (int j = -1; j < 1; j++)
+                {
+                    if (i != 0 && j != 0)
+                    {
+                        TryAddTilePerimeterAtPosition(posSpot + new IntVector2(i, j), ref perimeter, state);
+                    }
+                }
+            }
+        }
+        private static void AddPopulatedTilePerimeterAroundPosition(IntVector2 posSpot, ref Dictionary<IntVector2, WorldTile.State> perimeter)
+        {
+            for (int i = -1; i < 1; i++)
+            {
+                for (int j = -1; j < 1; j++)
+                {
+                    if (i != 0 && j != 0 && !perimeter.ContainsKey(posSpot))
+                    {
+                        TryAddTilePerimeterAtPosition(posSpot + new IntVector2(i, j), ref perimeter, WorldTile.State.Populated);
+                        AddTilePerimeterAroundPosition(posSpot + new IntVector2(i, j), ref perimeter, WorldTile.State.Created);
+                    }
+                }
+            }
+        }
+        // cruddy search algor, we shall see...
         private static void AddActiveTilePerimeterAroundPosition(IntVector2 posSpot, ref Dictionary<IntVector2, WorldTile.State> perimeter)
         {
-            IntVector2 newSpot;
-            newSpot = posSpot + new IntVector2(-1, -1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(0, -1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(1, -1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(-1, 0);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(1, 0);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(-1, 1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(0, 1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
-            newSpot = posSpot + new IntVector2(1, 1);
-            TryAddTilePerimeterAroundPosition(ref newSpot, ref perimeter);
+            for (int i = -1; i < 1; i++)
+            {
+                for (int j = -1; j < 1; j++)
+                {
+                    if (i != 0 && j != 0 && !perimeter.ContainsKey(posSpot))
+                    {
+                        TryAddTilePerimeterAtPosition(posSpot + new IntVector2(i, j), ref perimeter);
+                        AddPopulatedTilePerimeterAroundPosition(posSpot + new IntVector2(i, j), ref perimeter);
+                    }
+                }
+            }
         }
-        private static void TryAddTilePerimeterAroundPosition(ref IntVector2 perimeterToAdd, ref Dictionary<IntVector2, WorldTile.State> perimeter)
+        private static void TryAddTilePerimeterAtPosition(IntVector2 perimeterToAdd, 
+            ref Dictionary<IntVector2, WorldTile.State> perimeter, WorldTile.State state = WorldTile.State.Loaded)
         {
             if (perimeter.ContainsKey(perimeterToAdd))
                 return;
             else
-                perimeter.Add(perimeterToAdd, WorldTile.State.Loaded);
+                perimeter.Add(perimeterToAdd, state);
         }
 
         public static void GetActiveTilesAround(List<IntVector2> cache, WorldPosition WP, int MaxTileLoadingDiameter)
@@ -391,6 +429,49 @@ namespace TerraTechETCUtil
             }
         }
 
+        internal class GUIManaged : GUILayoutHelpers
+        {
+            private static bool controlledDisp = false;
+            private static HashSet<string> enabledTabs = null;
+            public static void GUIGetTotalManaged()
+            {
+                if (enabledTabs == null)
+                {
+                    enabledTabs = new HashSet<string>();
+                }
+                GUILayout.Box("--- Tile Loaders --- ");
+                bool show = controlledDisp && Singleton.playerTank;
+                if (GUILayout.Button("Enabled Loading: " + show))
+                    controlledDisp = !controlledDisp;
+                if (controlledDisp)
+                {
+                    try
+                    {
+                        GUILayout.Label("Active loaders:", AltUI.LabelBlueTitle);
+                        GUILabelDispFast("Count ", DynamicTileLoaders.Count);
+                        GUILayout.Label("All loaded tiles:", AltUI.LabelBlueTitle);
+                        foreach (var item in LoadedTileCoords)
+                        {
+                            GUILayout.BeginHorizontal(AltUI.TextfieldBlackAdjusted);
+                            GUILayout.Label(item.Key.ToString());
+                            GUILayout.FlexibleSpace();
+                            GUILayout.Label(item.Value.ToString());
+                            GUILayout.EndHorizontal();
+                        }
+                    }
+                    catch (ExitGUIException e)
+                    {
+                        throw e;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug_TTExt.Log("ResourcesHelper UI Debug errored - " + e);
+                    }
+                }
+            }
+
+        }
+
     }
 
     internal class WorldTilePatches
@@ -401,29 +482,46 @@ namespace TerraTechETCUtil
 
             private static bool removeCorruptedTest = false;
             private const float maxDistFromOrigin = 80000;
-            private static List<IntVector2> starTiles = null;
+            private static bool broadphase => Globals.inst.DynamicMultiBoxBroadphaseRegions;
+            private static List<IntVector2> curTiles = null;
             private static Dictionary<IntVector2, WorldTile> exisTiles = null;
             static FieldInfo TilesNew = typeof(TileManager).GetField("m_TileCoordsToCreateWorking", BindingFlags.NonPublic | BindingFlags.Instance);
             static FieldInfo Tiles = typeof(TileManager).GetField("m_TileLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+            static FieldInfo TileBounds = typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance);
             /// <summary>
             /// EnableTileLoading
             /// </summary>
-            private static void UpdateTileRequestStatesInStandardMode_Postfix(TileManager __instance)
+            private static void UpdateTileRequestStates_Postfix(TileManager __instance, ref List<IntVector2> tileCoordsToCreate)
             {
                 try
                 {
-                    if (starTiles == null)
-                    {
-                        Debug_TTExt.Log("ManTileLoader - Fetching tiles to create");
-                        starTiles = (List<IntVector2>)TilesNew.GetValue(__instance);
-                        Debug_TTExt.Log("ManTileLoader - Fetched tiles to create");
-                    }
+                    if (ManWorld.inst.TileManager.IsClearing || ManWorld.inst.TileManager.IsCleared)
+                        return;
                     if (exisTiles == null)
                     {
+                        Debug_TTExt.Log("ManTileLoader - Are we broadphase physics? " + broadphase);
+                        ManWorldTileExt.BoundsPhysics = (Bounds)TileBounds.GetValue(__instance);
+                        //Debug_TTExt.Log("ManTileLoader - Bounds physics? " + ManWorldTileExt.BoundsPhysics.ToString("F"));
+                        curTiles = (List<IntVector2>)TilesNew.GetValue(__instance);
                         Debug_TTExt.Log("ManTileLoader - Fetching tile lookup");
                         exisTiles = (Dictionary<IntVector2, WorldTile>)Tiles.GetValue(__instance);
                         Debug_TTExt.Log("ManTileLoader - Fetched tile lookup");
                     }
+                    if (broadphase)
+                    {
+                        ManWorldTileExt.BoundsPhysics = (Bounds)TileBounds.GetValue(__instance);
+                    }
+                    if (tileCoordsToCreate == null)
+                    {
+                        Debug_TTExt.Log("ManTileLoader - tileCoordsToCreate is still null, waiting...");
+                        return;
+                    }
+                    if (exisTiles == null)
+                    {
+                        Debug_TTExt.Log("ManTileLoader - exisTiles is still null, waiting...");
+                        return;
+                    }
+                    //tileCoordsToCreate = 
 
                     Debug_TTExt.Assert(ManWorldTileExt.RequestedLoaded == null, "ManTileLoader - RequestedLoaded IS NULL");
                     int requests = ManWorldTileExt.Perimeter.Count;
@@ -450,9 +548,9 @@ namespace TerraTechETCUtil
                                 }
                                 else
                                 {
-                                    if (!starTiles.Contains(item.Key))
+                                    if (!tileCoordsToCreate.Contains(item.Key))
                                     {
-                                        starTiles.Add(item.Key);
+                                        tileCoordsToCreate.Add(item.Key);
                                         Debug_TTExt.Info("ManTileLoader(Perimeter) - Force-loading NEW Tile at " + item.Key);
                                     }
                                 }
@@ -482,9 +580,9 @@ namespace TerraTechETCUtil
                                 }
                                 else
                                 {
-                                    if (!starTiles.Contains(item.Key))
+                                    if (!tileCoordsToCreate.Contains(item.Key))
                                     {
-                                        starTiles.Add(item.Key);
+                                        tileCoordsToCreate.Add(item.Key);
                                         Debug_TTExt.Info("ManTileLoader - Force-loading NEW Tile at " + item.Key);
                                     }
                                 }
@@ -518,6 +616,7 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
+                    Debug_TTExt.Log("ManTileLoader encountered an error - " + e);
                     throw new Exception("ManTileLoader encountered an error - " + e);
                 }
             }

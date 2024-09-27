@@ -6,59 +6,56 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Remember, when we rescale the terrain, we only scale the TERRAIN, not the other things!
+    /// </summary>
     public class TerrainOperations
     {
         public const float RescaleFactor = 4;
-        public const float DownwardsOffset = 0;
-        private static HashSet<Terrain> amped = new HashSet<Terrain>();
-        public static float RescaledFactor = 4;
+        public const float TileHeightDefault = 100;
+        public const float TileYOffsetDefault = -50;
+        public const float tileScaleToMapGen = 2;
 
-        internal static void AmplifyTerrain(Terrain Terra)
+
+        public const float RescaleFactorInv = 1 / RescaleFactor;
+        public const float TileHeightRescaled = TileHeightDefault * RescaleFactor;
+        public const float TileYOffsetRescaled = TileYOffsetDefault * RescaleFactor;
+        public const float TileYOffsetDelta = TileYOffsetRescaled - TileYOffsetDefault;
+
+
+        public const float MaxPercentScalar = (TileHeightRescaled + TileYOffsetDelta) / TileHeightDefault;
+        public const float MinPercentScalar = TileYOffsetDelta / TileHeightDefault;
+        public const float TileYOffsetDefaultScalar = TileYOffsetDefault / TileHeightRescaled;
+        public const float TileYOffsetDeltaScalar = TileYOffsetDelta / TileHeightRescaled;
+        public const float TileYOffsetScalarSeaLevel = -100 / TileHeightRescaled;
+        public const float TileYOffsetScalarSeaLevelSceneryLand = -97 / TileHeightRescaled;
+        public const float TileYOffsetScalarSeaLevelScenerySea = -106 / TileHeightRescaled;
+
+
+        public static bool BeachingMode = false;
+        const float QuarterHeight = 0.76f / 2f;
+        const float QuarterHeightMid = 0.73f / 2f;
+        const float QuarterHeightLow = 0.5f / 2f;
+        const float QuarterHeightDelta = QuarterHeight - QuarterHeightMid;
+        public static float TerraGenRescaled(float input)
         {
-            /*
-            if (amped.Contains(Terra))
-                return;
-            amped.Add(Terra);
-            */
-            Terra.transform.position = Terra.transform.position - new Vector3(0, DownwardsOffset, 0);
-            Debug_TTExt.Info("TerrainOperations: Amplifying Terrain....");
-            TerrainData TD = Terra.terrainData;
-            RescaledFactor = TD.size.y * RescaleFactor;
-            TD.size = new Vector3(TD.size.x, RescaledFactor, TD.size.z);
-            float[,] floats = TD.GetHeights(0, 0, 129, 129);
-            for (int stepX = 0; stepX < 129; stepX++)
+            //Debug_SMissions.Log("Rescaled " + input + " to " + (input * RescaleFactorInv));
+            if (BeachingMode)
             {
-                for (int stepY = 0; stepY < 129; stepY++)
+                float val = input * RescaleFactorInv;
+                if (val >= QuarterHeightLow && val <= QuarterHeight)
                 {
-                    //floats.SetValue(floats[stepX, stepY] / RescaleFactor, stepX, stepY);
-                    //floats.SetValue(floats[stepX, stepY] + (DownwardsOffset / maxH), stepX, stepY);
-                    floats.SetValue(floats[stepX, stepY] / RescaleFactor, stepX, stepY);
+                    return QuarterHeight - Mathf.SmoothStep(QuarterHeightDelta, 0,
+                         Mathf.InverseLerp(QuarterHeightLow, QuarterHeight, val));
                 }
+                return val;
             }
-            TD.SetHeights(0, 0, floats);
-            Terra.terrainData = TD;
-            Terra.Flush();
-            Debug_TTExt.Info("TerrainOperations: Amplifying Terrain complete!");
+            else
+                return input * RescaleFactorInv;
         }
 
-        internal static void LevelTerrain(WorldTile WT)
-        {
-            Debug_TTExt.Log("TerrainOperations: Leveling terrain....");
-            TerrainData TD = WT.Terrain.terrainData;
-            TD.size = new Vector3(TD.size.x, TD.size.y * RescaleFactor, TD.size.z);
-            float[,] floats = TD.GetHeights(0, 0, 129, 129);
-            double totalheight = 0;
-            foreach (float flo in floats)
-                totalheight += flo;
-            totalheight /= floats.Length;
-            float th = (float)totalheight;
-            for (int stepX = 1; stepX < 129; stepX++)
-                for (int stepY = 1; stepY < 129; stepY++)
-                    floats.SetValue(th, stepX, stepY);
-            TD.SetHeights(0, 0, floats);
-            WT.Terrain.terrainData = TD;
-            WT.Terrain.Flush();
-            Debug_TTExt.Log("TerrainOperations: Leveling terrain complete!");
-        }
+        public static float LerpToRescaled(float input) => input - TileYOffsetDelta;
+        public static float LerpToDefault(float input) => input + TileYOffsetDelta;
+
     }
 }

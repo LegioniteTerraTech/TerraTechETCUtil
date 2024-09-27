@@ -12,6 +12,31 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    public class AutoDataExtractorInst : AutoDataExtractor
+    {
+        public readonly MonoBehaviour inst;
+        private AutoDocumentator docs;
+        public AutoDataExtractorInst(string name, Type type, MonoBehaviour prefab, HashSet<object> grabbedAlready) : 
+            base(name, type, prefab, grabbedAlready) 
+        {
+            inst = prefab;
+        }
+        internal void GetJsonFormatted(MonoBehaviour inst, StringBuilder SB) => docs.StringBuild(inst, inst.transform, SB);
+
+        protected override void Explorer_InternalRecursePost(Type type, FieldInfo[] FIs)
+        {
+            docs = new AutoDocumentator(type, null, FIs);
+        }
+        protected override void EndDetails()
+        {
+            if (inst != null && AltUI.Button("JSON to system clipboard", ManSFX.UISfxType.Craft))
+            {
+                GetJsonFormatted(inst, clipboard);
+                GUIUtility.systemCopyBuffer = clipboard.ToString();
+                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+            }
+        }
+    }
     public class AutoDataExtractor
     {
         internal static bool AdvancedBatchDisplayer(object toExplore, bool ActuallyDisplay)
@@ -64,11 +89,23 @@ namespace TerraTechETCUtil
             {
                 if (ActuallyDisplay)
                 {
+                    GUILayout.BeginVertical();
                     DT = WR.DamageType;
+                    GUILayout.BeginHorizontal();
                     GUILayout.Label(DT.ToString(), AltUI.LabelBlue);
                     GUILayout.Space(6);
                     AltUI.Sprite(ManUI.inst.GetDamageTypeIcon(DT),
                         AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(WR.GetType().ToString(), AltUI.LabelBlue);
+                    GUILayout.Space(6);
+                    AltUI.Sprite(ManUI.inst.GetDamageTypeIcon(DT),
+                        AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.EndVertical();
                 }
                 return true;
             }
@@ -92,8 +129,10 @@ namespace TerraTechETCUtil
         }
         internal static HashSet<Type> enumTypes = new HashSet<Type>() {
                     typeof(ManDamage.DamageableType),
+                    typeof(ManWheels.TorqueParams),
+                    typeof(ManWheels.WheelParams),
                     typeof(ModuleAnimator),
-                    typeof(ModuleAntenna),
+                    //typeof(ModuleAntenna),
                     typeof(ModuleHUDContextControlField),
                     typeof(ModulePlacementZoneEffect),
                 };
@@ -101,7 +140,7 @@ namespace TerraTechETCUtil
 
 
         private static HashSet<object> checkedAlready = new HashSet<object>();
-        internal static void Explorer<T>(Type type, T toExplore, HashSet<object> checkedAlready, ref Dictionary<string, object> infos)
+        internal void Explorer<T>(Type type, T toExplore, HashSet<object> checkedAlready, ref Dictionary<string, object> infos)
         {
             try
             {
@@ -112,7 +151,8 @@ namespace TerraTechETCUtil
                 checkedAlready.Clear();
             }
         }
-        private static void Explorer_InternalRecurse<T>(Type type, T toExplore, HashSet<object> checkedAlready, ref Dictionary<string, object> infos)
+        protected virtual void Explorer_InternalRecursePost(Type type, FieldInfo[] FIs) { }
+        private void Explorer_InternalRecurse<T>(Type type, T toExplore, HashSet<object> checkedAlready, ref Dictionary<string, object> infos)
         {
             if (toExplore == null)
                 return;
@@ -120,7 +160,7 @@ namespace TerraTechETCUtil
             foreach (var item in FIs)
             {
                 object itemGet;
-                if (item.IsStatic || item.Name.Contains("k__") || ignoreNames.Contains(item.Name))
+                if (item.IsStatic || item.Name.Contains("k__") || ignoreNames.Contains(item.Name)) //|| !item.GetCustomAttributes<SerializeField>().Any())
                 {
                     continue;
                 }
@@ -155,6 +195,7 @@ namespace TerraTechETCUtil
                         infos.Add(item.Name.Replace("m_", "").SplitCamelCase(), itemGet);
                 }
             }
+            Explorer_InternalRecursePost(type, FIs);
         }
 
 
@@ -173,15 +214,23 @@ namespace TerraTechETCUtil
             Explorer(grabbedType, prefab, grabbedAlready, ref infos);
         }
 
-        internal void DisplayGUI()
+        public static StringBuilder clipboard = new StringBuilder();
+        internal void DisplayGUI(HashSet<string> openEntries = null)
         {
+            if (openEntries == null)
+                openEntries = ManIngameWiki.ModulesOpened;
             GUILayout.BeginVertical(AltUI.BoxBlack);
-            if (GUILayout.Button(name.NullOrEmpty() ? "NULL NAME" : name, open ? AltUI.LabelBlueTitle : AltUI.LabelWhiteTitle))
+            string nameFiltered = name.NullOrEmpty() ? "NULL NAME" : name;
+            bool isOpen = openEntries.Contains(nameFiltered);
+            if (GUILayout.Button(nameFiltered, isOpen ? AltUI.LabelBlueTitle : AltUI.LabelWhiteTitle))
             {
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
-                open = !open;
+                if (isOpen)
+                    openEntries.Remove(nameFiltered);
+                else
+                    openEntries.Add(nameFiltered);
             }
-            if (open)
+            if (isOpen)
             {
                 if (infos == null)
                 {
@@ -193,25 +242,26 @@ namespace TerraTechETCUtil
                     {
                         try
                         {
-                            if (item.Key == null || item.Value == null)
+                            var val = item.Value;
+                            if (item.Key == null || val == null)
                                 continue;
                             GUILayout.BeginHorizontal(AltUI.TextfieldBlackSearch);
                             GUILayout.Label(item.Key, AltUI.LabelWhite);
                             GUILayout.FlexibleSpace();
-                            if (item.Value is Sprite spriteCase)
+                            if (val is Sprite spriteCase)
                                 AltUI.Sprite(spriteCase, AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
-                            else if (AdvancedBatchDisplayer(item.Value, true))
+                            else if (AdvancedBatchDisplayer(val, true))
                             {
                             }
-                            else if (item.Value is int intCase)
+                            else if (val is int intCase)
                                 GUILayout.Label(intCase.ToString(), AltUI.LabelBlue);
-                            else if (item.Value is float floatCase)
+                            else if (val is float floatCase)
                                 GUILayout.Label(floatCase.ToString("F2"), AltUI.LabelBlue);
-                            else if (item.Value is bool bCase)
+                            else if (val is bool bCase)
                                 GUILayout.Label(bCase.ToString(), AltUI.LabelBlue);
-                            else if (item.Value is string sCase)
+                            else if (val is string sCase)
                                 GUILayout.Label(sCase, AltUI.LabelWhite);
-                            else if (item.Value is List<string> sLCase)
+                            else if (val is List<string> sLCase)
                             {
                                 recipesOpen = AltUI.ToggleLone(recipesOpen);
                                 if (recipesOpen)
@@ -224,12 +274,12 @@ namespace TerraTechETCUtil
                                     GUILayout.EndVertical();
                                 }
                             }
-                            else if (item.Value is ManIngameWiki.WikiLink linkCase)
+                            else if (val is ManIngameWiki.WikiLink linkCase)
                             {
                                 if (linkCase.OnGUILarge(AltUI.ButtonBlue, AltUI.LabelWhite))
                                     linkCase.linked.GoHere();
                             }
-                            else if (item.Value is List<ManIngameWiki.WikiLink> linksCase)
+                            else if (val is List<ManIngameWiki.WikiLink> linksCase)
                             {
                                 if (linksCase.Count > 12)
                                 {
@@ -256,7 +306,7 @@ namespace TerraTechETCUtil
                                     GUILayout.EndHorizontal();
                                 }
                             }
-                            else if (item.Value is List<KeyValuePair<int, ManIngameWiki.WikiLink>> linksCase2)
+                            else if (val is List<KeyValuePair<int, ManIngameWiki.WikiLink>> linksCase2)
                             {
                                 if (linksCase2.Count > 5)
                                 {
@@ -296,9 +346,12 @@ namespace TerraTechETCUtil
                         }
                     }
                 }
+
+                EndDetails();
             }
             GUILayout.EndVertical();
         }
+        protected virtual void EndDetails() { }
 
 
         internal static HashSet<Type> AllowedTypes = new HashSet<Type>() {
@@ -310,6 +363,7 @@ namespace TerraTechETCUtil
                     typeof(ModuleWing.Aerofoil),
                     typeof(ManWheels.WheelParams),
                     typeof(ManWheels.TireProperties),
+                    typeof(WeaponRound),
                 };
         internal static Dictionary<string, string> SpecialNames = new Dictionary<string, string>()
                 {

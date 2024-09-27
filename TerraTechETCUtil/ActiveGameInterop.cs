@@ -17,111 +17,152 @@ namespace TerraTechETCUtil
         /// <summary>
         /// The side this is working on
         /// </summary>
-        private static DataSenderTransmit OurSender = Application.isPlayer ? DataSenderTransmit.Game : DataSenderTransmit.Editor;
+        public static DataSenderTransmit OurSender { get; } = Application.isPlayer? DataSenderTransmit.Game : DataSenderTransmit.Editor;
+
+        static ActiveGameInterop()
+        {
+            OnRecieve.Add(DataTypeTransmit.StartupOneSide.ToString(), (string x) =>
+            {
+                if (x != null && x == "Marco")
+                    TryTransmit(DataTypeTransmit.StartupOtherSide.ToString(), "Polo");
+            });
+            OnRecieve.Add(DataTypeTransmit.StartupOtherSide.ToString(), (string x) =>
+            {
+                if (x != null && x == "Polo")
+                {
+                    IsReady = true;
+                    TryTransmit(DataTypeTransmit.StartupFinalizer.ToString(), "Good!");
+                    IsReady = true;
+                    _debug = "Ready!";
+                }
+            });
+            OnRecieve.Add(DataTypeTransmit.StartupFinalizer.ToString(), (string x) =>
+            {
+                if (x != null && x == "Good!")
+                {
+                    IsReady = true;
+                    _debug = "Ready!";
+                }
+            });
+            OnRecieve.Add(DataTypeTransmit.String.ToString(), (string x) =>
+            {
+                if (OnStringRecieved != null)
+                    OnStringRecieved.Invoke(x);
+            });
+            OnRecieve.Add(DataTypeTransmit.Disconnect.ToString(), (string x) =>
+            {
+                if (OurSender == DataSenderTransmit.Editor)
+                    CheckIfReady();
+                IsReady = false;
+                _debug = "Disconnected";
+            });
+            OnRecieve.Add(DataTypeTransmit.Shutdown.ToString(), (string x) =>
+            {
+                DeInitJustThisSide();
+            });
+            OnRecieve.Add(DataTypeTransmit.SendGameObject.ToString(), (string x) =>
+            {
+
+                if (x == null)
+                {
+                    _debug = "GO Retrival Failed - null";
+                    return;
+                }
+                if (RecentGO != null)
+                {
+                    if (OurSender == DataSenderTransmit.Editor)
+                        UnityEngine.Object.DestroyImmediate(RecentGO, true);
+                    else
+                        UnityEngine.Object.Destroy(RecentGO);
+                }
+                _debug = "GO Retrival underway...";
+                try
+                {
+                    List<ResourcesHelper.SerialGO> serials =
+                    JsonConvert.DeserializeObject<List<ResourcesHelper.SerialGO>>(x);
+                    if (serials == null || !serials.Any())
+                    {
+                        _debug = "GO Retrival Failed - No information recieved";
+                    }
+                    else
+                    {
+                        RecentGO = ResourcesHelper.DecompressFromSerials(serials);
+                        _debug = "GO Retrival for " + serials.First().Name + " success!";
+                    }
+                }
+                catch (Exception e)
+                {
+                    _debug = "GO Retrival Failed - Corrupted - " + e;
+                }
+            });
+
+#if !EDITOR
+            OnRecieve.Add(DataTypeTransmit.SpawnRawTechTemplate.ToString(), (string x) =>
+            {
+
+                if (x == null)
+                    return;
+                if (RecentTech != null)
+                {
+                    RecentTech.visible.RemoveFromGame();
+                }
+                using (MemoryStream MS = new MemoryStream())
+                {
+                    using (StreamWriter SR = new StreamWriter(MS))
+                    {
+                        SR.Write(x);
+                        using (GZipStream GZS = new GZipStream(MS, CompressionMode.Decompress))
+                        {
+                            using (StreamReader SR2 = new StreamReader(GZS))
+                            {
+                                try
+                                {
+                                    Tank playerT = Singleton.playerTank;
+                                    RawTechTemplate serials = JsonConvert.DeserializeObject<RawTechTemplate>(SR2.ReadToEnd());
+                                    RecentTech = serials.SpawnRawTech(playerT.boundsCentreWorld +
+                                        playerT.rootBlockTrans.forward * 64, ManPlayer.inst.PlayerTeam,
+                                        -playerT.rootBlockTrans.forward);
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                }
+            });
+#endif
+        }
 
         public static bool IsReady { get; private set; } = false;
         public static string _debug = "Disabled";
         public static Action<string> OnStringRecieved;
-        public static Dictionary<string, Action<string>> OnRecieve =
-            new Dictionary<string, Action<string>>()
-        {
-        {DataTypeTransmit.StartupOneSide.ToString(), (string x) => {
-            if (x != null && x == "Marco")
-                TryTransmit(DataTypeTransmit.StartupOtherSide.ToString(), "Polo");
-        }},
-        {DataTypeTransmit.StartupOtherSide.ToString(), (string x) => {
-            if (x != null && x == "Polo")
-            {
-                IsReady = true;
-                TryTransmit(DataTypeTransmit.StartupFinalizer.ToString(), "Good!");
-                IsReady = true;
-                _debug = "Ready!";
-            }
-        }},
-        {DataTypeTransmit.StartupFinalizer.ToString(), (string x) => {
-            if (x != null && x == "Good!")
-            {
-                IsReady = true;
-                _debug = "Ready!";
-            }
-        }},
-        {DataTypeTransmit.String.ToString(), (string x) => { if (OnStringRecieved != null)
-                OnStringRecieved.Invoke(x);
-        }},
-        {DataTypeTransmit.Disconnect.ToString(), (string x) => {
-            if (OurSender == DataSenderTransmit.Editor)
-                CheckIfReady();
-            IsReady = false;
-            _debug = "Disconnected";
-        }},
-        {DataTypeTransmit.Shutdown.ToString(), (string x) => {
-            DeInitJustThisSide();
-        }},
-        {DataTypeTransmit.SendGameObject.ToString(), (string x) => {
-
-            if (x == null)
-                return;
-            if (RecentGO != null)
-            {
-                if (OurSender == DataSenderTransmit.Editor)
-                    UnityEngine.Object.DestroyImmediate(RecentGO, true);
-                else
-                    UnityEngine.Object.Destroy(RecentGO);
-            }
-            using (StreamReader SR = new StreamReader(x))
-            {
-                using (GZipStream GZS = new GZipStream(SR.BaseStream, CompressionMode.Decompress))
-                {
-                    using (StreamReader SR2 = new StreamReader(GZS))
-                    {
-                        try
-                        {
-                            List<ResourcesHelper.SerialGO> serials =
-                            JsonConvert.DeserializeObject<List<ResourcesHelper.SerialGO>>(SR2.ReadToEnd());
-                            RecentGO = ResourcesHelper.DecompressFromSerials(serials);
-                        }
-                        catch { }
-                    }
-                }
-            }
-        }},
-
-#if! EDITOR
-        {DataTypeTransmit.SpawnRawTechTemplate.ToString(), (string x) => {
-
-            if (x == null)
-                return;
-            if (RecentTech != null)
-            {
-                RecentTech.visible.RemoveFromGame();
-            }
-            using (StreamReader SR = new StreamReader(x))
-            {
-                using (GZipStream GZS = new GZipStream(SR.BaseStream, CompressionMode.Decompress))
-                {
-                    using (StreamReader SR2 = new StreamReader(GZS))
-                    {
-                        try
-                        {
-                            Tank playerT = Singleton.playerTank;
-                            RawTechTemplate serials = JsonConvert.DeserializeObject<RawTechTemplate>(SR2.ReadToEnd());
-                            RecentTech = serials.SpawnRawTech(playerT.boundsCentreWorld +
-                                playerT.rootBlockTrans.forward * 64, ManPlayer.inst.PlayerTeam,
-                                -playerT.rootBlockTrans.forward);
-                        }
-                        catch { }
-                    }
-                }
-            }
-            }},
-#endif
-        };
+        public static Dictionary<string, Action<string>> OnRecieve = new Dictionary<string, Action<string>>();
         public static GameObject RecentGO = null;
+
+        private static bool SendingNow = false;
 #if !EDITOR
         public static Tank RecentTech = null;
+        public static void TransmitAllBlocks(List<TankBlock> blocks)
+        {
+            foreach (var item in blocks)
+                TransmitBlock(item);
+        }
+        public static void TransmitBlock(TankBlock block)
+        {
+            _debug = "Block " + block.name + " transmit started";
+            try
+            {
+                SendingNow = true;
+                Queued.Enqueue(new QueuedRequest(DataTypeTransmit.RebuildBlock.ToString(),
+                    JsonConvert.SerializeObject(ResourcesHelper.CompressToSerials(block.gameObject)), RunTransmit));
+                _debug = "Block " + block.name + " transmitting...";
+            }
+            catch (Exception e)
+            {
+                _debug = "Block " + block.name + " transmit failed - " + e;
+            }
+        }
 #endif
 
-        private static bool SendingNow = false; 
         public static void TryTransmit(string type)
         {
             SendingNow = true;
@@ -129,18 +170,17 @@ namespace TerraTechETCUtil
         }
         public static void TryTransmit(GameObject GO)
         {
-            List<ResourcesHelper.SerialGO> GOL = ResourcesHelper.CompressToSerials(GO);
-            using (StreamReader SR = new StreamReader(JsonConvert.SerializeObject(GOL)))
+            _debug = "GO transmit started";
+            try
             {
-                using (GZipStream GZS = new GZipStream(SR.BaseStream, CompressionMode.Compress))
-                {
-                    using (StreamReader SR2 = new StreamReader(GZS))
-                    {
-                        SendingNow = true;
-                        Queued.Enqueue(new QueuedRequest(DataTypeTransmit.SendGameObject.ToString(), 
-                            SR2.ReadToEnd(), RunTransmit));
-                    }
-                }
+                SendingNow = true;
+                Queued.Enqueue(new QueuedRequest(DataTypeTransmit.SendGameObject.ToString(),
+                    JsonConvert.SerializeObject(ResourcesHelper.CompressToSerials(GO)), RunTransmit));
+                _debug = "GO transmitting...";
+            }
+            catch (Exception e)
+            {
+                _debug = "GO transmit failed - " + e;
             }
         }
         public static void TryTransmitTest(string dataString)
@@ -163,8 +203,8 @@ namespace TerraTechETCUtil
 
 
         // Below this point - EDIT AT YOUR OWN RISK
-        private const string Name = "TerraTech_Editor_Interop";
-        private const int MaxCharLim = 2048;
+        public const string Name = "TerraTech_Editor_Interop";
+        private const int MaxCharLim = 65536;//16384;//2048;
         private const int MemNeeded = 5 + (MaxCharLim * 2);
 
         public static bool inst = false;
@@ -185,7 +225,7 @@ namespace TerraTechETCUtil
             public string Data;
         }
 
-        private enum DataSenderTransmit : byte
+        public enum DataSenderTransmit : byte
         {
             None,
             Editor,
@@ -202,6 +242,7 @@ namespace TerraTechETCUtil
             Shutdown,
             SendGameObject,
             SpawnRawTechTemplate,
+            RebuildBlock,
         }
 
         private static bool SubToQuit = false;
@@ -248,8 +289,7 @@ namespace TerraTechETCUtil
             }
 
             _debug = "Disconnected";
-            if (OurSender == DataSenderTransmit.Editor)
-                CheckIfReady();
+            CheckIfReady();
         }
 
         public static void CheckIfReady()
@@ -317,7 +357,7 @@ namespace TerraTechETCUtil
                     }
                     catch (Exception e)
                     {
-                        Debug_TTExt.Log(e);
+                        Debug_TTExt.Log("Could not transmit Error - " + e);
                     }
                     Queued.Dequeue();
                     counter = 0;
@@ -325,16 +365,23 @@ namespace TerraTechETCUtil
             }
         }
 
-        private static void StartMMF()
+        private static bool TryStartMMF()
         {
             if (Main == null)
             {
-                if (OurSender == DataSenderTransmit.Editor)
-                    Main = MemoryMappedFile.CreateOrOpen(Name, MemNeeded);
-                else
-                    Main = MemoryMappedFile.OpenExisting(Name);
-                Debug_TTExt.Log(Name + " opened");
+                try
+                {
+                    if (OurSender == DataSenderTransmit.Editor)
+                        Main = MemoryMappedFile.CreateOrOpen(Name, MemNeeded);
+                    else
+                        Main = MemoryMappedFile.OpenExisting(Name);
+                    Debug_TTExt.Log(Name + " opened");
+                    return true;
+                }
+                catch { }
+                return false;
             }
+            return true;
             /*
             if (Access == null)
             {
@@ -348,11 +395,15 @@ namespace TerraTechETCUtil
         {
             try
             {
-                StartMMF();
+                if (!TryStartMMF())
+                {
+                    _debug = "Editor side is INACTIVE, waiting...";
+                    return false;
+                }
                 Access = Main.CreateViewAccessor(0, MemNeeded);
                 try
                 {
-                    if (Access.CanRead)
+                    if (Access.CanRead && Access.CanWrite)
                     {
                         DataSenderTransmit dataSender = (DataSenderTransmit)Access.ReadByte(0);
                         short typeLength = Access.ReadInt16(1);
@@ -371,6 +422,8 @@ namespace TerraTechETCUtil
                         Debug_TTExt.Log("Contents: " + dataSender.ToString() + ", " + dataType.ToString() + " -- " + charCombiner.ToString());
                         charCombiner.Clear();
                     }
+                    else
+                        _debug = "Waiting on other side to finish sending...";
                     return false;
                 }
                 finally
@@ -388,13 +441,17 @@ namespace TerraTechETCUtil
         {
             try
             {
-                StartMMF();
+                if (!TryStartMMF())
+                {
+                    _debug = "Editor side is INACTIVE, waiting...";
+                    return false;
+                }
                 Access = Main.CreateViewAccessor();
 
                 SendingNow = false;
                 try
                 {
-                    if (Access.CanRead)
+                    if (Access.CanRead && Access.CanWrite)
                     {
                         short typeLength = Access.ReadInt16(1);
                         for (int i = 0; i < typeLength; i++)
@@ -418,8 +475,8 @@ namespace TerraTechETCUtil
                                         {
                                             charCombiner.Append(Access.ReadChar(post + i * 2));
                                         }
-                                        if (!SendingNow)
-                                            PrepareForNextTransmission();
+                                        Access.Write(0, (int)DataSenderTransmit.None);
+                                        //Access.Flush();
                                         val.Invoke(charCombiner.ToString());
                                         charCombiner.Clear();
                                         return true;
@@ -438,8 +495,8 @@ namespace TerraTechETCUtil
                                         {
                                             charCombiner.Append(Access.ReadChar(post + i * 2));
                                         }
-                                        if (!SendingNow)
-                                            PrepareForNextTransmission();
+                                        Access.Write(0, (int)DataSenderTransmit.None);
+                                        //Access.Flush();
                                         val.Invoke(charCombiner.ToString());
                                         charCombiner.Clear();
                                         return true;
@@ -452,37 +509,39 @@ namespace TerraTechETCUtil
                                 break;
                         }
                     }
+                    else
+                        _debug = "Waiting on other side to finish sending...";
                     return false;
                 }
                 finally
                 {
+                    if (Access.CanWrite && OurSender != DataSenderTransmit.None)
+                        Access.Write(0, (int)DataSenderTransmit.None);
                     Access.Dispose();
                 }
             }
-            catch
+            catch (Exception e)
             {
+                _debug = "ERROR - " + e;
+                Debug_TTExt.Log("Could not recieve Error - " + e);
                 return false;
             }
         }
 
-        private static void PrepareForNextTransmission()
-        {
-            if (Access.CanWrite)
-            {
-                Access.Write(0, (int)DataSenderTransmit.None);
-                Access.Flush();
-            }
-        }
 
         private static bool RunTransmit(QueuedRequest dataReq)
         {
             try
             {
-                StartMMF();
+                if (!TryStartMMF())
+                {
+                    _debug = "Editor side is INACTIVE, waiting...";
+                    return false;
+                }
                 Access = Main.CreateViewAccessor();
                 try
                 {
-                    if (Access.CanRead)
+                    if (Access.CanRead && Access.CanWrite)
                     {
                         switch ((DataSenderTransmit)Access.ReadByte(0))
                         {
@@ -496,7 +555,8 @@ namespace TerraTechETCUtil
                                     if (data == null)
                                         throw new ArgumentOutOfRangeException("Request data is null");
                                     if (type.Length + data.Length > MaxCharLim)
-                                        throw new ArgumentOutOfRangeException("Request is too large (exceeded " + MaxCharLim + " characters)");
+                                        throw new ArgumentOutOfRangeException("Request is too large (exceeded " + MaxCharLim + 
+                                            " characters, requested was " + (type.Length + data.Length) + ")");
                                     _debug = "Sending data of type " + dataReq.Type + "...";
                                     Access.Write(0, (byte)OurSender);
                                     Access.Write(1, (short)type.Length);
@@ -535,6 +595,8 @@ namespace TerraTechETCUtil
                                 break;
                         }
                     }
+                    else
+                        _debug = "Waiting on other side to finish sending...";
                     return false;
                 }
                 finally
@@ -542,9 +604,10 @@ namespace TerraTechETCUtil
                     Access.Dispose();
                 }
             }
-            catch
+            catch (Exception e)
             {
-                return false;
+                _debug = "ERROR - " + e;
+                throw e;
             }
         }
     }

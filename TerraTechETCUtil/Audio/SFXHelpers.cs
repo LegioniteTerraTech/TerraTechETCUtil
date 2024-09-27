@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using FMODUnity;
 
-namespace TerraTechETCUtil 
+namespace TerraTechETCUtil
 {
     /// <summary>
     /// Handle ingame SFX here
@@ -13,13 +14,53 @@ namespace TerraTechETCUtil
     {
         private const float SoundFalloffDelay = 1f;
 
+        private static FieldInfo sfxTech = typeof(TechAudio).GetField("m_SimpleEvents", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo sfxTyp = typeof(AudioProvider).GetField("m_SFXType", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo attackT = typeof(AudioProvider).GetField("m_AttackTime", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo relT = typeof(AudioProvider).GetField("m_ReleaseTime", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo asdr = typeof(AudioProvider).GetField("m_Adsr01", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo state = typeof(AudioProvider).GetField("m_State", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        public static FMODEvent LastPlayed = default;
+        public static bool FetchSound = false;
+        public static FMODEventInstance LastPlayed = default;
+        public static Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>> remoteSFX = new Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>>();
+        public static TechAudio.TechAudioEventSimple[] freeAudio = null;
+
+        public static void RegisterFloatingSFX<T>(Transform trans, T module) 
+            where T : TechAudio.IModuleAudioProvider
+        {
+            GetFloatingSFX();
+            if (remoteSFX.TryGetValue(trans, out var val))
+                val.Add(module);
+            else
+                remoteSFX.Add(trans, new HashSet<TechAudio.IModuleAudioProvider>() { module });
+            module.OnAudioTickUpdate += OnModuleTickData;
+        }
+        public static void UnregisterFloatingSFX<T>(Transform trans, T module)
+            where T : TechAudio.IModuleAudioProvider
+        {
+            if (remoteSFX.TryGetValue(trans, out var val))
+            {
+                module.OnAudioTickUpdate -= OnModuleTickData;
+                val.Remove(module);
+                if (val.Any())
+                    remoteSFX.Remove(trans);
+            }
+        }
+        private static void GetFloatingSFX()
+        {
+            if (freeAudio == null && Singleton.playerTank)
+            {
+                freeAudio = (TechAudio.TechAudioEventSimple[])sfxTech.GetValue(Singleton.playerTank.TechAudio);
+            }
+        }
+        private static void OnModuleTickData(TechAudio.AudioTickData tickData, FMODEvent.FMODParams additionalParam)
+        {
+            int sfxtypeIndex = tickData.SFXTypeIndex;
+            TechAudio.TechAudioEventSimple eventA = freeAudio[sfxtypeIndex];
+            if (eventA.m_Event.IsValid() && tickData.provider is ChildModule child && tickData.numTriggered > 0)
+                eventA.m_Event.PlayOneShot(child.transform, additionalParam);
+        }
 
         public static void TankPlayOneshot(Tank tank, TechAudio.SFXType SFX)
         {
@@ -57,6 +98,8 @@ namespace TerraTechETCUtil
             }
             catch { }
         }
+
+        
         internal class ModuleFakeSound : MonoBehaviour
         {
             private Dictionary<TechAudio.SFXType, KeyValuePair<AudioProvider, float>> loopedSFXArticles = new Dictionary<TechAudio.SFXType, KeyValuePair<AudioProvider, float>>();
@@ -174,24 +217,50 @@ namespace TerraTechETCUtil
 
         public class GUIManaged : GUILayoutHelpers
         {
+            private static FieldInfo sfxPool = typeof(TechAudio).GetField("m_SimpleEvents", BindingFlags.NonPublic | BindingFlags.Instance);
 
             private static bool controlledDisp = false;
             private static HashSet<string> enabledTabs = null;
-            private static string textField = "";
+            private static string textFieldFind = "event:/SFX/IntroScene/SkyCollision";
+            // event:/SFX/IntroScene/Explosion
+            //event:/SFX/IntroScene/WhooshFlyby
+            private static string textField = "1.4";
             private static float textFieldF = 1.4f;
-            private static string textField2 = "";
+            private static string textField2 = "1";
             private static float textFieldF2 = 1;
-            private static HashSet<ManSFX.MiscSfxType> looping = null;
+            private static HashSet<ManSFX.MiscSfxType> loopingMisc = null;
+            private static HashSet<TechAudio.SFXType> loopingTech = null;
+            private static FMODEventInstance eventInst = default;
             public static void GUIGetTotalManaged()
             {
                 if (enabledTabs == null)
                 {
                     enabledTabs = new HashSet<string>();
-                    looping = new HashSet<ManSFX.MiscSfxType>
+                    loopingMisc = new HashSet<ManSFX.MiscSfxType>
                     {
                         ManSFX.MiscSfxType.CabDetachKlaxon,
                         ManSFX.MiscSfxType.Artefact,
                     };
+                    eventInst.m_EventPath = textFieldFind;
+                    try
+                    {
+                        eventInst.m_EventInstance = RuntimeManager.CreateInstance(eventInst.m_EventPath);
+                    }
+                    catch (Exception) { }
+                }
+                if (loopingTech == null && Singleton.playerTank?.TechAudio)
+                {
+                    TechAudio.TechAudioEventSimple[] events = (TechAudio.TechAudioEventSimple[])sfxPool.GetValue(Singleton.playerTank.TechAudio);
+                    if (events != null)
+                    {
+                        loopingTech = new HashSet<TechAudio.SFXType>();
+                        for (int i = 0; i < events.Length; i++)
+                        {
+                            var item = events[i];
+                            if (item != null && item.m_PlaybackType == TechAudio.SFXPlaybackType.LoopedADSR)
+                                loopingTech.Add((TechAudio.SFXType)i);
+                        }
+                    }
                 }
                 GUILayout.Box("--- SFX --- ");
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
@@ -202,6 +271,41 @@ namespace TerraTechETCUtil
                     {
                         if (Singleton.playerTank)
                         {
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Direct Sound Path");
+                            var change0 = GUILayout.TextField(textFieldFind, 3000);
+                            if (change0 != textFieldFind)
+                            {
+                                if (eventInst.m_EventInstance.isValid())
+                                    eventInst.stop();
+                                eventInst.m_EventPath = change0;
+                                eventInst.m_EventInstance = default;
+                                try
+                                {
+                                    eventInst.m_EventInstance = RuntimeManager.CreateInstance(eventInst.m_EventPath);
+                                }
+                                catch (Exception) { }
+                                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.DropDown);
+                                textFieldFind = change0;
+                            }
+                            if (eventInst.m_EventInstance.isValid())
+                            {
+                                if (eventInst.CheckPlaybackState(FMOD.Studio.PLAYBACK_STATE.PLAYING))
+                                {
+                                    if (GUILayout.Button("Stop", AltUI.ButtonGreen))
+                                        eventInst.stop();
+                                }
+                                else if (GUILayout.Button("Play", AltUI.ButtonBlue))
+                                {
+                                    eventInst.set3DAttributes(Singleton.playerPos);
+                                    eventInst.start();
+                                }
+                            }
+                            else
+                                GUILayout.Button("Invalid", AltUI.ButtonGrey);
+                            GUILayout.EndHorizontal();
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Play Duration");
                             var change = GUILayout.TextField(textField, 3);
                             if (change != textField)
                             {
@@ -213,6 +317,9 @@ namespace TerraTechETCUtil
                                 else
                                     textField = textFieldF.ToString();
                             }
+                            GUILayout.EndHorizontal();
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Play Modifier");
                             var change2 = GUILayout.TextField(textField2, 3);
                             if (change2 != textField2)
                             {
@@ -224,38 +331,51 @@ namespace TerraTechETCUtil
                                 else
                                     textField2 = textFieldF2.ToString();
                             }
-                            GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Single", x => TankPlayOneshot(
-                                Singleton.playerTank, x));
+                            GUILayout.EndHorizontal();
+                            GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Single", x => {
+                                FetchSound = true;
+                                TankPlayOneshot(
+                                Singleton.playerTank, x);
+                            }, x =>
+                                {
+                                    return loopingTech == null || !loopingTech.Contains(x);
+                                });
                             GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Looped", x =>
                             {
-                                if (x == TechAudio.SFXType.EXP_Circuits_Actuator_Ramp_Loop)
+                                FetchSound = true;
+                                switch (x)
                                 {
-                                    TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
-                                        new FMODEvent.FMODParams("Ramp", textFieldF2 > 0 ? 1 : 0));
-                                }
-                                else if (x == TechAudio.SFXType.EXP_Circuits_Actuator_Gate_Loop)
-                                {
-                                    TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
-                                        new FMODEvent.FMODParams("Extension", textFieldF2 > 0 ? 1 : 0));
-                                }
-                                else
-                                {
-                                    TankPlayLooping(Singleton.playerTank, x, textFieldF, 1);
+                                    case TechAudio.SFXType.EXP_Circuits_Actuator_Ramp_Loop:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
+                                            new FMODEvent.FMODParams("Ramp", textFieldF2 > 0 ? 1 : 0));
+                                        break;
+                                    case TechAudio.SFXType.EXP_Circuits_Actuator_Gate_Loop:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
+                                            new FMODEvent.FMODParams("Extension", textFieldF2 > 0 ? 1 : 0));
+                                        break;
+                                    default:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1);
+                                        break;
                                 }
                             });
                         }
-                        GUICategoryDisp<ManSFX.UISfxType>(ref enabledTabs, "UI", x => ManSFX.inst.PlayUISFX(x));
+                        GUICategoryDisp<ManSFX.UISfxType>(ref enabledTabs, "UI", x =>
+                        {
+                            FetchSound = true;
+                            ManSFX.inst.PlayUISFX(x);
+                            InvokeHelper.Invoke(ManSFX.inst.SuppressUISFX, 1);
+                        });
                         GUICategoryDisp<ManSFX.MiscSfxType>(ref enabledTabs, "Misc", x =>
                         {
-                            if (!looping.Contains(x))
-                                ManSFX.inst.PlayMiscSFX(x);
-                        });
-                        GUICategoryDisp<ManSFX.MiscSfxType>(ref enabledTabs, "Misc Looping", x =>
-                        { 
+                            FetchSound = true;
                             ManSFX.inst.PlayMiscSFX(x);
+                        }, x => !loopingMisc.Contains(x));
+                        GUICategoryDisp<ManSFX.MiscSfxType>(ref enabledTabs, "Misc Looping", x =>
+                        {
+                            FetchSound = true;
+                            ManSFX.inst.PlayMiscLoopingSFX(x);
                             InvokeHelper.Invoke(ManSFX.inst.StopMiscLoopingSFX, 1, x);
-                        }
-                        );
+                        }, x => loopingMisc.Contains(x));
                     }
                     catch (ExitGUIException e)
                     {

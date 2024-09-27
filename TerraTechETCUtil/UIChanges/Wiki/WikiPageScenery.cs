@@ -9,7 +9,7 @@ namespace TerraTechETCUtil
     {
         public static Func<int, string> GetSceneryModName = GetSceneryModNameDefault;
         public int sceneryID;
-        public Dictionary<BiomeTypes, List<TerrainObject>> prefabBase => 
+        public Dictionary<string, List<TerrainObject>> prefabBase => 
             SpawnHelper.GetSceneryByType((SceneryTypes)sceneryID);
         public TerrainObject prefabMain => prefabBase?.Values?.First()?.First();
         public ResourceDispenser prefab => prefabMain?.GetComponent<ResourceDispenser>();
@@ -44,10 +44,13 @@ namespace TerraTechETCUtil
             {
                 try
                 {
-                    TrackableObject track = prefabMain.SpawnFromPrefabAndAddToSaveData(Vector3.zero, Quaternion.identity).TerrainObject;
+                    Vector3 pos = Singleton.playerPos + new Vector3(0, 80, 0);
+                    //TerrainObject track = prefabMain.SpawnFromPrefab(ManWorld.inst.TileManager.LookupTile(pos),pos, Quaternion.identity).GetComponent<TerrainObject>();
+                    TerrainObject track = prefabMain.SpawnFromPrefabAndAddToSaveData(pos, Quaternion.identity).TerrainObject;
                     if (track)
                     {
-                        track.GetComponent<ResourceDispenser>().Restore(new ResourceDispenser.PersistentState 
+                        var Resdisp = track.GetComponent<ResourceDispenser>();
+                        Resdisp.Restore(new ResourceDispenser.PersistentState 
                         {
                             health = 1000,
                             regrowDelay = 0,
@@ -60,15 +63,23 @@ namespace TerraTechETCUtil
                             removedFromWorld = false,
                             currentStage = 0,
                         });
-                        track.GetComponent<ResourceDispenser>().OnClientUpdateDamageState(0);
-                        GetIcon(track.gameObject, () =>
+                        Resdisp.OnClientUpdateDamageState(0);
+                        track.transform.position = pos;
+                        Resdisp.visible.SetCollidersEnabled(true);
+                        GetIconImage(track.gameObject, () =>
                         {
+                            /*
+                            InvokeHelper.Invoke(() => { track.GetComponent<ResourceDispenser>().RemoveFromWorld(false, true, true, true); },
+                                0.2f);*/
                             track.GetComponent<ResourceDispenser>().RemoveFromWorld(false, true, true, true);
                         });
                     }
+                    else
+                        Debug_TTExt.Log("Missing prefab for " + name);
                 }
-                catch
+                catch (Exception e)
                 {
+                    Debug_TTExt.Log("Crash while handling GetIcon() - " + e);
                     icon = UIHelpersExt.NullSprite;
                 }
             }
@@ -127,7 +138,7 @@ namespace TerraTechETCUtil
                                     {
                                         foreach (var item2 in group.NestedPages)
                                         {
-                                            if (item2 is WikiPageBiome biome && biome.biomeInst.BiomeType == itemL.Key)
+                                            if (item2 is WikiPageBiome biome && biome.biomeInst.name == itemL.Key)
                                                 typesLocations.Add(new ManIngameWiki.WikiLink(biome));
                                         }
                                     }
@@ -184,12 +195,12 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
         }
 
-        internal static string GetSceneryModNameDefault(int chunkType)
+        public static string GetSceneryModNameDefault(int chunkType)
         {
             return ManIngameWiki.VanillaGameName;
         }
 
-        internal class SceneryDataInfo : AutoDataExtractor
+        internal class SceneryDataInfo : AutoDataExtractorInst
         {
             private static HashSet<object> grabbed = new HashSet<object>();
             private static List<SceneryDataInfo> cacher = new List<SceneryDataInfo>();
@@ -230,7 +241,7 @@ namespace TerraTechETCUtil
                     grabbed.Clear();
                 }
             }
-            public SceneryDataInfo(Type grabbedType, object prefab, HashSet<object> grabbedAlready) : base (
+            public SceneryDataInfo(Type grabbedType, MonoBehaviour prefab, HashSet<object> grabbedAlready) : base (
                 SpecialNames.TryGetValue(grabbedType.Name, out string altName) ? altName : 
                 grabbedType.Name.Replace("Module", "").ToString().SplitCamelCase(), 
                 grabbedType, prefab, grabbedAlready)

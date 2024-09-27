@@ -88,6 +88,14 @@
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.4.13f1/Editor/Data/Managed/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>C:/Program Files/Unity/Hub/Editor/2018.4.13f1/Editor/Data/Managed/UnityEngine/UnityEngine.AudioModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>C:/Program Files/Unity/Hub/Editor/2018.4.13f1/Editor/Data/Managed/UnityEngine/UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>C:/Users/Legionite/Desktop/Advanced AI/Assets/Mods/Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
@@ -98,6 +106,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Reference Include="TimeOfDay">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\TimeOfDay.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Ionic.Zlib">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\Ionic.Zlib.dll</HintPath>
       <Private>False</Private>
@@ -151,6 +163,10 @@
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.Networking.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
       <Private>False</Private>
@@ -192,7 +208,6 @@
     <!--> zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz </!-->
     <Reference Include="0Harmony">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\workshop\content\285920\2765217410\0Harmony.dll</HintPath>
-      <Private>False</Private>
     </Reference>
     <Reference Include="0Nuterra.NativeOptions">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\workshop\content\285920\2685130411\0Nuterra.NativeOptions.dll</HintPath>
@@ -230,6 +245,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ActiveGameInterop.cs" />
+    <Compile Include="Audio\AudioInst.cs" />
+    <Compile Include="Audio\AudioInstFile.cs" />
     <Compile Include="Helpers\ResourcesHelper.cs" />
     <Compile Include="ListHashSet.cs" />
     <Compile Include="RawTechs\RawTechUtil.cs" />
@@ -237,27 +254,36 @@
     <Compile Include="RawTechs\RawTechBase.cs" />
     <Compile Include="RawTechs\RawTechTemplate.cs" />
     <Compile Include="Debug_TTExt.cs" />
-    <Compile Include="UIChanges\Abilities\AbilityButton.cs" />
-    <Compile Include="UIChanges\Abilities\AbilityElement.cs" />
-    <Compile Include="UIChanges\Abilities\AbilityToggle.cs" />
-    <Compile Include="UIChanges\ModManagerGUI.cs" />
+    <Compile Include="UIChanges\SuperNativeOptions.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="UIChanges\Wiki\WikiPageDamageStats.cs" />
+    <Compile Include="ManEvilFloraFauna.cs" />
+    <Compile Include="ManTimeOfDayExt.cs" />
+    <Compile Include="ETCCommands.cs" />
     <Compile Include="CursorChangeHelper.cs" />
     <Compile Include="DebugExtUtilities.cs" />
     <Compile Include="Helpers\GUILayoutHelpers.cs" />
     <Compile Include="Helpers\TerrainModifier.cs" />
+    <Compile Include="UIChanges\ModManagerGUI.cs" />
+    <Compile Include="UIChanges\Abilities\AbilityButton.cs" />
+    <Compile Include="UIChanges\Abilities\AbilityElement.cs" />
+    <Compile Include="UIChanges\Abilities\AbilityToggle.cs" />
+    <Compile Include="ModAPI\BlockDetails.cs" />
     <Compile Include="ModAPI\BlockIndexer.cs" />
+    <Compile Include="ModAPI\TechLoaderExt.cs" />
     <Compile Include="ModAPI\InvokeHelper.cs" />
     <Compile Include="ModAPI\TinySettingsUtil.cs" />
     <Compile Include="ModAPI\ModStatusChecker.cs" />
-    <Compile Include="Helpers\SFXHelpers.cs" />
+    <Compile Include="Audio\SFXHelpers.cs" />
+    <Compile Include="Audio\ManAudioExt.cs" />
+    <Compile Include="AutoDocumentator.cs" />
     <Compile Include="Networking\ManModNetwork.cs" />
     <Compile Include="Networking\NetHookExt.cs" />
     <Compile Include="Networking\NetworkHook.cs" />
     <Compile Include="PhysicsCoupler.cs" />
     <Compile Include="SpecialAttract.cs" />
-    <None Include="TerrainOperations.cs" />
+    <Compile Include="TerrainOperations.cs" />
     <Compile Include="UIChanges\AltUI.cs" />
     <Compile Include="ConfigConnect.cs" />
     <Compile Include="UIChanges\ExtUsageHint.cs" />
@@ -290,6 +316,8 @@
     <Compile Include="Utilities.cs" />
     <Compile Include="ManWorldTileExt.cs" />
     <Compile Include="WorldDeformer.cs" />
+    <Compile Include="WorldVerticalExtender.cs" />
+    <Compile Include="WorldTerraformer.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

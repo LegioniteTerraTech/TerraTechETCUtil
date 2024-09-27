@@ -6,12 +6,20 @@ using System.Reflection;
 using System.Diagnostics;
 using System.Text;
 using UnityEngine;
-using System.Drawing;
 using Newtonsoft.Json;
+using System.Collections;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
+
+
+
 
 #if EDITOR
 using UnityEditor;
 using UnityEditorInternal;
+#else
+using FMODUnity;
+using FMOD;
 #endif
 
 namespace TerraTechETCUtil
@@ -46,9 +54,17 @@ namespace TerraTechETCUtil
             return ResourcesHelper.GetModContainerFromScript(this);
         }
 
-        public void SubToPostBlocksLoad(Action postEvent)
+        public void SubToModsPreLoad(Action preEvent)
         {
-            ResourcesHelper.PostBlocksLoadEvent.Subscribe(postEvent);
+            ResourcesHelper.ModsPreLoadEvent.Subscribe(preEvent);
+        }
+        public void SubToModsPostLoad(Action postEvent)
+        {
+            ResourcesHelper.ModsPostLoadEvent.Subscribe(postEvent);
+        }
+        public void SubToBlocksPostChange(Action postEvent)
+        {
+            ResourcesHelper.BlocksPostChangeEvent.Subscribe(postEvent);
         }
 
         public string GetModName()
@@ -76,16 +92,80 @@ namespace TerraTechETCUtil
             return ResourcesHelper.IterateAssetsInModContainer<T>(GetModContainer(), nameNoExt);
         }
     }
+    internal static class HelperHooks
+    {
+        internal class ManModsPatches
+        {
+            internal static Type target = typeof(ManMods);
+
+            internal static void RequestReloadAllMods_Prefix()
+            {
+                ResourcesHelper.ModsPreLoadEvent.Send();
+            }
+            internal static void RequestReparseAllJsons_Prefix()
+            {
+                ResourcesHelper.ModsPreLoadEvent.Send();
+            }
+            internal static void UpdateModScripts_Postfix()
+            {
+                //Debug_TTExt.Log("UpdateModScripts_Postfix");
+                ResourcesHelper.ModsUpdateEvent.Send();
+            }
+        }
+    }
 #endif
     public static class ResourcesHelper
     {
-        public static bool ShowDebug = false;
 
+        public static bool ShowDebug = false;
+        /// <summary>Add as a post or prefix to flag it as an additional asset item</summary>
+        public const string BlockFolderJsonFlag = "%";
 #if !EDITOR
+        public class RelayEvent
+        {
+            private EventNoParams eventHook = new EventNoParams();
+            public void Send()
+            {
+                if (startupHook)
+                {
+                    startupHook = false;
+                    InitHooks();
+                }
+                eventHook.Send();
+            }
+            public void Subscribe(Action act)
+            {
+                if (startupHook)
+                {
+                    startupHook = false;
+                    InitHooks();
+                }
+                eventHook.Subscribe(act);
+            }
+            public void Unsubscribe(Action act)
+            {
+                if (startupHook)
+                {
+                    startupHook = false;
+                    InitHooks();
+                }
+                eventHook.Unsubscribe(act);
+            }
+        }
+
         private static Dictionary<string, ModContainer> modsEmpty = new Dictionary<string, ModContainer>();
         private static Dictionary<string, ModContainer> modsDirect = null;
-        public static EventNoParams PostBlocksLoadEvent = new EventNoParams();
+        private static bool startupHook = true;
+        public static RelayEvent ModsPreLoadEvent = new RelayEvent();
+        public static EventNoParams BlocksPostChangeEvent = ManMods.inst.BlocksModifiedEvent;
+        public static EventNoParams ModsPostLoadEvent = ManMods.inst.ModSessionLoadCompleteEvent;
+        public static RelayEvent ModsUpdateEvent = new RelayEvent();
 
+        private static void InitHooks()
+        {
+            LegModExt.harmonyInstance.MassPatchAllWithin(typeof(HelperHooks), "TerraTechModExt", true);
+            Debug_TTExt.Log("Attached to mods updater");
+        }
 
         private static void OnModsChanged(Mode unused)
         {
@@ -99,8 +179,14 @@ namespace TerraTechETCUtil
                 ManGameMode.inst.ModeCleanUpEvent.Subscribe(OnModsChanged);
                 modsDirect = (Dictionary<string, ModContainer>)ModContainerGet.GetValue(ManMods.inst);
             }
+            else if (modsDirect == modsEmpty)
+                modsDirect = (Dictionary<string, ModContainer>)ModContainerGet.GetValue(ManMods.inst);
+            
             if (modsDirect == null)
+            {
+                Debug_TTExt.Assert("For some reason ManMods returned a NULL mod list?  This is unexpected!");
                 modsDirect = modsEmpty;
+            }
             return modsDirect;
         }
         public static IEnumerable<KeyValuePair<string, ModContainer>> IterateAllMods() => GetAllMods();
@@ -231,6 +317,7 @@ namespace TerraTechETCUtil
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>()
             where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var item in GetAllMods())
             {
                 foreach (var TA in IterateAssetsInModContainer<T>(item.Value))
@@ -242,6 +329,7 @@ namespace TerraTechETCUtil
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(string nameEndsWith) 
             where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var item in GetAllMods())
             {
                 foreach (var TA in IterateAssetsInModContainerPostfix<T>(item.Value, nameEndsWith))
@@ -253,6 +341,7 @@ namespace TerraTechETCUtil
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(Func<T, bool> searchIterator)
             where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var item in GetAllMods())
             {
                 foreach (var TA in IterateAssetsInModContainer(item.Value, searchIterator))
@@ -264,6 +353,7 @@ namespace TerraTechETCUtil
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(string nameEndsWith, Func<T, bool> searchIterator)
             where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var item in GetAllMods())
             {
                 foreach (var TA in IterateAssetsInModContainerPostfix(item.Value, nameEndsWith, searchIterator))
@@ -398,10 +488,17 @@ namespace TerraTechETCUtil
         }
 #endif
 
+        public static void StopInvalidTypes<T>()
+        {
+            if (typeof(T) == typeof(AudioClip))
+                throw new InvalidOperationException("ResourcesHelper does not support AudioClips.  " +
+                    "This is because FMOD disables loading them entirely.  Use AudioInstJson instead.");
+        }
 
 #if !EDITOR
         public static T GetObjectFromModContainer<T>(this ModContainer MC, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIteratorNested(cand, searchIterator);
@@ -412,12 +509,13 @@ namespace TerraTechETCUtil
         }
         public static T GetObjectFromModContainer<T>(this ModContainer MC, string nameNoExt) where T : UnityEngine.Object
         {
-            Mesh mesh = null;
+            StopInvalidTypes<T>();
             return (T)MC.Contents.m_AdditionalAssets.Find(delegate (UnityEngine.Object cand)
             { return cand is T && cand.name.Equals(nameNoExt); });
         }
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIteratorNested(cand, searchIterator);
@@ -427,6 +525,7 @@ namespace TerraTechETCUtil
         }
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIterator<T>(cand);
@@ -436,6 +535,7 @@ namespace TerraTechETCUtil
         }
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC, string nameStartsWith) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIteratorPrefix<T>(cand, nameStartsWith);
@@ -445,6 +545,7 @@ namespace TerraTechETCUtil
         }
         public static IEnumerable<T> IterateAssetsInModContainerPostfix<T>(this ModContainer MC, string nameEndsWith) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIteratorPostfix<T>(cand, nameEndsWith);
@@ -454,6 +555,7 @@ namespace TerraTechETCUtil
         }
         public static IEnumerable<T> IterateAssetsInModContainerPostfix<T>(this ModContainer MC, string nameEndsWith, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
+            StopInvalidTypes<T>();
             foreach (var cand in MC.Contents.m_AdditionalAssets)
             {
                 var result = AssetIteratorPostfix(cand, nameEndsWith, searchIterator);
@@ -484,6 +586,88 @@ namespace TerraTechETCUtil
             return mesh;
         }
         private static string tempDirect = new DirectoryInfo(Application.dataPath).Parent.ToString() + "\\testIcons";
+
+        /// <summary>
+        /// Make sure the Mod AssetBundle is loaded first!
+        /// </summary>
+        public static string GetTextFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
+        {
+            TextAsset TA = null;
+            string tex = string.Empty;
+            UnityEngine.Object obj = MC.Contents.m_AdditionalAssets.Find(delegate (UnityEngine.Object cand)
+            { return cand.name.Equals(nameNoExt); });
+            if (obj is TextAsset tex1)
+                TA = tex1;
+            else if (obj is GameObject objGO)
+                TA = objGO.GetComponentInChildren<TextAsset>(true);
+
+            if (TA != null)
+            {
+                tex = TA.text;
+                if (tex == null || !tex.Any())
+                    tex = Encoding.UTF8.GetString(TA.bytes);
+                if ((tex == null || !tex.Any()) && complainWhenFail)
+                    Debug_TTExt.Assert(tex == null, nameNoExt + ".txt could not be found!");
+                return tex;
+            }
+            if (complainWhenFail)
+                Debug_TTExt.Assert(tex == null, nameNoExt + ".txt could not be found!");
+            return null;
+        }
+        /// <summary>
+        /// Make sure the Mod AssetBundle is loaded first!
+        /// </summary>
+        public static byte[] GetBinaryFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
+        {
+            TextAsset TA = null;
+            byte[] tex = null;
+            UnityEngine.Object obj = MC.Contents.m_AdditionalAssets.Find(delegate (UnityEngine.Object cand)
+            { return cand.name.Equals(nameNoExt); });
+            if (obj is TextAsset tex1)
+                TA = tex1;
+            else if (obj is GameObject objGO)
+                TA = objGO.GetComponentInChildren<TextAsset>(true);
+
+            if (TA != null)
+            {
+                tex = TA.bytes;
+                if ((tex == null || !tex.Any()) && complainWhenFail)
+                    Debug_TTExt.Assert(tex == null, nameNoExt + ".txt could not be found!");
+                return tex;
+            }
+            if (complainWhenFail)
+                Debug_TTExt.Assert(tex == null, nameNoExt + ".txt could not be found!");
+            return null;
+        }
+        /// <summary>
+        /// Make sure the Mod AssetBundle is loaded first!
+        /// </summary>
+        public static AudioInst GetAudioFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
+        {
+            string name = AudioInstFile.leadingFileName + nameNoExt.Replace(AudioInstFile.leadingFileName, string.Empty);
+            byte[] data = GetBinaryFromModAssetBundle(MC, name, complainWhenFail);
+            if (data != null)
+            {
+                using (MemoryStream MS = new MemoryStream(data))
+                {
+                    AudioInstFile AC = (AudioInstFile)new BinaryFormatter().Deserialize(MS);
+                    if (AC != null)
+                        return new AudioInst(AC);
+                }
+            }
+            return null;
+        }
+        /// <summary>
+        /// Make sure the Mod AssetBundle is loaded first!
+        /// </summary>
+        public static AudioInst GetAudioFromModAssetBundleCached(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
+        {
+            string name = AudioInstFile.leadingFileName + nameNoExt.Replace(AudioInstFile.leadingFileName, string.Empty);
+            if (MC != null && ManAudioExt.AllSounds.TryGetValue(MC, out var group) &&
+                group != null && group.TryGetValue(name + ".wav", out var group2))
+                return group2.main[0];
+            return GetAudioFromModAssetBundle(MC, name, complainWhenFail);
+        }
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
@@ -532,12 +716,13 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Assert(tex == null, nameNoExt + ".png could not be found!");
             if (tex != null)
             {
-                var testMaterial = new Material(GetMaterialFromBaseGame("GSO_Main"));
+                var testMaterial = new Material(GetMaterialFromBaseGameActive("GSO_Main"));
                 testMaterial.SetTexture("_MainTex", tex);
                 return testMaterial;
             }
             return null;
         }
+
 #else
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
@@ -578,129 +763,369 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("Mesh \"" + nameStart + "\" does not exists");
             return null;
         }
+
 #endif
 
 
 
 #if !EDITOR
-        public static Texture2D GetTexture2DFromBaseGame(string MaterialName, bool complainWhenFail = true)
+
+        private static HashSet<string> names = new HashSet<string>();
+        public static void LogObjectsFromBaseGameAll<T>() where T : UnityEngine.Object
         {
-            var res = UnityEngine.Object.FindObjectsOfType<Texture2D>();
-            Texture2D mat = res.FirstOrDefault(delegate (Texture2D cand) { return cand.name.Equals(MaterialName); });
-            if (complainWhenFail)
-                Debug_TTExt.Assert(mat == null, MaterialName + " Texture2D in base game could not be found!");
-            return mat;
-        }
-        public static Texture2D GetTexture2DFromBaseGamePrecise(string MaterialName, bool complainWhenFail = true)
-        {
-            HashSet<Texture2D> Textures = new HashSet<Texture2D>();
-            foreach (var item in UnityEngine.Object.FindObjectsOfType<Texture2D>())
+            StopInvalidTypes<T>();
+            try
             {
-                if (item.IsNotNull() && !item.name.NullOrEmpty())
+                Debug_TTExt.Log(typeof(T).Name + " - Results are:");
+                foreach (var item in Resources.FindObjectsOfTypeAll<T>())
                 {
-                    Textures.Add(item);
-                }
-            }
-            HashSet<string> names = new HashSet<string>();
-            foreach (var item in Textures)
-            {
-                if (names.Add(item.name) && MaterialName.Equals(item.name))
-                {
-                    return item;
-                }
-                int stepName = 0;
-                bool nameAdd = false;
-                while (!nameAdd)
-                {
-                    stepName++;
-                    string nameCase = item.name + "(" + stepName + ")";
-                    nameAdd = names.Add(item.name);
-                    if (nameAdd && MaterialName.Equals(nameCase))
+                    if (item.IsNull() || item.name.NullOrEmpty())
+                        continue;
+                    if (names.Add(item.name))
                     {
-                        return item;
+                        Debug_TTExt.Log("- " + item.name);
+                        continue;
+                    }
+                    int stepName = 0;
+                    while (true)
+                    {
+                        stepName++;
+                        string nameCase = item.name + "(" + stepName + ")";
+                        if (names.Add(nameCase))
+                        {
+                            Debug_TTExt.Log("- " + nameCase);
+                            break;
+                        }
                     }
                 }
             }
-            Debug_TTExt.Assert(complainWhenFail, MaterialName + " Texture2D in base game could not be found!");
-            return null;
+            finally
+            {
+                names.Clear();
+            }
         }
-
-
-        public static Material GetMaterialFromBaseGame(string MaterialName, bool complainWhenFail = true)
+        public static T GetObjectFromBaseGameActive<T>(string objectName, bool complainWhenFail = true) 
+            where T : UnityEngine.Object
         {
-            var res = UnityEngine.Object.FindObjectsOfType<Material>();
-            Material mat = res.FirstOrDefault(delegate (Material cand) { return cand.name.Equals(MaterialName); });
-            if (complainWhenFail)
-                Debug_TTExt.Assert(mat == null, MaterialName + " Material in base game could not be found!");
+            StopInvalidTypes<T>();
+            var res = UnityEngine.Object.FindObjectsOfType<T>();
+            T mat = res.FirstOrDefault(delegate (T cand) { return cand.name.Equals(objectName); });
+            if (mat == null)
+                Debug_TTExt.Assert(complainWhenFail, objectName + " " + typeof(T).Name + " in base game could not be found!");
             return mat;
         }
-        public static Material GetMaterialFromBaseGamePrecise(string MaterialName, bool complainWhenFail = true)
+        public static T GetObjectFromBaseGameAllFast<T>(string objectName, bool complainWhenFail = true) 
+            where T : UnityEngine.Object
         {
-            HashSet<Material> Materials = new HashSet<Material>();
-            foreach (var item in UnityEngine.Object.FindObjectsOfType<Material>())
+            StopInvalidTypes<T>();
+            try
             {
-                if (item.IsNotNull() && !item.name.NullOrEmpty())
+                foreach (var item in Resources.FindObjectsOfTypeAll<T>())
                 {
-                    Materials.Add(item);
-                }
-            }
-            HashSet<string> names = new HashSet<string>();
-            foreach (var item in Materials)
-            {
-                if (names.Add(item.name) && MaterialName.Equals(item.name))
-                {
-                    return item;
-                }
-                bool added = false;
-                int stepName = 0;
-                while (!added)
-                {
-                    stepName++;
-                    string nameCase = item.name + "(" + stepName + ")";
-                    added = names.Add(nameCase);
-                    if (added && MaterialName.Equals(nameCase))
-                    {
+                    if (item.IsNotNull() && !item.name.NullOrEmpty() && 
+                        names.Add(item.name) && objectName.Equals(item.name))
                         return item;
+                }
+                Debug_TTExt.Assert(complainWhenFail, objectName + " " + typeof(T).Name + " in base game could not be found!");
+                return null;
+            }
+            finally
+            {
+                names.Clear();
+            }
+        }
+        public static T GetObjectFromBaseGameAllDeep<T>(string objectName, bool complainWhenFail = true) where T : UnityEngine.Object
+        {
+            StopInvalidTypes<T>();
+            try
+            {
+                foreach (var item in Resources.FindObjectsOfTypeAll<T>())
+                {
+                    if (item.IsNotNull() && !item.name.NullOrEmpty())
+                    {
+                        if (names.Add(item.name) && objectName.Equals(item.name))
+                            return item;
+                        int stepName = 0;
+                        while (true)
+                        {
+                            stepName++;
+                            string nameCase = item.name + "(" + stepName + ")";
+                            if (names.Add(nameCase))
+                            {
+                                if (objectName.Equals(item.name))
+                                    return item;
+                                break;
+                            }
+                        }
                     }
                 }
+                Debug_TTExt.Assert(complainWhenFail, objectName + " " + typeof(T).Name + " in base game could not be found!");
+                return null;
             }
-            Debug_TTExt.Assert(complainWhenFail, MaterialName + " Material in base game could not be found!");
-            return null;
+            finally
+            {
+                names.Clear();
+            }
         }
+
+        public static Texture2D GetTexture2DFromBaseGameActive(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameActive<Texture2D>(MaterialName, complainWhenFail);
+        public static Texture2D GetTexture2DFromBaseGameAllFast(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameAllFast<Texture2D>(MaterialName, complainWhenFail);
+        public static Texture2D GetTexture2DFromBaseGameAllDeep(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameAllDeep<Texture2D>(MaterialName, complainWhenFail);
+
+
+        public static Material GetMaterialFromBaseGameActive(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameActive<Material>(MaterialName, complainWhenFail);
+        public static Material GetMaterialFromBaseGameAllFast(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameAllFast<Material>(MaterialName, complainWhenFail);
+        public static Material GetMaterialFromBaseGameAllDeep(string MaterialName, bool complainWhenFail = true) =>
+            GetObjectFromBaseGameAllDeep<Material>(MaterialName, complainWhenFail);
+
         public static AsyncLoader<T> GetResourceFromBaseGamePreciseAsync<T>(string ResourceName, Action<T> callback, int processIterations = 16) where T : UnityEngine.Object
         {
-            return new AsyncLoader<T>(UnityEngine.Object.FindObjectsOfType<T>(), ResourceName, callback, processIterations);
+            StopInvalidTypes<T>();
+            return new AsyncLoader<T>(Resources.FindObjectsOfTypeAll<T>(), ResourceName, callback, processIterations);
         }
         public static AsyncLoaderUnstable GetResourceFromBaseGamePreciseAsync(Type type, string ResourceName, Action<UnityEngine.Object> callback, int processIterations = 16)
         {
-            return new AsyncLoaderUnstable(UnityEngine.Object.FindObjectsOfType(type), ResourceName, callback, processIterations);
+            return new AsyncLoaderUnstable(Resources.FindObjectsOfTypeAll(type), ResourceName, callback, processIterations);
         }
 
+        public static Sprite ConvertToSprite(this Texture2D texture)
+        {
+            return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.zero, 1, 0, SpriteMeshType.FullRect);
+        }
+        public static Sprite ConvertToSprite(this Texture2D texture, Sprite refSprite)
+        {
+            return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.zero, refSprite.pixelsPerUnit, 0, SpriteMeshType.FullRect, refSprite.border);
+        }
 
-        public static Texture2D FetchTexture(ModContainer MC, string pngName, string DLLDirectory)
+        public static byte[] FetchBinaryData(ModContainer MC, string textNameWithExt, string DLLDirectory = null)
+        {
+            byte[] tex = null;
+            try
+            {
+                //ResourcesHelper.LookIntoModContents(MC);
+                if (MC != null)
+                    tex = GetBinaryFromModAssetBundle(MC, Path.GetFileNameWithoutExtension(textNameWithExt), ShowDebug);
+                else if (ShowDebug)
+                    Debug_TTExt.Log("ModContainer for " + MC.ModID + " DOES NOT EXIST");
+                if (tex == null)
+                {
+                    if (ShowDebug)
+                        Debug_TTExt.Log("Binary " + Path.GetFileNameWithoutExtension(textNameWithExt) + " did not exist in AssetBundle, using external...");
+                    if (DLLDirectory == null)
+                        DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
+                    string destination = Path.Combine(DLLDirectory, textNameWithExt);
+                    tex = File.ReadAllBytes(destination);
+                }
+                if (tex != null)
+                    return tex;
+            }
+            catch { }
+            if (ShowDebug)
+                Debug_TTExt.Log("Could not load Binary " + textNameWithExt + "!  \n   File is missing!");
+            return null;
+        }
+        public static string FetchTextData(ModContainer MC, string textNameWithExt, string DLLDirectory = null)
+        {
+            string tex = null;
+            try
+            {
+                //ResourcesHelper.LookIntoModContents(MC);
+                if (MC != null)
+                    tex = GetTextFromModAssetBundle(MC, Path.GetFileNameWithoutExtension(textNameWithExt), ShowDebug);
+                else if (ShowDebug)
+                    Debug_TTExt.Log("ModContainer for " + MC.ModID + " DOES NOT EXIST");
+                if (tex == null)
+                {
+                    if (ShowDebug)
+                        Debug_TTExt.Log("Text " + Path.GetFileNameWithoutExtension(textNameWithExt) + " did not exist in AssetBundle, using external...");
+                    if (DLLDirectory == null)
+                        DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
+                    string destination = Path.Combine(DLLDirectory, textNameWithExt);
+                    tex = File.ReadAllText(destination);
+                }
+                if (tex != null)
+                    return tex;
+            }
+            catch { }
+            if (ShowDebug)
+                Debug_TTExt.Log("Could not load Text " + textNameWithExt + "!  \n   File is missing!");
+            return string.Empty;
+        }
+        public static Texture2D FetchTexture(ModContainer MC, string pngName, string DLLDirectory = null)
         {
             Texture2D tex = null;
             try
             {
                 //ResourcesHelper.LookIntoModContents(MC);
                 if (MC != null)
-                    tex = GetTextureFromModAssetBundle(MC, pngName.Replace(".png", ""), false);
+                    tex = GetTextureFromModAssetBundle(MC, pngName.Replace(".png", ""), ShowDebug);
                 else if (ShowDebug)
                     Debug_TTExt.Log("ModContainer for " + MC.ModID + " DOES NOT EXIST");
                 if (!tex)
                 {
                     if (ShowDebug)
-                        Debug_TTExt.Log("Icon " + pngName.Replace(".png", "") + " did not exist in AssetBundle, using external...");
+                        Debug_TTExt.Log("Texture2D " + pngName.Replace(".png", "") + " did not exist in AssetBundle, using external...");
+                    if (DLLDirectory == null)
+                        DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
                     string destination = Path.Combine(DLLDirectory , pngName);
-                    tex = FileUtils.LoadTexture(destination);
+                        tex = FileUtils.LoadTexture(destination);
                 }
                 if (tex)
                     return tex;
             }
             catch { }
             if (ShowDebug)
-                Debug_TTExt.Log("Could not load Icon " + pngName + "!  \n   File is missing!");
+                Debug_TTExt.Log("Could not load Texture2D " + pngName + "!  \n   File is missing!");
             return null;
+        }
+        /// <summary>
+        /// Searches in the respective ModContainer.  
+        ///   If that fails to find anything then it looks in the mod's directory
+        /// </summary>
+        /// <param name="MC">Mod to search</param>
+        /// <param name="wavNameWithExt">The name of the sound</param>
+        /// <param name="DLLDirectory">The fallback location to find the sound in. 
+        /// Leave null to use the ModContainer's DLL</param>
+        /// <returns></returns>
+        public static AudioInst FetchSound(ModContainer MC, string wavNameWithExt, string DLLDirectory = null)
+        {
+            if (MC != null && ManAudioExt.AllSounds.TryGetValue(MC, out var group) &&
+                group != null && group.TryGetValue(wavNameWithExt, out var group2))
+                return group2.main[0];
+            return FetchSoundDirect(wavNameWithExt, DLLDirectory, MC);
+        }
+        public static AudioInst FetchSoundDirect(string wavNameWithExt, string DLLDirectory, ModContainer MC = null)
+        {
+            if (MC != null)
+            {
+                AudioInst inst = GetAudioFromModAssetBundle(MC, Path.GetFileNameWithoutExtension(wavNameWithExt), ShowDebug);
+                if (inst != null)
+                    return inst;
+                if (DLLDirectory == null)
+                    DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
+            }
+            string GO = Path.Combine(DLLDirectory, wavNameWithExt);
+            if (File.Exists(GO))
+                return new AudioInst(GO);
+            if (ShowDebug)
+            {
+                Debug_TTExt.Log("Could not load wav " + wavNameWithExt + "!  \n   File is missing!");
+                Debug_TTExt.Log("The files exist:");
+                foreach (var item in Directory.EnumerateFiles(DLLDirectory))
+                {
+                    Debug_TTExt.Log(Path.GetFileName(item));
+                }
+            }
+            return default;
+        }
+        private static AudioClip ACPrev;
+        internal static void PlayLastCached()
+        {
+            AudioClipToFMODSound(ACPrev, "", out var channel);
+        }
+
+        internal static float[] sampleCache;
+        /// <summary>
+        /// Source for the AudioClip to FMOD.Sound: https://qa.fmod.com/t/load-an-audioclip-as-fmod-sound/11741/2
+        /// </summary>
+        internal static FMOD.Sound AudioClipToFMODSound(AudioClip AC, string wavNameWithExt, out Channel channelSet)
+        {
+            try
+            {
+                AC.LoadAudioData();
+                ACPrev = AC;
+                if (AC.channels <= 0)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - AudioClip has no channels");
+                if (AC.frequency <= 0)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - AudioClip has frequency of zero");
+                int arraySize = AC.samples * AC.channels;
+                var samplesCache = new float[arraySize];
+                if (!AC.GetData(samplesCache, 0))
+                    throw new InvalidOperationException("AudioClipToFMODSound() - GetData failed and returned nothing");
+
+                FMOD.System sys = RuntimeManager.LowlevelSystem;
+
+                uint lenbytes = (uint)(arraySize * sizeof(float));
+
+                FMOD.CREATESOUNDEXINFO soundinfo = new FMOD.CREATESOUNDEXINFO();
+                soundinfo.cbsize = Marshal.SizeOf(typeof(FMOD.CREATESOUNDEXINFO));
+                soundinfo.length = lenbytes;
+                soundinfo.numchannels = AC.channels;
+                soundinfo.defaultfrequency = AC.frequency;
+                soundinfo.decodebuffersize = (uint)AC.frequency;
+                soundinfo.format = FMOD.SOUND_FORMAT.PCMFLOAT;
+                //wavNameWithExt
+                    //sys.init(128, INITFLAGS.NORMAL, IntPtr.Zero);
+                FMOD.RESULT result = sys.createSound(string.Empty, FMOD.MODE.OPENUSER | FMOD.MODE.ACCURATETIME | FMOD.MODE._3D, 
+                    ref soundinfo, out FMOD.Sound newSound);
+                if (result != FMOD.RESULT.OK)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Creation failed with code " + result);
+                IntPtr ptr1, ptr2;
+                uint len1, len2;
+                result = newSound.@lock(0, lenbytes, out ptr1, out ptr2, out len1, out len2);
+                if (result != FMOD.RESULT.OK)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Writing failed with code " + result);
+                Marshal.Copy(samplesCache, 0, ptr1, (int)(len1 / sizeof(float)));
+                if (len2 > 0)
+                    Marshal.Copy(samplesCache, (int)(len1 / sizeof(float)), ptr2, (int)(len2 / sizeof(float)));
+                result = newSound.unlock(ptr1, ptr2, len1, len2);
+                if (result != FMOD.RESULT.OK)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Finalization failed with code " + result);
+                if (!newSound.hasHandle())
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Result failed: No output");
+                sys.playSound(newSound, ManAudioExt.ModSoundGroup, false, out channelSet);
+                channelSet.setPaused(false);
+                return newSound;
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("AudioClipToFMODSound() - Failed to convert sound - " + e);
+                throw e;
+            }
+        }
+        internal static void SetupAudioClipToFMODSound(AudioClip AC, ref FMOD.Sound newSound)
+        {
+            try
+            {
+                AC.LoadAudioData();
+                ACPrev = AC;
+                if (AC.channels <= 0)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - AudioClip has no channels");
+                if (AC.frequency <= 0)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - AudioClip has frequency of zero");
+                int arraySize = AC.samples * AC.channels;
+                var samplesCache = new float[arraySize];
+                if (!AC.GetData(samplesCache, 0))
+                    throw new InvalidOperationException("AudioClipToFMODSound() - GetData failed and returned nothing");
+
+                FMOD.System sys = RuntimeManager.LowlevelSystem;
+
+                uint lenbytes = (uint)(arraySize * sizeof(float));
+
+                IntPtr ptr1, ptr2;
+                uint len1, len2;
+                FMOD.RESULT result = newSound.@lock(0, lenbytes, out ptr1, out ptr2, out len1, out len2);
+                if (result != FMOD.RESULT.OK)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Writing failed with code " + result);
+                Marshal.Copy(samplesCache, 0, ptr1, (int)(len1 / sizeof(float)));
+                if (len2 > 0)
+                    Marshal.Copy(samplesCache, (int)(len1 / sizeof(float)), ptr2, (int)(len2 / sizeof(float)));
+                result = newSound.unlock(ptr1, ptr2, len1, len2);
+                if (result != FMOD.RESULT.OK)
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Finalization failed with code " + result);
+                if (!newSound.hasHandle())
+                    throw new InvalidOperationException("AudioClipToFMODSound() - Result failed: No output");
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("AudioClipToFMODSound() - Failed to convert sound - " + e);
+                throw e;
+            }
         }
 
 
@@ -786,137 +1211,343 @@ namespace TerraTechETCUtil
             }
             return success;
         }
-#endif
 
-        public static Camera Snapshotter;
-        public static Texture2D GeneratePreviewForGameObject(GameObject GO, Bounds bounds)
-        {   // The block preview is dirty, so we need to re-render a preview icon
-            if (!GO)
-                return null;
+        internal struct RenderQueueItem
+        {
+            internal GameObject GO;
+            internal Bounds bounds;
+            internal bool onSite;
+            internal Vector3 lookVec;
+            internal Action<Texture2D> Callback;
+            internal List<Globals.ObjectLayer> permittedlayers;
+        }
+
+        private static Vector3 OffsetSnapVec => new Vector3(0, 350, 0);
+        private static Camera Snapshotter;
+        private static Coroutine updater;
+        private static Queue<RenderQueueItem> queueRend = null;
+        private static RenderQueueItem RQI = default;
+        private static List<Globals.ObjectLayer> AllowedLayers = new List<Globals.ObjectLayer>
+        {
+            new Globals.ObjectLayer("UI"),
+            Globals.inst.layerTank,
+            Globals.inst.layerTankIgnoreTerrain,
+            Globals.inst.layerScenery,
+            Globals.inst.layerSceneryCoarse,
+            Globals.inst.layerSceneryFader,
+            Globals.inst.layerLandmark,
+            Globals.inst.layerPickup,
+        };
+
+        public static void AllocPreviewer()
+        {
             if (Snapshotter == null)
             {
-                Snapshotter = UnityEngine.Object.Instantiate(Camera.main);
+                queueRend = new Queue<RenderQueueItem>();
+                //Snapshotter = UnityEngine.Object.Instantiate(ManScreenshot.inst.m_TechPresetCameraPrefab, null).Camera;
+                Snapshotter = UnityEngine.Object.Instantiate(Singleton.camera, null);
+                /*
+                foreach (var item in Snapshotter.GetComponents<MonoBehaviour>())
+                {
+                    if (item != null && item.enabled)
+                    {
+                        item.enabled = false;
+                        Debug_TTExt.Log("Destroyed useless " + item.GetType());
+                        UnityEngine.Object.Destroy(item);
+                    }
+                }*/
+                //Snapshotter = new GameObject("SnapCam").AddComponent<Camera>();
+                //Snapshotter.CopyFrom(Singleton.camera);
+                float dist = 80f;
+                Snapshotter.allowHDR = false;
+                Snapshotter.backgroundColor = new UnityEngine.Color(0,0,0,0);
+                //Snapshotter.renderingPath = ManScreenshot.inst.m_TechPresetCameraPrefab.Camera.renderingPath;
+                Snapshotter.farClipPlane = dist;
+                Snapshotter.nearClipPlane = 0.1f;
+                Snapshotter.forceIntoRenderTexture = true;
+                Snapshotter.fieldOfView = Singleton.camera.fieldOfView;
+                /*
+                Snapshotter.projectionMatrix = Singleton.camera.projectionMatrix;
+                Snapshotter.cullingMatrix = Singleton.camera.cullingMatrix;
+                */
+                var layers = Snapshotter.layerCullDistances;
+                for (int i = 0; i < layers.Length; i++)
+                {
+                    layers[i] = dist;
+                    /*
+                    switch (i)
+                    {
+                        case 13:
+                            layers[i] = 0;
+                            break;
+                        default:
+                            layers[i] = dist;
+                            break;
+                    }*/
+                }
+                Snapshotter.layerCullDistances = layers;
+
+                SyncLayers(null);
+
                 Snapshotter.enabled = false;
+                Snapshotter.gameObject.SetActive(false);
             }
+        }
+        internal static Vector3 returnPos;
+        internal static Transform returnParent;
+        public static IEnumerator StaticUpdate()
+        {
+            yield return new WaitForEndOfFrame();
+            while (queueRend.Any())
+            {
+                RQI = queueRend.Dequeue();
+                if (!RQI.onSite)
+                {
+                    returnPos = RQI.GO.transform.localPosition;
+                    returnParent = RQI.GO.transform.parent;
+                    RQI.GO.transform.SetParent(null);
+                    RQI.GO.transform.localPosition = OffsetSnapVec;
+                }
+                yield return new WaitForEndOfFrame();
+                var outcome =  PreviewGO_Internal(RQI.GO, RQI.bounds, RQI.lookVec, RQI.permittedlayers);
+                yield return new WaitForEndOfFrame();
+                RQI.Callback(outcome);
+                if (!RQI.onSite)
+                {
+                    RQI.GO.transform.SetParent(returnParent);
+                    RQI.GO.transform.localPosition = returnPos;
+                }
+            }
+            yield break;
+            /*
+            if (RQI.GO && RQI.Callback != null)
+            {
+                if (RQI.onSite)
+                {
+                    RQI.Callback(PreviewGOOnSite_Internal(RQI.GO, RQI.bounds, RQI.lookVec, RQI.permittedlayers));
+                }
+                else
+                {
+                    RQI.Callback(PreviewGO_Internal(RQI.GO, RQI.bounds, RQI.returnPos, RQI.lookVec, RQI.permittedlayers));
+                }
+                RQI = default;
+            }
+            if (queueRend.Any() && RQI.Callback == null)
+            {
+                RQI = queueRend.Dequeue();
+                if (!RQI.onSite)
+                {
+                    RQI.returnPos = RQI.GO.transform.localPosition;
+                    RQI.GO.transform.position = OffsetSnapVec;
+                }
+            }
+            */
+        }
+        public static void SyncLayers(List<Globals.ObjectLayer> permittedlayers)
+        {
+            int layerMask = 0;
+            if (permittedlayers == null)
+            {
+                permittedlayers = AllowedLayers;
+                foreach (var item in permittedlayers)
+                {
+                    layerMask |= item.mask;
+                    //Debug_TTExt.Log("Permitted: " + ((int)item).ToString());
+                }
+                //layerMask |= Globals.inst.layerGroups[Globals.ObjectLayer.Group.Type.PhysicalScenery].LayerMask;
+                Snapshotter.cullingMask = layerMask;
+            }
+            else if (!permittedlayers.Any())
+            {
+                Snapshotter.cullingMask = int.MaxValue;
+                return;
+            }
+
+            //int layerMask = int.MaxValue;
+            foreach (var item in permittedlayers)
+            {
+                layerMask |= item.mask;
+                //Debug_TTExt.Log("Permitted: " + ((int)item).ToString());
+            }
+            /*
+            for (int i = 0; i < 32; i++)
+            {
+                int index = permittedlayers.FindIndex(x => x == i);
+                if (index != -1)
+                    layerMask &= ~permittedlayers[i].mask;
+                //bool trueCase = ((layerMask >> i) & 1) == 1;
+                layerMask |= i;
+            }*/
+            //layerMask = ~layerMask;
+            /*
+            var layers = Snapshotter.layerCullDistances;
+            for (int i = 0; i < layers.Length; i++)
+            {
+                if (permittedlayers.Contains(i))
+                    layers[i] = 1000f;
+                else
+                    layers[i] = 0f;
+            }
+            Snapshotter.layerCullDistances = layers;
+            */
+            Snapshotter.cullingMask = layerMask;
+        }
+        public static void DeallocPreviewer()
+        {
+            if (Snapshotter)
+            {
+                InvokeHelper.CancelCoroutine(StaticUpdate());
+                queueRend = null;
+                UnityEngine.Object.Destroy(Snapshotter.gameObject);
+                Snapshotter = null;
+            }
+        }
+      
+        public static void GeneratePreviewForGameObject(Action<Texture2D> Callback, GameObject GO, Bounds bounds, List<Globals.ObjectLayer> LayersToShow = null)
+        {   // The block preview is dirty, so we need to re-render a preview icon
+            if (!GO)
+                return;
+            AllocPreviewer();
             Transform trans = GO.transform;
-            Vector3 lookAngle = Snapshotter.transform.position - (trans.position + (trans.rotation * bounds.center));
-            lookAngle *= 0.6f;
-            trans.position = new Vector3(0, 0, 2500);
+            Vector3 posOffsetCenter = trans.rotation * bounds.center;
+            Vector3 posSet = (Singleton.cameraTrans.position - trans.position + posOffsetCenter) * 0.6f;
+            Debug_TTExt.Log("Previewer at " + posSet.ToString("F") + ", offset center " + posOffsetCenter.ToString("F"));
+            queueRend.Enqueue(new RenderQueueItem()
+            {
+                GO = GO,
+                onSite = false,
+                bounds = bounds,
+                lookVec = posSet,
+                Callback = Callback,
+                permittedlayers = LayersToShow,
+            });
+            if (queueRend.Count == 1)
+                InvokeHelper.InvokeCoroutine(StaticUpdate());
+        }
+        public static void GeneratePreviewForGameObject(Action<Texture2D> Callback, GameObject GO, Bounds bounds, Vector3 offset, List<Globals.ObjectLayer> LayersToShow = null)
+        {   // The block preview is dirty, so we need to re-render a preview icon
+            if (!GO)
+                return;
+            AllocPreviewer();
+            queueRend.Enqueue(new RenderQueueItem()
+            {
+                GO = GO,
+                onSite = false,
+                bounds = bounds,
+                lookVec = offset,
+                Callback = Callback,
+                permittedlayers = LayersToShow,
+            });
+            if (queueRend.Count == 1)
+                InvokeHelper.InvokeCoroutine(StaticUpdate());
+        }
+        public static void GeneratePreviewForGameObjectOnSite(Action<Texture2D> Callback, GameObject GO, Bounds bounds, List<Globals.ObjectLayer> LayersToShow = null)
+        {   // The block preview is dirty, so we need to re-render a preview icon
+            if (!GO)
+                return;
+            AllocPreviewer();
+            Transform trans = GO.transform;
+            Vector3 posOffsetCenter = trans.rotation * bounds.center;
+            Vector3 posSet = (Singleton.cameraTrans.position - trans.position + posOffsetCenter) * 0.6f;
+            Debug_TTExt.Log("Previewer at " + posSet.ToString("F") + ", offset center " + posOffsetCenter.ToString("F"));
+            queueRend.Enqueue(new RenderQueueItem()
+            {
+                GO = GO,
+                onSite = true,
+                bounds = bounds,
+                lookVec = posSet,
+                Callback = Callback,
+                permittedlayers = LayersToShow,
+            });
+            if (queueRend.Count == 1)
+                InvokeHelper.InvokeCoroutine(StaticUpdate());
+        }
+        public static void GeneratePreviewForGameObjectOnSite(Action<Texture2D> Callback, GameObject GO, Bounds bounds, Vector3 offset, List<Globals.ObjectLayer> LayersToShow = null)
+        {   // The block preview is dirty, so we need to re-render a preview icon
+            if (!GO)
+                return;
+            AllocPreviewer();
+            queueRend.Enqueue(new RenderQueueItem()
+            {
+                GO = GO,
+                onSite = true,
+                bounds = bounds,
+                lookVec = offset,
+                Callback = Callback,
+                permittedlayers = LayersToShow,
+            });
+            if (queueRend.Count == 1)
+                InvokeHelper.InvokeCoroutine(StaticUpdate());
+        }
 
-            Snapshotter.transform.position = lookAngle + trans.position;
-            Snapshotter.transform.LookAt((trans.rotation * bounds.center) + trans.position, Vector3.up);
-
-            Snapshotter.farClipPlane = 1000f;
-            Snapshotter.nearClipPlane = 0.1f;
-
-
+        private static Texture2D DoTheSnap_Internal()
+        {
+            Snapshotter.gameObject.SetActive(true);
             // Give the camera a render texture of fixed size
             RenderTexture rendTex = RenderTexture.GetTemporary(1024, 1024, 24, RenderTextureFormat.ARGB32);
             RenderTexture.active = rendTex;
 
-            // Render the block
+            // Render the gameobject
             Snapshotter.targetTexture = rendTex;
             Snapshotter.Render();
 
             // Copy it into our target texture
-            Texture2D preview = new Texture2D(1024, 1024);
+            Texture2D preview = new Texture2D(1024, 1024, TextureFormat.ARGB32, false);
             preview.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
+            preview.Apply();
 
+            // Clean up
             RenderTexture.active = null;
             RenderTexture.ReleaseTemporary(rendTex);
+            Snapshotter.targetTexture = Singleton.camera.targetTexture;
+
+            Snapshotter.gameObject.SetActive(false);
+            if (Camera.current == Snapshotter)
+                throw new InvalidOperationException("The current camera should NOT be the texture rendering camera!!!");
             return preview;
         }
-
-        public static Texture2D GeneratePreviewForGameObject(GameObject GO, Bounds bounds, Vector3 offsetCamPos)
+        private static Texture2D PreviewGO_Internal(GameObject GO, Bounds bounds, Vector3 offsetCamPos, List<Globals.ObjectLayer> permittedlayers)
         {   // The block preview is dirty, so we need to re-render a preview icon
             if (!GO)
                 return null;
-            if (Snapshotter == null)
-            {
-                Snapshotter = UnityEngine.Object.Instantiate(Camera.main);
-                Snapshotter.enabled = false;
-            }
             Transform trans = GO.transform;
-            trans.position = new Vector3(0, 0, 2500);
+            Vector3 posOffsetCenter = trans.rotation * bounds.center;
+            Vector3 posOffsetTarget = posOffsetCenter + trans.position;
+            //DebugExtUtilities.DrawDirIndicatorRecPriz(posOffsetTarget, bounds.size, Color.yellow, 1);
+
+            SyncLayers(permittedlayers);
 
             Snapshotter.transform.position = offsetCamPos + trans.position;
-            Snapshotter.transform.LookAt((trans.rotation * bounds.center) + trans.position, Vector3.up);
+            Snapshotter.transform.rotation = Quaternion.LookRotation(posOffsetTarget - Snapshotter.transform.position, Vector3.up);
+            //DebugExtUtilities.DrawDirIndicatorCircle(Snapshotter.transform.position, Snapshotter.transform.rotation * Vector3.forward, Snapshotter.transform.up, 1, Color.gray, 1);
+            //DebugExtUtilities.DrawDirIndicator(Snapshotter.transform.position, Snapshotter.transform.position + (Snapshotter.transform.rotation * Vector3.forward * 2), Color.gray, 1);
 
-            Snapshotter.farClipPlane = 1000f;
-            Snapshotter.nearClipPlane = 0.1f;
+            Debug_TTExt.Log("Snapping GeneratePreviewForGameObject_Internal");
+            Debug_TTExt.Log("Transform at " + trans.position.ToString("F") + ", camera " + Snapshotter.transform.position.ToString("F"));
+            var pic = DoTheSnap_Internal();
 
-
-            // Give the camera a render texture of fixed size
-            RenderTexture rendTex = RenderTexture.GetTemporary(1024, 1024, 24, RenderTextureFormat.ARGB32);
-            RenderTexture.active = rendTex;
-
-            // Render the block
-            Snapshotter.targetTexture = rendTex;
-            Snapshotter.Render();
-
-            // Copy it into our target texture
-            Texture2D preview = new Texture2D(1024, 1024);
-            preview.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
-
-            RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(rendTex);
-            return preview;
+            return pic;
         }
+#endif
 
-        public static Texture2D GeneratePreviewForGameObjectOnSite(GameObject GO, Bounds bounds)
-        {   // The block preview is dirty, so we need to re-render a preview icon
-            if (!GO)
-                return null;
-            if (Snapshotter == null)
-            {
-                Snapshotter = UnityEngine.Object.Instantiate(Camera.main);
-                Snapshotter.enabled = false;
-            }
-            Transform trans = GO.transform;
-            Vector3 lookAngle = Snapshotter.transform.position - (trans.position + (trans.rotation * bounds.center));
-            lookAngle *= 0.6f;
-
-            Snapshotter.transform.position = lookAngle + trans.position;
-            Snapshotter.transform.LookAt((trans.rotation * bounds.center) + trans.position, Vector3.up);
-
-            Snapshotter.farClipPlane = 1000f;
-            Snapshotter.nearClipPlane = 0.1f;
-
-
-            // Give the camera a render texture of fixed size
-            RenderTexture rendTex = RenderTexture.GetTemporary(1024, 1024, 24, RenderTextureFormat.ARGB32);
-            RenderTexture.active = rendTex;
-
-            // Render the block
-            Snapshotter.targetTexture = rendTex;
-            Snapshotter.Render();
-
-            // Copy it into our target texture
-            Texture2D preview = new Texture2D(1024, 1024);
-            preview.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
-
-            RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(rendTex);
-            return preview;
-        }
 
 
         public static List<SerialGO> CompressToSerials(GameObject GO)
         {
             List<SerialGO> GOL = new List<SerialGO>
             {
-                new SerialGO(GO)
+                new SerialGO(GO, GO)
             };
-            CompressToSerials_Recurse(GO, GOL);
+            CompressToSerials_Recurse(GO, GO, GOL);
             return GOL;
         }
-        private static void CompressToSerials_Recurse(GameObject GO, List<SerialGO> GOL)
+        private static void CompressToSerials_Recurse(GameObject GO, GameObject GORoot, List<SerialGO> GOL)
         {
             for (int i = 0; i < GO.transform.childCount; i++)
             {
-                Transform ch = GO.transform.GetChild(i);
-                GOL.Add(new SerialGO(ch.gameObject));
-                CompressToSerials_Recurse(ch.gameObject, GOL);
+                Transform child = GO.transform.GetChild(i);
+                GOL.Add(new SerialGO(child.gameObject, GORoot));
+                CompressToSerials_Recurse(child.gameObject, GORoot, GOL);
             }
         }
         public static GameObject DecompressFromSerials(List<SerialGO> GOL)
@@ -930,117 +1561,492 @@ namespace TerraTechETCUtil
             }
             return GOR;
         }
+        public static GameObject DecompressFromSerials(GameObject toApplyTo, List<SerialGO> GOL)
+        {
+            if (!GOL.Any())
+                throw new InvalidOperationException("GOL has NO entries!");
+            GOL.First().OverrideInternalLayout(toApplyTo);
+            for (int i = 1; i < GOL.Count; i++)
+                GOL[i].RebuildAndAssignToHierarchy(toApplyTo);
+            return toApplyTo;
+        }
 
 
         public class SerialGO
         {
             //private static StringBuilder SB = new StringBuilder();
+            public bool Active;
             public string Name;
+            public int Layer;
             public Vector3 Position;
-            public Quaternion Rotation;
+            public Vector4 Rotation;
             public Vector3 Scale;
             public string Hierarchy;
             public string Mesh;
             public string Texture;
-            public Dictionary<string, string> MonoData;
-            public SerialGO(GameObject GO, bool saveMonoData = false)
+            public Dictionary<string, string> ComponentData = new Dictionary<string, string>();
+            /// <summary>
+            /// EDITOR ONLY
+            /// </summary>
+            public SerialGO()
+            { 
+            }
+            public SerialGO(GameObject GO, GameObject lowestGO, bool saveMonoData = false)
             {
                 if (GO == null)
                     throw new ArgumentNullException("GameObject \"GO\"");
                 if (GO.name == null || GO.name.Length == 0)
                     throw new NullReferenceException("GameObject \"GO\" has no name");
                 Transform trans = GO.transform;
+                Active = GO.activeSelf;
                 Name = GO.name;
+                Layer = GO.layer;
                 Position = trans.localPosition;
-                Rotation = trans.localRotation;
+                Rotation = new Vector4(trans.localRotation.x, trans.localRotation.y, trans.localRotation.z, trans.localRotation.w);
                 Scale = trans.localScale;
-                Hierarchy = RecurseHierachyStacker(GO.transform.parent);
-                if (GO.activeInHierarchy)
+                Hierarchy = RecurseHierachyStacker(GO.transform.parent, lowestGO.transform);
+                if (GO.GetComponent<MeshFilter>()?.sharedMesh)
+                    Mesh = GO.GetComponent<MeshFilter>().sharedMesh.name;
+                else if(GO.GetComponent<MeshFilter>()?.mesh)
+                    Mesh = GO.GetComponent<MeshFilter>().mesh.name;
+                else
+                    Mesh = null;
+                var Renderer = GO.GetComponent<Renderer>();
+                if (Renderer != null)
                 {
-                    Mesh = GO.GetComponent<MeshFilter>()?.sharedMesh?.name;
-                    Texture = GO.GetComponent<MeshRenderer>()?.sharedMaterial?.mainTexture?.name;
+                    if (Renderer.sharedMaterial?.mainTexture)
+                        Texture = Renderer.sharedMaterial.mainTexture.name;
+                    else if (Renderer.material?.mainTexture)
+                        Texture = Renderer.material.mainTexture.name;
+                    else
+                        Texture = null;
                 }
                 else
-                {
-                    Mesh = null;
                     Texture = null;
-                }
-                if (saveMonoData) 
+                try
                 {
-                    foreach (var item in GO.GetComponents<MonoBehaviour>())
+                    foreach (var item in GO.GetComponents<Collider>())
                     {
                         try
                         {
-                            MonoData.Add(item.GetType().FullName, JsonConvert.SerializeObject(item, Formatting.None));
+                            ComponentData.Add(item.GetType().FullName, JsonConvert.SerializeObject(item, Formatting.None));
                         }
                         catch (Exception)
                         {
-                            MonoData.Add(item.GetType().FullName, string.Empty);
+                            ComponentData.Add(item.GetType().FullName, string.Empty);
                         }
                     }
+                }
+                catch { }
+                if (saveMonoData)
+                {
+                    try
+                    {
+                        foreach (var item in GO.GetComponents<MonoBehaviour>())
+                        {
+                            try
+                            {
+                                ComponentData.Add(item.GetType().FullName, JsonConvert.SerializeObject(item, Formatting.None));
+                            }
+                            catch (Exception)
+                            {
+                                ComponentData.Add(item.GetType().FullName, string.Empty);
+                            }
+                        }
+                    }
+                    catch { }
                 }
             }
             public GameObject RebuildAndAssignToHierarchy(GameObject root)
             {
-                if (root == null && Hierarchy != null && Hierarchy.Length > 0)
-                    throw new InvalidOperationException("GameObject \"" + Name + "\" is part of a hierarchy, but root is null!");
-                string pathUnwinder = Hierarchy;
-                Transform rootNavi = root.transform;
-                while (pathUnwinder.Length != 0)
+                GameObject GO = null;
+                try
                 {
-                    int NextSlashIndex = pathUnwinder.IndexOf(Path.DirectorySeparatorChar);
-                    string subS = pathUnwinder.Substring(0, NextSlashIndex - 1);
-                    rootNavi = rootNavi.Find(subS);
-                    if (rootNavi == null)
-                        throw new InvalidOperationException("GameObject \"" + Name + 
-                            "\" is part of a hierarchy, but it appears to be incomplete at GameObject\"" +
-                            subS + "\"");
-                    pathUnwinder.Remove(0, NextSlashIndex);
+                    Transform rootNavi = null;
+                    if (Name == null)
+                        Debug_TTExt.Log("NULL NAME ENCOUNTERED");
+                    if (Hierarchy != null)
+                    {
+                        Debug_TTExt.Log("Part of hierachy " + Hierarchy);
+                        if (root == null)
+                            throw new InvalidOperationException("GameObject \"" + Name + "\" is part of a hierarchy, but root is null!");
+                        string pathUnwinder = Hierarchy;
+                        rootNavi = root.transform;
+                        int depth = 0;
+                        while (pathUnwinder.Length != 0)
+                        {
+                            string subS;
+                            int NextSlashIndex = pathUnwinder.LastIndexOf(Path.DirectorySeparatorChar);
+                            if (NextSlashIndex < 1)
+                            {
+                                NextSlashIndex = pathUnwinder.Length;
+                                subS = pathUnwinder;
+                            }
+                            else
+                            {
+                                subS = pathUnwinder.Substring(NextSlashIndex + 1);
+                                pathUnwinder = pathUnwinder.Remove(NextSlashIndex);
+                                if (subS == null || !subS.Any())
+                                    break;
+                            }
+                            if (depth == 0 && (subS == root.name || subS + "_Prefab" == root.name))
+                            {
+                                try
+                                {
+                                    /*
+                                    var rootNext = rootNavi.Find(subS);
+                                    if (!rootNext)
+                                        rootNext = rootNavi.Find(subS + "_Prefab");
+                                    if (!rootNext)
+                                        throw new InvalidOperationException("GameObject \"" + Name +
+                                            "\" is part of a hierarchy, but it appears to be incomplete at ROOT GameObject\"" +
+                                            subS + "\" - Layout is " + Hierarchy);
+                                    Debug_TTExt.Log("Hierachy - " + subS + "(ROOT)");
+                                    rootNavi = rootNext;
+                                    */
+                                }/*
+                            catch (InvalidOperationException e)
+                            {
+                                throw e;
+                            }*/
+                                catch (Exception e)
+                                {
+                                    Debug_TTExt.Log("Hierachy - ABORT(ROOT) on exception - " + e);
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    var rootNext = rootNavi.Find(subS);
+                                    if (!rootNext)
+                                        rootNext = rootNavi.Find(subS + "_Prefab");
+                                    if (rootNext == null)
+                                        throw new InvalidOperationException("GameObject \"" + Name +
+                                            "\" is part of a hierarchy, but it appears to be incomplete at GameObject\"" +
+                                            subS + "\" - Layout is " + Hierarchy);
+                                    Debug_TTExt.Log("Hierachy - " + subS);
+                                    rootNavi = rootNext;
+                                }/*
+                            catch (InvalidOperationException e)
+                            {
+                                throw e;
+                            }*/
+                                catch (Exception e)
+                                {
+                                    Debug_TTExt.Log("Hierachy - ABORT on exception - " + e);
+                                    break;
+                                }
+                            }
+                            depth++;
+                        }
+                    }
+                    Transform trans = null;
+                    if (rootNavi != null)
+                    {
+                        Transform child = rootNavi.Find(Name);
+                        if (child)
+                        {
+                            Debug_TTExt.Log("Adjusting " + Name);
+                            GO = child.gameObject;
+                            trans = child;
+                        }
+                    }
+                    if (GO == null)
+                    {
+                        if (rootNavi == null)
+                            Debug_TTExt.Log("Making " + Name);
+                        else
+                            Debug_TTExt.Log("Making " + Name + " - Attached " + Name + " to " + rootNavi.name);
+                        GO = new GameObject(Name);
+                        trans = GO.transform;
+                        if (rootNavi != null)
+                            trans.SetParent(rootNavi, false);
+                    }
+                    if (root == null)
+                    {
+                        trans.localPosition = Vector3.zero;
+                        trans.localRotation = Quaternion.identity;
+                    }
+                    else
+                    {
+                        trans.localPosition = Position;
+                        trans.localRotation = new Quaternion(Rotation.x, Rotation.y, Rotation.z, Rotation.w);
+                    }
+                    trans.localScale = Scale;
+                    if (Mesh != null && Mesh.Length > 0)
+                    {
+                        try
+                        {
+                            var case1 = GO.GetComponent<MeshFilter>();
+                            if (case1 == null)
+                                case1 = GO.AddComponent<MeshFilter>();
+#if EDITOR
+                            case1.sharedMesh = GetMeshFromModAssetBundle(Mesh);
+#else
+                        case1.sharedMesh = IterateAllModAssetsBundle<Mesh>(Mesh).First().Value;
+#endif
+                        }
+                        catch (Exception e)
+                        {
+                            throw new NullReferenceException("Mesh", e);
+                        }
+                        if (Texture != null && Texture.Length > 0)
+                        {
+                            try
+                            {
+                                var case1 = GO.GetComponent<MeshRenderer>();
+                                if (case1 == null)
+                                    case1 = GO.AddComponent<MeshRenderer>();
+#if EDITOR
+                                GameObject preview = GameObject.Find("GSO_ExampleTech");
+                                if (preview == null)
+                                    preview = GameObject.Find("SkinPreview_GSO");
+                                if (preview == null)
+                                    Debug_TTExt.Log("Could not locate SkinPreview object");
+                                var testMaterial = new Material(preview.GetComponentInChildren<MeshRenderer>().sharedMaterial);
+                                testMaterial.SetTexture("_MainTex", GetTextureFromModAssetBundle(Texture));
+#else
+                            var testMaterial = new Material(GetMaterialFromBaseGameActive("GSO_Main"));
+                            testMaterial.SetTexture("_MainTex", IterateAllModAssetsBundle<Texture2D>(Texture).First().Value);
+#endif
+                                case1.sharedMaterial = testMaterial;
+                                Debug_TTExt.Log("Added texture");
+                            }
+                            catch (Exception e)
+                            {
+                                throw new NullReferenceException("Texture", e);
+                            }
+                        }
+                        else
+                        {
+                            try
+                            {
+                                var case1 = GO.GetComponent<MeshRenderer>();
+                                if (case1 == null)
+                                    case1 = GO.AddComponent<MeshRenderer>();
+#if EDITOR
+                                GameObject preview = GameObject.Find("GSO_ExampleTech");
+                                if (preview == null)
+                                    preview = GameObject.Find("SkinPreview_GSO");
+                                if (preview == null)
+                                    Debug_TTExt.Log("Could not locate SkinPreview object");
+
+                                var testMaterial = preview.GetComponentInChildren<MeshRenderer>().sharedMaterial;
+#else
+                            var testMaterial = GetMaterialFromBaseGameActive("GSO_Main");
+#endif
+                                case1.sharedMaterial = testMaterial;
+                                Debug_TTExt.Log("Added texture(2)");
+                            }
+                            catch (Exception e)
+                            {
+                                throw new NullReferenceException("Texture (Fallback)", e);
+                            }
+                        }
+                    }
+                    foreach (var item in ComponentData)
+                    {
+                        try
+                        {
+                            if (item.Value == null)
+                                throw new NullReferenceException("item.Value");
+                            Type type = GetTypeDeep(item.Key);
+                            Component comp = GO.GetComponent(type);
+                            if (comp == null)
+                                comp = GO.AddComponent(type);
+                            JsonConvert.PopulateObject(item.Value, comp);
+                        }
+                        catch (Exception e)
+                        {
+                            UnityEngine.Debug.LogWarning("MonoBehavior " + ((item.Key == null) ? "<NULL>" : item.Key) + " deserialize failed - " + e);
+                        }
+                    }
+                    GO.layer = Layer;
+                    if (root == null)
+                        GO.SetActive(true);
+                    else
+                        GO.SetActive(Active);
+
+                    Debug_TTExt.Log("Setup " + Name);
+                    return GO;
                 }
-                GameObject GO = new GameObject(Name);
-                Transform trans = GO.transform;
-                trans.SetParent(rootNavi);
-                trans.localPosition = Position;
-                trans.localRotation = Rotation;
-                trans.localScale = Scale;
+                catch (Exception e)
+                {
+                    if (GO != null)
+                    {
+#if EDITOR
+                        UnityEngine.Object.DestroyImmediate(GO, true);
+#else
+                        UnityEngine.Object.Destroy(GO);
+#endif
+                    }
+                    Debug_TTExt.LogError("Failed on " + Name + ", skipping... - " + e);
+                    return GO;
+                }
+            }
+            public GameObject OverrideInternalLayout(GameObject target)
+            {
+                Transform rootNavi = null;
+                if (Name == null)
+                    Debug_TTExt.Log("NULL NAME ENCOUNTERED");
+                Debug_TTExt.Log("Overriding " + Name);
+                if (Hierarchy != null && Hierarchy.Contains(Path.DirectorySeparatorChar))
+                    throw new InvalidOperationException("GameObject \"" + Name +
+                        "\" is part of a hierarchy, but OverrideAndAssignToHierarchy does not support hierarchies!");
+                Transform trans = target.transform;
+                if (rootNavi != null)
+                {
+                    trans.SetParent(rootNavi, false);
+                    Debug_TTExt.Log("Hierachy - Attached " + Name + " to " + rootNavi.name);
+                }
+                trans.localPosition = Vector3.zero;
+                trans.localRotation = Quaternion.identity;
+                trans.localScale = Vector3.one;
                 if (Mesh != null && Mesh.Length > 0)
                 {
-                    var case1 = GO.AddComponent<MeshFilter>();
+                    try
+                    {
+                        var case1 = target.GetComponent<MeshFilter>();
+                        if (case1 == null)
+                            case1 = target.AddComponent<MeshFilter>();
+                        try
+                        {
 #if EDITOR
-                    case1.sharedMesh = GetMeshFromModAssetBundle(Mesh);
+                            case1.sharedMesh = GetMeshFromModAssetBundle(Mesh);
 #else
-                    case1.sharedMesh = IterateAllModAssetsBundle<Mesh>(Mesh).First().Value;
+                            case1.sharedMesh = IterateAllModAssetsBundle<Mesh>(Mesh).First().Value;
 #endif
+                        }
+                        catch { }
+                    }
+                    catch (Exception e)
+                    {
+                        throw new NullReferenceException("Mesh", e);
+                    }
+                    if (Texture != null && Texture.Length > 0)
+                    {
+                        try
+                        {
+                            var case1 = target.GetComponent<MeshRenderer>();
+                            if (case1 == null)
+                            {
+                                case1 = target.AddComponent<MeshRenderer>();
+                                try
+                                {
+#if EDITOR
+                                    GameObject preview = GameObject.Find("GSO_ExampleTech");
+                                    if (preview == null)
+                                        preview = GameObject.Find("SkinPreview_GSO");
+                                    var testMaterial = new Material(preview.GetComponentInChildren<MeshRenderer>().sharedMaterial);
+                                    testMaterial.SetTexture("_MainTex", GetTextureFromModAssetBundle(Texture));
+#else
+                                var testMaterial = new Material(GetMaterialFromBaseGameActive("GSO_Main"));
+                                testMaterial.SetTexture("_MainTex", IterateAllModAssetsBundle<Texture2D>(Texture).First().Value);
+#endif
+                                    case1.sharedMaterial = testMaterial;
+                                    Debug_TTExt.Log("Added texture");
+                                }
+                                catch { }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            throw new NullReferenceException("Texture", e);
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var case1 = target.GetComponent<MeshRenderer>();
+                            if (case1 == null)
+                            {
+                                case1 = target.AddComponent<MeshRenderer>();
+                                try
+                                {
+#if EDITOR
+                                    GameObject preview = GameObject.Find("GSO_ExampleTech");
+                                    if (preview == null)
+                                        preview = GameObject.Find("SkinPreview_GSO");
+                                    var testMaterial = preview.GetComponentInChildren<MeshRenderer>().sharedMaterial;
+#else
+                                var testMaterial = new Material(GetMaterialFromBaseGameActive("GSO_Main"));
+#endif
+                                    case1.sharedMaterial = testMaterial;
+                                    Debug_TTExt.Log("Added texture(2)");
+                                }
+                                catch { }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            throw new NullReferenceException("Texture (Fallback)", e);
+                        }
+                    }
                 }
-                if (Texture != null && Texture.Length > 0)
+                foreach (var item in ComponentData)
                 {
-                    var case1 = GO.AddComponent<MeshRenderer>();
-#if EDITOR
-                    GameObject preview = GameObject.Find("GSO_ExampleTech");
-                    if (preview == null)
-                        preview = GameObject.Find("SkinPreview_GSO");
-                    var testMaterial = new Material(preview.GetComponent<MeshRenderer>().sharedMaterial);
-                    testMaterial.SetTexture("_MainTex", GetTextureFromModAssetBundle(Texture));
-#else
-                    var testMaterial = new Material(GetMaterialFromBaseGame("GSO_Main"));
-                    testMaterial.SetTexture("_MainTex", IterateAllModAssetsBundle<Texture2D>(Texture).First().Value);
-#endif
-                    case1.sharedMaterial = testMaterial;
+                    try
+                    {
+                        Type type = GetTypeDeep(item.Key);
+                        Component comp = target.GetComponent(type);
+                        if (comp == null)
+                            comp = target.AddComponent(type);
+                        JsonConvert.PopulateObject(item.Value, comp);
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning("MonoBehavior " + item.Key + " deserialize failed - " + e);
+                    }
                 }
-                return GO;
+                target.layer = Layer;
+
+                Debug_TTExt.Log("Setup " + Name);
+                return target;
             }
-            private string RecurseHierachyStacker(Transform trans)
+            private string RecurseHierachyStacker(Transform trans, Transform transLowest)
             {
                 if (trans == null)
                     return string.Empty;
-                string next = RecurseHierachyStacker(trans);
-                if ( next != string.Empty)
+                if (trans == transLowest)
+                    return trans.name;
+                string next = RecurseHierachyStacker(trans.parent, transLowest);
+                if (next != string.Empty)
                     return trans.name + Path.DirectorySeparatorChar + next;
                 else 
                     return trans.name;
             }
         }
 
+        public static Type GetTypeDeep(string name)
+        {
+            if (name == null)
+                throw new NullReferenceException("value " + name + " is NULL");
+            foreach (var item in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    var type = item.GetType(name);
+                    if (type != null)
+                        return type;
+                }
+                catch { }
+            }
+            throw new NullReferenceException("type " + name + " does not exists");
+        }
+        public static Type[] FORCE_GET_TYPES(Assembly AEM)
+        {
+            try
+            {
+                return AEM.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                return e.Types;
+            }
+        }
 
 
 
@@ -1232,6 +2238,7 @@ namespace TerraTechETCUtil
         internal class GUIManaged : GUILayoutHelpers
         {
             private static bool controlledDisp = false;
+            private static bool controlledDisp2 = false;
             private static HashSet<string> enabledTabs = null;
             private static ResourceHelperGUITypes guiType = ResourceHelperGUITypes.ModTexture;
             public static Dictionary<ModContainer, ExtInfo> infoCache = new Dictionary<ModContainer, ExtInfo>();
@@ -1243,7 +2250,12 @@ namespace TerraTechETCUtil
                     contentNONE = new Dictionary<string, ModdedAsset>();
                     content = contentNONE;
                 }
-                GUILayout.Box("--- Resources --- ");
+                GUIResources();
+                GUIExtSFX();
+            }
+            public static void GUIResources()
+            {
+                GUILayout.Box("--- Mod Resources --- ");
                 bool show = controlledDisp && Singleton.playerTank;
                 if (GUILayout.Button("Enabled Loading: " + show))
                     controlledDisp = !controlledDisp;
@@ -1486,6 +2498,73 @@ namespace TerraTechETCUtil
                 else
                     GUILayout.Label("No Material Selected");
             }
+
+
+            private static bool showExtSFX = false;
+            public static void GUIExtSFX()
+            {
+                GUILayout.Box("--- Mod SFX Data --- ");
+                bool show = showExtSFX && Singleton.playerTank;
+                if (GUILayout.Button("Enabled Loading: " + show))
+                    showExtSFX = !showExtSFX;
+                if (showExtSFX)
+                {
+                    try
+                    {
+                        int count = 0;
+                        foreach (var item in ManAudioExt.AllSounds)
+                        {
+                            count += item.Value.Count;
+                        }
+                        GUILabelDispFast("Count: ", count);
+                        if (GUILayout.Button("Play Last", AltUI.ButtonRed))
+                            ResourcesHelper.PlayLastCached();
+                        if (GUILayout.Button("Reload ALL", AltUI.ButtonRed))
+                            ManAudioExt.RebuildAllSounds();
+                        GUILayout.Label("Sounds", AltUI.LabelBlackTitle);
+                        foreach (var item in ManAudioExt.AllSounds)
+                        {
+                            GUILayout.BeginVertical(AltUI.TextfieldBlackHuge);
+                            GUILayout.Label(item.Key.ModID, AltUI.LabelBlueTitle);
+                            foreach (var item1 in item.Value)
+                            {
+                                GUILayout.BeginVertical(AltUI.TextfieldBlackHuge);
+                                GUILayout.Label(item1.Key, AltUI.LabelBlue);
+                                if (GUILayout.Button("Main", AltUI.ButtonBlue))
+                                    item1.Value.main.GetRandomEntry().Play();
+                                if (item1.Value.startup != null && GUILayout.Button("Startup", AltUI.ButtonBlue))
+                                    item1.Value.startup.Play();
+                                if (item1.Value.engage != null && GUILayout.Button("Engage", AltUI.ButtonBlue))
+                                    item1.Value.engage.Play();
+                                if (item1.Value.stop != null && GUILayout.Button("Stop", AltUI.ButtonBlue))
+                                    item1.Value.stop.Play();
+                                if (GUILayout.Button("Stop All", AltUI.ButtonRed))
+                                {
+                                    foreach (var item2 in item1.Value.main)
+                                        item2.Stop();
+                                    if (item1.Value.startup != null)
+                                        item1.Value.startup.Stop();
+                                    if (item1.Value.engage != null)
+                                        item1.Value.engage.Stop();
+                                    if (item1.Value.stop != null)
+                                        item1.Value.stop.Stop();
+                                }
+                                GUILayout.EndVertical();
+                            }
+                            GUILayout.EndVertical();
+                        }
+                    }
+                    catch (ExitGUIException e)
+                    {
+                        throw e;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug_TTExt.Log("ResourcesHelper UI Debug errored - " + e);
+                    }
+                }
+            }
+
 
 
             private static ModBundleGUITypes guiMBType = ModBundleGUITypes.ALL;

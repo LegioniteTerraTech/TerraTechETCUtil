@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -12,6 +13,7 @@ namespace TerraTechETCUtil
     public class InvokeHelper : MonoBehaviour
     {
         private static InvokeHelper inst;
+        public static InvokeHelper Inst => inst;
         internal struct InvokeRepeater
         {
             internal float nextTime;
@@ -30,7 +32,23 @@ namespace TerraTechETCUtil
             var logMan = new GameObject("invokeHelper");
             inst = logMan.AddComponent<InvokeHelper>();
             logMan.SetActive(true);
-            inst.enabled = true;
+            ResourcesHelper.ModsUpdateEvent.Subscribe(inst.UpdateModSync);
+        }
+
+        public static void InvokeCoroutine(IEnumerator coroutine)
+        {
+            InsureInit();
+            inst.StartCoroutine(coroutine);
+        }
+        public static void CancelCoroutine(IEnumerator coroutine)
+        {
+            InsureInit();
+            inst.StopCoroutine(coroutine);
+        }
+        public static void CancelALLCoroutines()
+        {
+            InsureInit();
+            inst.StopAllCoroutines();
         }
 
         /// <summary>
@@ -43,6 +61,8 @@ namespace TerraTechETCUtil
         public static void InvokeSingleRepeat(Action act, float delay)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokeSingleRepeat.TryGetValue(act.Method, out _))
             {
                 inst.invokeSingleRepeat.Remove(act.Method);
@@ -52,7 +72,6 @@ namespace TerraTechETCUtil
                 nextTime = Time.time + delay,
                 delay = delay,
                 toInvoke = act,
-
             });
         }
         /// <summary>
@@ -63,6 +82,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokeSingleRepeat.Remove(act.Method);
         }
 
@@ -77,6 +98,8 @@ namespace TerraTechETCUtil
         /// <param name="ForceSet">To force set the Single's delay again.</param>
         public static void InvokeSingle(Action act, float delay, bool ForceSet = false)
         {
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             InsureInit();
             if (inst.invokeSingles.TryGetValue(act.Method, out _))
             {
@@ -101,6 +124,8 @@ namespace TerraTechETCUtil
         public static void InvokeSingle<T>(Action<T> act, float delay, T in1, bool ForceSet = false)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokeSingles.TryGetValue(act.Method, out _))
             {
                 if (ForceSet)
@@ -127,6 +152,8 @@ namespace TerraTechETCUtil
         public static void InvokeSingle<T, V>(Action<T, V> act, float delay, T in1, V in2, bool ForceSet = false)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokeSingles.TryGetValue(act.Method, out _))
             {
                 if (ForceSet)
@@ -154,6 +181,8 @@ namespace TerraTechETCUtil
         public static void InvokeSingle<T, V, R>(Action<T, V, R> act, float delay, T in1, V in2, R in3, bool ForceSet = false)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokeSingles.TryGetValue(act.Method, out _))
             {
                 if (ForceSet)
@@ -176,6 +205,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokeSingles.Remove(act.Method);
         }
         /// <summary>
@@ -186,6 +217,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokeSingles.Remove(act.Method);
         }
         /// <summary>
@@ -196,6 +229,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokeSingles.Remove(act.Method);
         }
         /// <summary>
@@ -206,6 +241,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokeSingles.Remove(act.Method);
         }
 
@@ -216,6 +253,8 @@ namespace TerraTechETCUtil
         public static void InvokeNextUpdate(Action act)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokes.AddInlined(act.Method, (IInvokeable)new Invokeable(act, Time.time + 0.01f));
         }
         /// <summary>
@@ -227,6 +266,8 @@ namespace TerraTechETCUtil
         public static void Invoke(Action act, float delay)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokes.AddInlined(act.Method, (IInvokeable)new Invokeable(act, Time.time + delay));
         }
         /// <summary>
@@ -239,6 +280,8 @@ namespace TerraTechETCUtil
         public static void Invoke<T>(Action<T> act, float delay, T in1)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokes.AddInlined(act.Method,
                 (IInvokeable)new Invokeable<T>(act, Time.time + delay, in1));
         }
@@ -253,6 +296,8 @@ namespace TerraTechETCUtil
         public static void Invoke<T, V>(Action<T, V> act, float delay, T in1, V in2)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokes.AddInlined(act.Method,
                 (IInvokeable)new Invokeable<T, V>(act, Time.time + delay, in1, in2));
         }
@@ -268,6 +313,8 @@ namespace TerraTechETCUtil
         public static void Invoke<T,V,R>(Action<T, V, R> act, float delay, T in1, V in2, R in3)
         {
             InsureInit();
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             inst.invokes.AddInlined(act.Method, 
                 (IInvokeable)new Invokeable<T, V, R>(act, Time.time + delay, in1, in2, in3));
         }
@@ -280,6 +327,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokes.TryGetValue(act.Method, out var val))
             {
                 int valF = val.FindIndex(x => x.IsSameMethod(act.GetType(),act));
@@ -295,6 +344,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokes.TryGetValue(act.Method, out var val))
             {
                 int valF = val.FindIndex(x => x.IsSameMethod(act.GetType(), act));
@@ -310,6 +361,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokes.TryGetValue(act.Method, out var val))
             {
                 int valF = val.FindIndex(x => x.IsSameMethod(act.GetType(), act));
@@ -325,6 +378,8 @@ namespace TerraTechETCUtil
         {
             if (!inst)
                 return;
+            if (act == null)
+                throw new NullReferenceException("Action: act");
             if (inst.invokes.TryGetValue(act.Method, out var val))
             {
                 int valF = val.FindIndex(x => x.IsSameMethod(act.GetType(), act));
@@ -376,13 +431,15 @@ namespace TerraTechETCUtil
             inst.invokeSingleRepeat.Clear();
         }
 
-        private void Update()
+        private void UpdateModSync()
         {
+            //Debug_TTExt.Log("UpdateModSync");
             for (int step = 0; step < invokeSingleRepeat.Count;)
             {
                 var ele = invokeSingleRepeat.ElementAt(step);
                 try
                 {
+                    //Debug_TTExt.Log("invokeSingleRepeat(" + step + ")");
                     if (ele.Value.nextTime > Time.time)
                     {
                         step++;
@@ -403,7 +460,14 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    try
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    }
+                    catch
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on <NULL.Key> init, aborting... " + e);
+                    }
                     invokeSingleRepeat.Remove(ele.Key);
                 }
             }
@@ -422,7 +486,14 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingles - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    try
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingles - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    }
+                    catch
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on <NULL.Key> init, aborting... " + e);
+                    }
                 }
                 invokeSingles.Remove(ele.Key);
             }
@@ -455,10 +526,22 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokes - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    try
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokes - Error on " + ele.Key.Name + " init, aborting... " + e);
+                    }
+                    catch
+                    {
+                        Debug_TTExt.Log("Debug_TTExt: InvokeHelper.invokeSingleRepeat - Error on <NULL.Key> init, aborting... " + e);
+                    }
                 }
                 invokes.Remove(ele.Key);
             }
+            ManModGUI.MainUpdateMouseOverAnyWindow();
+        }
+        private void OnGUI()
+        {
+            ManModGUI.UpdateMouseOverAnyWindow();
         }
 
         internal interface IInvokeable

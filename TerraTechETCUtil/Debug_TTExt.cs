@@ -6,12 +6,13 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-    internal static class Debug_TTExt
+    public static class Debug_TTExt
     {
         private const string modName = "TerraTechModExt";
 
-        internal static bool LogAll = false;
+        public static bool LogAll = false;
         internal static bool ShouldLog = true;
+        internal static bool ShouldLogBiomeGen = false;
         private static bool LogDev = false;
 
         internal static void Info(string message)
@@ -31,6 +32,12 @@ namespace TerraTechETCUtil
             if (!ShouldLog)
                 return;
             Debug.Log(e);
+        }
+        internal static void LogGen(string message)
+        {
+            if (!ShouldLog || !ShouldLogBiomeGen)
+                return;
+            UnityEngine.Debug.Log(message);
         }
         internal static void Assert(string message)
         {

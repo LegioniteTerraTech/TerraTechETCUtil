@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 
 namespace TerraTechETCUtil
@@ -56,6 +57,7 @@ namespace TerraTechETCUtil
             biomeInst = BiomeInst;
             desc = GetBiomeDescription(BiomeInst);
         }
+        public override void GetIcon() { }
         public static string CleanupName(string name)
         {
             if (name.NullOrEmpty())
@@ -115,7 +117,7 @@ namespace TerraTechETCUtil
                                 {
                                     foreach (var item3 in prefabBase)
                                     {
-                                        if (item3.Key == BT && !links.Exists(x => x.linked.name == nameCached))
+                                        if (item3.Key == biomeInst.name && !links.Exists(x => x.linked.name == nameCached))
                                             links.Add(new ManIngameWiki.WikiLink(item2));
                                     }
                                 }

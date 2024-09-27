@@ -77,7 +77,7 @@ namespace TerraTechETCUtil
 
         public void Setup(WorldTile tile, Vector3 overrideOrigin)
         {
-            var heights = tile.Terrain.terrainData.GetHeights(0, 0, CellsInTile, CellsInTile);
+            var heights = GetRealHeights(tile);
             int widthTile = heights.GetLength(0);
             int heightTile = heights.GetLength(1);
             Position = WorldPosition.FromScenePosition(tile.CalcSceneOrigin() - overrideOrigin);
@@ -93,7 +93,7 @@ namespace TerraTechETCUtil
         }
         public void Setup(WorldTile tile)
         {
-            var heights = tile.Terrain.terrainData.GetHeights(0, 0, CellsInTile, CellsInTile);
+            var heights = GetRealHeights(tile);
             int widthTile = heights.GetLength(0);
             int heightTile = heights.GetLength(1);
             Position = new WorldPosition(tile.Coord, Vector3.zero);
@@ -814,7 +814,7 @@ namespace TerraTechETCUtil
             float dampen;
             float dampenInv;
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
@@ -866,7 +866,7 @@ namespace TerraTechETCUtil
         private void DoAdd(WorldTile Target, ref float addMulti, Vector3 ModSceneOverride)
         {
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
@@ -914,7 +914,7 @@ namespace TerraTechETCUtil
             float dampen;
             float dampenInv;
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
@@ -968,7 +968,7 @@ namespace TerraTechETCUtil
             float dampen;
             float dampenInv;
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 origin = TileWorldSceneOriginCellPos(Target);
             IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
@@ -1057,7 +1057,7 @@ namespace TerraTechETCUtil
             float dampen;
             float dampenInv;
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
             int widthT = heightsPrev.GetLength(0);
@@ -1148,7 +1148,7 @@ namespace TerraTechETCUtil
             float lowHeight, float highHeight, Vector3 rampCenter, Vector3 vecNormal)
         {
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = TD.GetHeights(0, 0, CellsInTileIndexer, CellsInTileIndexer);
+            float[,] heightsPrev = GetRealHeights(Target);
             IntVector2 tileOriginCellWorld = TileWorldSceneOriginCellPos(Target);
             IntVector2 deltaCellTile = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
@@ -1201,6 +1201,18 @@ namespace TerraTechETCUtil
             Terrain.SetConnectivityDirty();
             WorldDeformer.terrainsDeformed.Add(WT);
             Globals.inst.m_ManuallyConnectTerrainTiles = prevState;
+        }
+        private static float[,] heightsCached = new float[CellsInTileIndexer, CellsInTileIndexer];
+        private static float[,] GetRealHeights(WorldTile tile)
+        {
+            float height = tile.Terrain.terrainData.size.y;
+            Vector2 delta = tile.WorldOrigin.ToVector2XZ();
+            Terrain terra = tile.Terrain;
+            for (int x = 0; x < CellsInTileIndexer; x++)
+                for (int y = 0; y < CellsInTileIndexer; y++)
+                    heightsCached[x, y] = terra.SampleHeight((delta + new Vector2(y * tilePosToTileScale, x * tilePosToTileScale)
+                        ).ToVector3XZ()) / height;
+            return heightsCached;
         }
     }
 }

@@ -15,8 +15,9 @@ namespace TerraTechETCUtil
     /// <summary>
     /// Used solely for this mod for modules compat with MP
     /// </summary>
-    public class ExtModule : MonoBehaviour, IInvokeGrabbable
+    public abstract class ExtModule : MonoBehaviour, IInvokeGrabbable
     {
+        public virtual BlockDetails.Flags BlockDetailFlags => BlockDetails.Flags.None;
         private static bool notInitStatic = true;
         private static TankBlock lastBlock = null;
         public static TankBlock LastBlock => lastBlock;
@@ -24,13 +25,13 @@ namespace TerraTechETCUtil
         {
             if (act == ManPointer.DragAction.Grab && vis?.block)
             {
+                //Debug_TTExt.Info("OnItemGrabbed - " + vis.name);
                 lastBlock = vis.block;
-                foreach (var item in lastBlock.GetComponentsInChildren<MonoBehaviour>(true))
+                foreach (var item in lastBlock.GetComponentsInChildren<IInvokeGrabbable>(true))
                 {
-                    if (item is IInvokeGrabbable IG)
-                        IG.OnGrabbed();
+                    //Debug_TTExt.Info("IInvokeGrabbable - " + item.GetType());
+                    item.OnGrabbed();
                 }
-                //Debug_TTExt.Log("OnItemGrabbed - " + vis.name);
             }
         }
 
@@ -97,9 +98,12 @@ namespace TerraTechETCUtil
     /// <summary>
     /// Used for MP-compatable modules that also need to operate away from the base block GameObject position.
     /// </summary>
-    public class ChildModule : MonoBehaviour
+    public abstract class ChildModule : MonoBehaviour
     {
+        public virtual bool ForceTechOnly => true;
+        public Visible visible { get; internal set; }
         public TankBlock block { get; internal set; }
+        public ResourceDispenser resdisp => visible.resdisp;
         public Tank tank => block.tank;
         public ModuleDamage modDmg { get; private set; }
         public Damageable dmg { get; private set; }
@@ -110,10 +114,17 @@ namespace TerraTechETCUtil
         /// </summary>
         public void OnPool()
         {
-            if (!block)
+            if (!visible)
             {
-                block = gameObject.GetComponent<TankBlock>();
-                if (block)
+                visible = gameObject.GetComponentInParents<Visible>();
+                if (resdisp)
+                {
+                    modDmg = visible.GetComponent<ModuleDamage>();
+                    dmg = visible.GetComponent<Damageable>();
+                    Pool();
+                    OnPostPool();
+                }
+                else if (gameObject.GetComponent<TankBlock>())
                 {
                     BlockDebug.ThrowWarning("TerraTechModExt: ChildModule must NOT be in the lowest layer of JSONBLOCK/Deserializer GameObject layer!\nThis operation cannot be handled automatically.\nCause of error - Block " + gameObject.name);
                     enabled = false;
@@ -125,19 +136,19 @@ namespace TerraTechETCUtil
                     {
                         try
                         {
-                            modDmg = block.GetComponent<ModuleDamage>();
-                            dmg = block.GetComponent<Damageable>();
+                            modDmg = visible.GetComponent<ModuleDamage>();
+                            dmg = visible.GetComponent<Damageable>();
                             block.SubToBlockAttachConnected(OnAttach, OnDetach);
                         }
                         catch
                         {
-                            Debug_TTExt.LogError("TerraTechModExt: ChildModule - TankBlock is null");
+                            Debug_TTExt.LogError("TerraTechModExt: ChildModule - Visible is null");
                             enabled = false;
                             return;
                         }
                         enabled = true;
                         Pool();
-                        PostPool();
+                        OnPostPool();
                     }
                     else
                     {
@@ -161,11 +172,15 @@ namespace TerraTechETCUtil
         /// </summary>
         public void OnPostPool()
         {
-            PostPool();
+            if (visible && resdisp)
+                PostPoolScenery();
+            else
+                PostPoolBlock();
         }
 
         protected virtual void Pool() { }
-        protected virtual void PostPool() { }
+        protected virtual void PostPoolBlock() { }
+        protected virtual void PostPoolScenery() { }
         public virtual void OnAttach() { }
         public virtual void OnDetach() { }
 

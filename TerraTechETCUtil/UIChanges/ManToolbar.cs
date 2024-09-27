@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using FMOD;
 
 namespace TerraTechETCUtil
 {
@@ -16,7 +14,9 @@ namespace TerraTechETCUtil
         {
             public readonly string Name;
             public readonly Sprite Sprite;
+            public bool IsShowing => Element.IsShowing;
             protected GameObject inst;
+            internal abstract UIHUDElement Element { get; }
             public ToolbarElement(string name, Sprite iconSprite)
             {
                 Name = name;
@@ -25,13 +25,42 @@ namespace TerraTechETCUtil
             public void Remove()
             {
                 UnityEngine.Object.Destroy(inst);
-                Active.Remove(this);
+                Elements.Remove(this);
             }
             internal abstract void Initiate();
+            protected virtual void InsureWorking()
+            {
+                if (!ready)
+                    throw new InvalidOperationException("ManToolbar is not ready yet!  The call must wait until the game loads.");
+                if (inst == null)
+                    throw new NullReferenceException("ManToolbar.ToolbarElement failed to get the UI instance!");
+                if (Element == null)
+                    throw new NullReferenceException("ManToolbar.ToolbarElement failed to get the UI controller!");
+                if (!inst.transform.parent)
+                    throw new NullReferenceException("ManToolbar.ToolbarElement failed to get the parent for the toggle!  There MUST be a parent, how odd?!");
+            }
+            public virtual void Show()
+            {
+                InsureWorking();
+                Element.SetVisible(true);
+            }
+            public virtual void ShowAndExpand()
+            {
+                Show();
+                Element.Expand(null);
+            }
+            public virtual void Hide()
+            {
+                InsureWorking();
+                Element.SetVisible(false);
+                Element.Collapse(null);
+            }
         }
         public class ToolbarButton : ToolbarElement
         {
             public readonly UnityAction Callback;
+            private UIHUDButton togUI;
+            internal override UIHUDElement Element => togUI;
             public ToolbarButton(string name, Sprite iconSprite, UnityAction callback) :
                 base(name, iconSprite)
             {
@@ -41,7 +70,15 @@ namespace TerraTechETCUtil
             internal override void Initiate()
             {
                 inst = MakePrefabButton(Name, Sprite, Callback).gameObject;
-                Active.Add(this);
+                if (!inst.transform.parent)
+                    throw new NullReferenceException("ManToolbar.ToolbarButton failed to get the parent for the button!  There MUST be a parent, how odd?!");
+                togUI = inst.transform.parent.GetComponentInChildren<UIHUDButton>(true);
+                if (togUI == null)
+                {
+                    Utilities.LogGameObjectHierachy(inst.transform.parent.gameObject);
+                    throw new NullReferenceException("ManToolbar.ToolbarButton failed to get the Button Controller UI instance!");
+                }
+                Elements.Add(this);
             }
         }
         public class ToolbarToggle : ToolbarElement
@@ -49,6 +86,7 @@ namespace TerraTechETCUtil
             private static readonly FieldInfo TogInfo = typeof(UIHUDToggleButton).GetField("m_ToggleButton", BindingFlags.Instance | BindingFlags.NonPublic);
             public readonly UnityAction<bool> Callback;
             private UIHUDToggleButton togUI;
+            internal override UIHUDElement Element => togUI;
             public ToolbarToggle(string name, Sprite iconSprite, UnityAction<bool> callback) :
                 base(name, iconSprite)
             {
@@ -58,8 +96,22 @@ namespace TerraTechETCUtil
             internal override void Initiate()
             {
                 inst = MakePrefabToggle(Name, Sprite, Callback).gameObject;
+                if (!inst.transform.parent)
+                    throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the parent for the toggle!  There MUST be a parent, how odd?!");
                 togUI = inst.transform.parent.GetComponentInChildren<UIHUDToggleButton>(true);
-                Active.Add(this);
+                if (togUI == null)
+                {
+                    Utilities.LogGameObjectHierachy(inst.transform.parent.gameObject);
+                    throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the Toggle Controller UI instance!");
+                }
+                Elements.Add(this);
+            }
+            public void SetToggleVisibility(bool state)
+            {
+                if (state)
+                    Show();
+                else
+                    Hide();
             }
             public void SetToggleState(bool state)
             {
@@ -67,7 +119,7 @@ namespace TerraTechETCUtil
                 //    togUI = inst.transform.parent.GetComponentInChildren<UIHUDToggleButton>(true);
                 if (togUI == null)
                 {
-                    Utilities.LogGameObjectHierachy(inst.transform.parent.gameObject);
+                    //Utilities.LogGameObjectHierachy(inst.transform.parent.gameObject);
                     throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the Toggle Controller UI instance!");
                 }
                 if (inst && togUI)
@@ -77,7 +129,7 @@ namespace TerraTechETCUtil
                     if (tog == null)
                         throw new NullReferenceException("ManToolbar.ToolbarToggle failed to get the Toggle visual UI instance!");
                     tog.isOn = state;
-                    Debug_TTExt.Log("TerraTechModExt: Closed ManToolbar.ToolbarToggle");
+                    Debug_TTExt.Info("TerraTechModExt: Set ManToolbar.ToolbarToggle");
                     togUI.Collapse(null);
                 }
                 else
@@ -86,16 +138,20 @@ namespace TerraTechETCUtil
         }
         private static bool ready = false;
         private static Queue<ToolbarElement> queued = null;
-        private static List<ToolbarElement> Active = null;
+        private static List<ToolbarElement> Elements = null;
+        public static bool Ready => ready;
 
         private static void InsuredStartup(ToolbarElement add)
         {
             if (queued == null)
             {
                 queued = new Queue<ToolbarElement>();
-                Active = new List<ToolbarElement>();
-                ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
-                ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
+                Elements = new List<ToolbarElement>();
+                ready = ManGameMode.inst.GetModePhase() == ManGameMode.GameState.InGame;
+                if (ready)
+                    ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
+                else
+                    ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
             }
             if (ready)
                 add.Initiate();
@@ -112,6 +168,7 @@ namespace TerraTechETCUtil
                 {
                     queued.Dequeue().Initiate();
                 }
+                ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
                 ManGameMode.inst.ModeStartEvent.Unsubscribe(TrySetup);
                 ready = true;
             }
@@ -123,6 +180,8 @@ namespace TerraTechETCUtil
         private static void NotReady(Mode ignor)
         {
             ready = false;
+            ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
+            ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(NotReady);
         }
 
 

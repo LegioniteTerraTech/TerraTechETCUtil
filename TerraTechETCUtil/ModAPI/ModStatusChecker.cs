@@ -313,6 +313,7 @@ namespace TerraTechETCUtil
         public static bool Is0MMAvail => LookForMod("NLogManager");//LookForMod("0ModManager");
 
         public static bool IsRandomAdditionsAvail => LookForMod("RandomAdditions");
+        public static bool IsWaterModAvail => LookForMod("Water Mod") || LookForMod("Water Mod + Lava");
 
 
         private static bool failed = false;
@@ -389,19 +390,21 @@ namespace TerraTechETCUtil
                     {
                         Debug_TTExt.Log("ModStatusChecker.ShowSetting is " + inst.ShowSetting);
                         if (new GameVersion(inst.LastVersion) != new GameVersion(SKU.DisplayVersion))
-                            ShowErrorLog("Game Updated from [" + inst.LastVersion + "] to [" + SKU.DisplayVersion + "]\n- Be warned as some mods may be broken");
+                            ShowErrorLog("Game Updated from [" + inst.LastVersion + "] to [" + SKU.DisplayVersion + "]\n- Be warned as some mods might be broken");
                         else if (inst.ShowSetting == 0)
                             ShowErrorLog("Active each startup - No immedeate startup issues detected");
                     }
                     else
                         ShowErrorLog("First Initialization");
 
+                    /*
                     if (ActiveGameInterop.CheckIfInteropActiveGameOnly())
                     {
                         ShowErrorLog("Editor Detected, Hooked Up!");
                         ActiveGameInterop.Init();
                         InvokeHelper.InvokeSingleRepeat(ActiveGameInterop.UpdateNow, 1);
                     }
+                    */
                 }
                 var status = CheckStatusOfMod(ModID);
                 if (!modStatuses.ContainsKey(ModID))

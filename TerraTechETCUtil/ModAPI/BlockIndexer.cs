@@ -5,6 +5,7 @@ using System.Text;
 using System.Reflection;
 using UnityEngine;
 using Newtonsoft.Json;
+using System.IO;
 
 #if !STEAM
 using Nuterra.BlockInjector;
@@ -19,10 +20,12 @@ namespace TerraTechETCUtil
     {
         public static bool isBlockInjectorPresent = false;
         public static string FolderDivider = "/";
+        public static bool UseVanillaFallbackSnapUtility = true;
 
         private static bool spamLog = false;
         private static BlockIndexer inst;
         private static bool Compiled = false;
+        private static int types = Enum.GetValues(typeof(BlockTypes)).Length;
 
 
         /// <summary>
@@ -32,17 +35,10 @@ namespace TerraTechETCUtil
         /// <returns>The Block Type to use if it found it, otherwise returns BlockTypes.GSOCockpit_111</returns>
         public static BlockTypes StringToBlockType(string mem)
         {
-            if (!Enum.TryParse(mem, out BlockTypes type))
-            {
+            if (!Enum.TryParse(mem, out BlockTypes type) && (int)type < types)
                 if (!TryGetMismatchNames(mem, ref type))
-                {
-                    if (StringToBIBlockType(mem, out BlockTypes BTC))
-                    {
-                        return BTC;
-                    }
-                    type = GetBlockIDLogFree(mem);
-                }
-            }
+                    if (!StringToBIBlockType(mem, out type))
+                        type = GetBlockIDLogFree(mem);
             return type;
         }
         /// <summary>
@@ -51,21 +47,9 @@ namespace TerraTechETCUtil
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <param name="BT">The Block Type to use if it found it</param>
         /// <returns>True if it found it in Block Injector</returns>
-        public static bool StringToBlockType(string mem, out BlockTypes BT)
-        {
-            if (!Enum.TryParse(mem, out BT))
-            {
-                if (!TryGetMismatchNames(mem, ref BT))
-                {
-                    if (StringToBIBlockType(mem, out BT))
-                        return true;
-                    if (GetBlockIDLogFree(mem, out BT))
-                        return true;
-                    return false;
-                }
-            }
-            return true;
-        }
+        public static bool StringToBlockType(string mem, out BlockTypes BT) =>
+            (Enum.TryParse(mem, out BT) && (int)BT < types) || TryGetMismatchNames(mem, ref BT) ||
+            StringToBIBlockType(mem, out BT) || GetBlockIDLogFree(mem, out BT);
         /// <summary>
         /// Searches Block Injector for the block based on root GameObject name.
         /// </summary>
@@ -85,6 +69,7 @@ namespace TerraTechETCUtil
                 BT = BTC;
                 return true;
             }
+            Debug_TTExt.Info("StringToBIBlockType Failed attempting " + mem + " -> " + mem.GetHashCode());
             return false;
         }
 
@@ -115,10 +100,26 @@ namespace TerraTechETCUtil
             return false;
         }
 
+        // Block Details Cache 
+        private static readonly Dictionary<int, BlockDetails.Flags> vanillaDetails = new Dictionary<int, BlockDetails.Flags>();
+        private static readonly Dictionary<int, BlockDetails.Flags> moddedDetails = new Dictionary<int, BlockDetails.Flags>();
+        public static BlockDetails GetBlockDetails(BlockTypes type) => new BlockDetails(type);
+        internal static void GetBlockDetails_Internal(BlockTypes type, ref BlockDetails cache)
+        {
+            var intT = (int)type;
+            cache.attributesHash = (BlockAttributes)ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<BlockAttributes>(
+                new ItemTypeInfo(ObjectTypes.Block, intT).GetHashCode());
+            if (!vanillaDetails.TryGetValue(intT, out cache.flags))
+                moddedDetails.TryGetValue(intT, out cache.flags);
+        }
+
 
         // Logless block loader
+        private static FieldInfo generator = typeof(ModuleEnergy).GetField("m_OutputConditions", BindingFlags.NonPublic | BindingFlags.Instance);
+
         private static Dictionary<string, int> ModdedBlocksGrabbed;
         private static readonly FieldInfo allModdedBlocks = typeof(ManMods).GetField("m_BlockIDReverseLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly Dictionary<int, BlockTypes> errorNamesVanilla = new Dictionary<int, BlockTypes>();
         private static readonly Dictionary<int, BlockTypes> errorNames = new Dictionary<int, BlockTypes>();
         private static bool subbed = false;
         public static void ResetBlockLookupList()
@@ -131,7 +132,9 @@ namespace TerraTechETCUtil
             if (!Compiled)
                 return;
             errorNames.Clear();
+            moddedDetails.Clear();
             Compiled = false;
+            LegModExt.harmonyInstance.MassUnPatchAllWithin(typeof(SnapshotsPatchBatch), "TerraTechModExt", false);
         }
         /// <summary>
         /// Builds the lookup to use when using block names to find BlockTypes
@@ -155,6 +158,82 @@ namespace TerraTechETCUtil
             ConstructBlockLookupList();
         }
 
+        private static void CollectBlockDetails(BlockTypes type,
+            Dictionary<int, BlockTypes> errorNames, Dictionary<int, BlockDetails.Flags> details, bool isModded, bool moddedLog)
+        {
+            TankBlock prefab = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
+            if (prefab?.GetComponent<Damageable>() == null)
+                return;
+            string name = prefab.name;
+            int hash = name.GetHashCode();
+            if (!errorNames.Keys.Contains(hash))
+            {
+                errorNames.Add(hash, type);
+
+                int blockDetailFlags = 0;
+
+                var booster = prefab.GetComponent<ModuleBooster>();
+                if (booster)
+                {
+                    //Get the slowest spooling one
+                    if (booster.transform.GetComponentInChildren<FanJet>(true))
+                        blockDetailFlags |= (int)BlockDetails.Flags.Fans;
+                    if (booster.transform.GetComponentInChildren<BoosterJet>(true))
+                        blockDetailFlags |= (int)BlockDetails.Flags.Boosters;
+                }
+
+                if (prefab.GetComponent<ModuleWing>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Wings;
+                if (prefab.GetComponent<ModuleHover>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Hovers;
+                if (prefab.GetComponent<ModuleGyro>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Gyro;
+                if (prefab.GetComponent<ModuleWheels>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Wheels;
+                if (prefab.GetComponent<ModuleAntiGravityEngine>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.AntiGrav;
+                if (prefab.GetComponent<ModuleShieldGenerator>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Bubble;
+
+                if (prefab.GetComponent<IModuleDamager>() != null)
+                    blockDetailFlags |= (int)BlockDetails.Flags.Weapon;
+                if (prefab.GetComponent<ModuleMeleeWeapon>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Melee;
+                if (prefab.GetComponent<ModuleWeaponFlamethrower>() ||
+                    prefab.GetComponent<ModuleWeaponTeslaCoil>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.Short;
+                if (prefab.GetComponent<ModuleDetachableLink>() ||
+                    prefab.GetComponent<ModuleFasteningLink>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.ControlsBlockman;
+                if (prefab.m_DefaultMass < prefab.filledCells.Length)
+                    blockDetailFlags |= (int)BlockDetails.Flags.Floats;
+
+                foreach (var item in prefab.GetComponents<ExtModule>())
+                    blockDetailFlags |= (int)item.BlockDetailFlags;
+
+                int typeI = (int)type;
+                if (!details.ContainsKey(typeI))
+                    details.Add(typeI, (BlockDetails.Flags)blockDetailFlags);
+                else
+                    details[typeI] = (BlockDetails.Flags)blockDetailFlags;
+
+                if (moddedLog)
+                    Debug.Log("TTETCUtil: ConstructErrorBlocksList - Added Modded Block " + name + " | " + type.ToString());
+            }
+        }
+        private static void ConstructBlockLookupListVanilla()
+        {
+            if (!errorNamesVanilla.Any())
+            {
+                int enumMax = Enum.GetValues(typeof(BlockTypes)).Length;
+                foreach (BlockTypes type in Singleton.Manager<ManSpawn>.inst.GetLoadedTankBlockNames())
+                {
+                    if ((int)type > enumMax)
+                        return;
+                    CollectBlockDetails(type, errorNamesVanilla, vanillaDetails, false, false);
+                }
+            }
+        }
         /// <summary>
         /// Builds the lookup to use when using block names to find BlockTypes
         /// </summary>
@@ -165,27 +244,24 @@ namespace TerraTechETCUtil
             Debug.Log("TerraTechETCUtil: Rebuilding block lookup...");
             try
             {
+                LegModExt.harmonyInstance.MassPatchAllWithin(typeof(SnapshotsPatchBatch), "TerraTechModExt", true);
+                ConstructBlockLookupListVanilla();
+                int enumMax = Enum.GetValues(typeof(BlockTypes)).Length;
                 foreach (BlockTypes type in Singleton.Manager<ManSpawn>.inst.GetLoadedTankBlockNames())
                 {
-                    TankBlock prefab = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
-                    string name = prefab.name;
-                    if (prefab.GetComponent<Damageable>() && type.ToString() != name) //&& !Singleton.Manager<ManMods>.inst.IsModdedBlock(type))
-                    {
-                        int hash = name.GetHashCode();
-                        if (!errorNames.Keys.Contains(hash))
-                        {
-                            errorNames.Add(hash, type);
-                            if (spamLog && (int)type > 5000)
-                                Debug.Log("TTETCUtil: ConstructErrorBlocksList - Added Modded Block " + name + " | " + type.ToString());
-                        }
-                    }
+                    if ((int)type <= enumMax)
+                        continue;
+                    CollectBlockDetails(type, errorNames, moddedDetails, true, spamLog);
                 }
 #if !STEAM
                 if (isBlockInjectorPresent)
 #endif
                 ConstructModdedIDList();
             }
-            catch { };
+            catch (Exception e)
+            {
+                Debug.Log("BlockUtils: ConstructErrorBlocksList - CRITICAL ERROR - " + e);
+            }
 
             Debug.Log("BlockUtils: ConstructErrorBlocksList - There are " + errorNames.Count + " blocks with names not equal to their type");
             Compiled = true;
@@ -223,8 +299,16 @@ namespace TerraTechETCUtil
                         string name = "";
                         if (FindInt(SCAN, "\"ID\":", ref num)) //&& FindText(SCAN, "\"Name\" :", ref name))
                         {
-                            UnOf_Offi.Add(("_C_BLOCK:" + num.ToString()).GetHashCode(), (BlockTypes)ManMods.inst.GetBlockID(MBD.name));
-                            //Debug.Log("TTETCUtil: ConstructModdedIDList - " + "_C_BLOCK:" + num.ToString() + " | " + MBD.name + " | " + (BlockTypes)ManMods.inst.GetBlockID(MBD.name));
+                            BlockTypes BT = (BlockTypes)ManMods.inst.GetBlockID(MBD.name);
+                            int hasher = num.ToString().GetHashCode();
+                            if (!UnOf_Offi.ContainsKey(hasher))
+                                UnOf_Offi.Add(hasher, BT);
+                            hasher = ("_C_BLOCK:" + num.ToString()).GetHashCode();
+                            if (!UnOf_Offi.ContainsKey(hasher))
+                                UnOf_Offi.Add(hasher, BT);
+                            Debug_TTExt.Info("BlockUtils: ConstructModdedIDList - " + num.ToString() +
+                                " | _C_BLOCK:" + num.ToString() + " | " + MBD.name + " | " + BT +
+                                " | -> " + num.ToString().GetHashCode());
                         }
                     }
                 }
@@ -253,7 +337,7 @@ namespace TerraTechETCUtil
 
         private static bool TryGetMismatchNames(string name, ref BlockTypes type)
         {
-            if (errorNames.TryGetValue(name.GetHashCode(), out BlockTypes val))
+            if (errorNames.TryGetValue(name.GetHashCode(), out BlockTypes val) || errorNamesVanilla.TryGetValue(name.GetHashCode(), out val))
             {
                 type = val;
                 return true;
@@ -289,6 +373,57 @@ namespace TerraTechETCUtil
             return true;
         }
 
+        private static bool TryRepairSnapshot(string path)
+        {
+            try
+            {
+                Texture2D tex = FileUtils.LoadTexture(path);
+                if (tex == null)
+                    return false;
+                if (ManScreenshot.TryDecodeSnapshotRender(tex, out var data, path, false))
+                {
+                    TechData TD = data.CreateTechData();
+                    bool delta = false;
+                    for (int i = 0; TD.m_BlockSpecs.Count > i; i++)
+                    {
+                        TankPreset.BlockSpec BS = TD.m_BlockSpecs[i];
+                        if (ManMods.inst.IsModdedBlock(BS.m_BlockType, true))
+                        {
+                            if (StringToBlockType(BS.block, out BlockTypes BT))
+                            {
+                                TankBlock prefab = ManSpawn.inst.GetBlockPrefab(BT);
+                                if (prefab.name != BS.block)
+                                {
+                                    delta = true;
+                                    BS.block = prefab.name;
+                                    TD.m_BlockSpecs[i] = BS;
+                                    Debug_TTExt.Log("BlockIndexer: Fixed reference for " + TD.Name + " for block " +
+                                        BS.block + " -> " + prefab.name);
+                                }
+                            }
+                            else
+                                Debug_TTExt.Log("BlockIndexer: Unable to fix reference for " + TD.Name + " for block " + 
+                                    (BS.block.NullOrEmpty() ? "<NULL>" : BS.block));
+                        }
+                    }
+                    if (delta)
+                    {
+                        ManScreenshot.EncodeSnapshotRender(TD, tex);
+                        FileUtils.SaveTexture(tex, path);
+                        Debug_TTExt.Log("BlockIndexer: Fixed " + TD.Name);
+                    }
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("BlockIndexer: Failed to repair Snapshot " + Path.GetFileNameWithoutExtension(path) +
+                    " with modded data - " + e);
+            }
+            return false;
+        }
+
+
 #if STEAM
         private static Dictionary<int, BlockTypes> UnOf_Offi = new Dictionary<int, BlockTypes>();
 #else
@@ -323,9 +458,9 @@ namespace TerraTechETCUtil
                         intCase = (int)float.Parse(output);
                         return true;
                     }
-                    //Debug.Log(searchEnd + " | " + searchLength + " | " + output + " | ");
+                    //Debug_TTExt.Log(searchEnd + " | " + searchLength + " | " + output + " | ");
                 }
-                catch (Exception e) { Debug.LogError(searchEnd + " | " + searchLength + " | " + output + " | " + e); }
+                catch (Exception e) { Debug_TTExt.LogError(searchEnd + " | " + searchLength + " | " + output + " | " + e); }
             }
             return false;
         }
@@ -686,6 +821,7 @@ namespace TerraTechETCUtil
             private static bool controlledDisp = false;
             private static bool controlledDisp2 = false;
             private static bool controlledDisp3 = false;
+            private static bool controlledDisp4 = false;
             private static HashSet<string> enabledTabs = null;
             private static BiomeTypes curBiome = BiomeTypes.Grassland;
             private static bool showUtils = false;
@@ -753,12 +889,8 @@ namespace TerraTechETCUtil
                     }
                 }
             }
-            public static void GUIGetTotalManaged()
+            public static void GUIInfoExtractor()
             {
-                if (enabledTabs == null)
-                {
-                    enabledTabs = new HashSet<string>();
-                }
                 GUILayout.Box("--- Info Extractor --- ");
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
                 {
@@ -809,9 +941,6 @@ namespace TerraTechETCUtil
                             GUILayout.FlexibleSpace();
                             GUILayout.EndHorizontal();
 
-                            if (Page != null)
-                                Page.DisplayGUI();
-
                             if (tank)
                             {
                                 GUILayout.BeginHorizontal();
@@ -858,6 +987,21 @@ namespace TerraTechETCUtil
                                 GUILayout.FlexibleSpace();
                                 GUILayout.EndHorizontal();
                             }
+                            if (ActiveGameInterop.IsReady)
+                            {
+                                if (GUILayout.Button("Try rebuild in editor", AltUI.ButtonGreen))
+                                    ActiveGameInterop.TransmitBlock(block);
+                                GUILayout.Label("Note the editor only supports loading in YOUR own assets!");
+                            }
+                            else
+                            {
+                                GUILayout.Button("Try rebuild in editor", AltUI.ButtonGrey);
+                                GUILayout.Label("Need to hook up to UnityEditor first!");
+                            }
+
+                            if (Page != null)
+                                Page.DisplayGUI();
+
                         }
                         else if (biome != null)
                         {
@@ -896,8 +1040,10 @@ namespace TerraTechETCUtil
                     }
                     catch { controlledDisp = false; }
                 }
+            }
 
-
+            public static void GUIBlockIndexer()
+            {
                 GUILayout.Box("--- Blocks Indexing --- ");
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp2))
                 {
@@ -906,7 +1052,7 @@ namespace TerraTechETCUtil
                 if (controlledDisp2)
                 {
                     try
-                    { 
+                    {
                         GUILayout.BeginHorizontal();
                         GUILayout.Label("Blocks Registered In Lookup:");
                         GUILayout.Label(errorNames.Count.ToString());
@@ -919,8 +1065,10 @@ namespace TerraTechETCUtil
                     }
                     catch { controlledDisp2 = false; }
                 }
+            }
 
-
+            public static void GUIRawTechs()
+            {
                 GUILayout.Box("--- RawTechs --- ");
                 bool show = controlledDisp3 && Singleton.playerTank;
                 if (GUILayout.Button(" Enabled Loading: " + show))
@@ -992,7 +1140,7 @@ namespace TerraTechETCUtil
                                     }
                                     else
                                         GUILayout.Button("Spawn RawTech needs Creative");
-                                    Tech = GUILayout.TextArea(Tech, AltUI.TextfieldBlackHuge, 
+                                    Tech = GUILayout.TextArea(Tech, AltUI.TextfieldBlackHuge,
                                         GUILayout.MaxWidth(DebugExtUtilities.HotWindow.width));
                                 }
                             }
@@ -1007,9 +1155,48 @@ namespace TerraTechETCUtil
                     catch { controlledDisp3 = false; }
                 }
             }
+
+            public static void GUIExtHints()
+            {
+                GUILayout.Box("--- External Hints --- ");
+                bool show = controlledDisp4 && Singleton.playerTank;
+                if (GUILayout.Button(" Enabled Loading: " + show))
+                    controlledDisp4 = !controlledDisp4;
+                if (controlledDisp4)
+                {
+                    if (GUILayout.Button("Random Mod Hint", AltUI.ButtonBlueLarge))
+                        ExtUsageHint.ShowRandomExternalHint();
+                }
+            }
+
+            public static void GUIGetTotalManaged()
+            {
+                if (enabledTabs == null)
+                {
+                    enabledTabs = new HashSet<string>();
+                }
+                GUIInfoExtractor();
+                GUIBlockIndexer();
+                GUIRawTechs();
+                GUIExtHints();
+            }
         }
 #endif
 
+        internal class SnapshotsPatchBatch
+        {
+            internal static class ManScreenshotPatches
+            {
+                internal static Type target = typeof(ManScreenshot);
+                //BlockBuggedConverter
+                private static bool RunSnapshotConversionTool_Prefix(ref string snapshotPath, ref bool __result)
+                {
+                    if (TryRepairSnapshot(snapshotPath))
+                        __result = true;
+                    return UseVanillaFallbackSnapUtility;
+                }
+            }
+        }
 
         [Serializable]
         private class BlockMemory

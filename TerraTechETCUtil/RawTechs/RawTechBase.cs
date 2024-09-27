@@ -10,7 +10,30 @@ namespace TerraTechETCUtil
 {
     public abstract class RawTechBase
     {
+        public static FieldInfo spinDat = typeof(FanJet).GetField("spinDelta", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static FieldInfo thrustRate = typeof(Thruster).GetField("m_Force", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static FieldInfo fanThrustRateRev = typeof(FanJet).GetField("backForce", BindingFlags.NonPublic | BindingFlags.Instance);
+
+
         public string techName = "!!!!null!!!!";
+        public FactionTypesExt faction = FactionTypesExt.GSO;
+        public string factionName = null;
+        [JsonIgnore]
+        public string FactionActual =>
+            (factionName != null && factionName.Length > 0) ? factionName : faction.ToString();
+        /// <summary>
+        /// Mostly here to restrict spawns based on best corp in the spawns
+        /// </summary>
+        public FactionLevel factionLim = FactionLevel.NULL;
+        public HashSet<BasePurpose> purposes;
+        public int IntendedGrade = -1;
+        public BaseTerrain terrain = BaseTerrain.Land;
+        public int startingFunds = 5000;
+        public int baseCost = 0;
+        public int blockCount = 0;
+        public bool environ = false; // are we not a miner?
+        public bool deployBoltsASAP = false; // press X on spawn
+
         public Dictionary<string, string> serialDataTech = null;
         public Dictionary<int, List<string>> serialDataBlock = null;
 
@@ -45,7 +68,8 @@ namespace TerraTechETCUtil
             serialDataTech.Clear();
         }
 
-        public abstract Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, bool Charged = false, bool randomSkins = false);
+        public abstract Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, 
+            bool Charged = false, bool randomSkins = false, bool CanBeIncomplete = true);
 
         public void EncodeSerialDataToThis(int index, TankPreset.BlockSpec specs)
         {
@@ -202,8 +226,10 @@ namespace TerraTechETCUtil
             //    blocs.Add(Singleton.Manager<ManSpawn>.inst.GetBlockPrefab((BlockTypes)Enum.Parse(typeof(BlockTypes), mem.t)));
             //}
 
+            bool canFloat = false;
             bool isFlying = false;
             bool isFlyingDirectionForwards = true;
+            bool isOmniEngine = false;
 
             Vector3 biasDirection = Vector3.zero;
             Vector3 boostBiasDirection = Vector3.zero;
@@ -223,7 +249,7 @@ namespace TerraTechETCUtil
             int modGunCount = 0;
             int modDrillCount = 0;
             minCorpGrade = 0;
-            bool NotMP = false;
+            //bool NotMP = false;
             bool hasAutominer = false;
             bool hasReceiver = false;
             bool hasBaseFunction = false;
@@ -234,98 +260,109 @@ namespace TerraTechETCUtil
             foreach (RawBlockMem blocRaw in mems)
             {
                 BlockTypes type = BlockIndexer.StringToBlockType(blocRaw.t);
+                BlockDetails BD = new BlockDetails(type);
+                if (BD.IsBasic)
+                    continue;
                 TankBlock bloc = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type);
                 if (bloc.IsNull())
                     continue;
-                ModuleItemPickup rec = bloc.GetComponent<ModuleItemPickup>();
-                ModuleItemHolder conv = bloc.GetComponent<ModuleItemHolder>();
-                if ((bool)rec && conv && conv.Acceptance.HasFlag(ModuleItemHolder.AcceptFlags.Chunks) && conv.IsFlag(ModuleItemHolder.Flags.Receiver))
+                if (BD.UsesChunks)
                 {
-                    hasReceiver = true;
-                }
-                if (bloc.GetComponent<ModuleItemProducer>())
-                {
-                    hasAutominer = true;
-                    NotMP = true;
-                }
-                if (bloc.GetComponent<ModuleItemConveyor>())
-                {
-                    NotMP = true;
-                }
-                if (bloc.GetComponent<ModuleItemConsume>())
-                {
-                    hasBaseFunction = true;
-                    switch (type)
+                    ModuleItemPickup rec = bloc.GetComponent<ModuleItemPickup>();
+                    ModuleItemHolder conv = bloc.GetComponent<ModuleItemHolder>();
+                    if ((bool)rec && conv && conv.Acceptance.HasFlag(ModuleItemHolder.AcceptFlags.Chunks) && conv.IsFlag(ModuleItemHolder.Flags.Receiver))
                     {
-                        case BlockTypes.GSODeliCannon_221:
-                        case BlockTypes.GSODeliCannon_222:
-                        case BlockTypes.GCDeliveryCannon_464:
-                        case BlockTypes.VENDeliCannon_221:
-                        case BlockTypes.HE_DeliveryCannon_353:
-                        case BlockTypes.BF_DeliveryCannon_122:
-                            break;
-                        default:
-                            var recipeCase = bloc.GetComponent<ModuleRecipeProvider>();
-                            if ((bool)recipeCase)
-                            {
-                                using (IEnumerator<RecipeTable.RecipeList> matters = recipeCase.GetEnumerator())
+                        hasReceiver = true;
+                    }
+                    if (bloc.GetComponent<ModuleItemProducer>())
+                    {
+                        hasAutominer = true;
+                        //NotMP = true;
+                    }
+                    if (bloc.GetComponent<ModuleItemConveyor>())
+                    {
+                        //NotMP = true;
+                    }
+                    if (bloc.GetComponent<ModuleItemConsume>())
+                    {
+                        hasBaseFunction = true;
+                        switch (type)
+                        {
+                            case BlockTypes.GSODeliCannon_221:
+                            case BlockTypes.GSODeliCannon_222:
+                            case BlockTypes.GCDeliveryCannon_464:
+                            case BlockTypes.VENDeliCannon_221:
+                            case BlockTypes.HE_DeliveryCannon_353:
+                            case BlockTypes.BF_DeliveryCannon_122:
+                                break;
+                            default:
+                                var recipeCase = bloc.GetComponent<ModuleRecipeProvider>();
+                                if ((bool)recipeCase)
                                 {
-                                    while (matters.MoveNext())
+                                    using (IEnumerator<RecipeTable.RecipeList> matters = recipeCase.GetEnumerator())
                                     {
-                                        RecipeTable.RecipeList matter = matters.Current;
-                                        if (matter.m_Name != "rawresources" && matter.m_Name != "gsodelicannon")
+                                        while (matters.MoveNext())
                                         {
-                                            NotMP = true;
+                                            RecipeTable.RecipeList matter = matters.Current;
+                                            if (matter.m_Name != "rawresources" && matter.m_Name != "gsodelicannon")
+                                            {
+                                                //NotMP = true;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            break;
-                    }
-                }
-
-
-                if (bloc.GetComponent<ModuleItemHolder>())
-                    modCollectCount++;
-                if (bloc.GetComponent<ModuleDetachableLink>())
-                    modEXPLODECount++;
-                if (bloc.GetComponent<ModuleBooster>())
-                {
-                    var module = bloc.GetComponent<ModuleBooster>();
-                    foreach (FanJet jet in module.GetComponentsInChildren<FanJet>())
-                    {
-                        if (jet.spinDelta <= 10)
-                        {
-                            Quaternion quat = new OrthoRotation(blocRaw.r);
-                            biasDirection -= quat * (jet.EffectorForwards * jet.force);
+                                break;
                         }
                     }
-                    foreach (BoosterJet boost in module.GetComponentsInChildren<BoosterJet>())
-                    {
-                        //We have to get the total thrust in here accounted for as well because the only way we CAN boost is ALL boosters firing!
-                        boostBiasDirection -= boost.LocalBoostDirection * (float)forceVal.GetValue(boost);
-                    }
-                    modBoostCount++;
+                    if (bloc.GetComponent<ModuleItemHolder>())
+                        modCollectCount++;
                 }
-                if (bloc.GetComponent<ModuleHover>())
-                    modHoverCount++;
-                if (bloc.GetComponent<ModuleGyro>())
-                    modGyroCount++;
-                if (bloc.GetComponent<ModuleWheels>())
-                    modWheelCount++;
-                if (bloc.GetComponent<ModuleAntiGravityEngine>())
-                    modAGCount++;
-
-                if (bloc.GetComponent<ModuleTechController>())
-                    modControlCount++;
-                else
+                if (BD.AttachesAndOrDetachesBlocks)
+                    modEXPLODECount++;
+                if (BD.DoesMovement)
                 {
-                    if (bloc.GetComponent<ModuleWeapon>() || bloc.GetComponent<ModuleWeaponTeslaCoil>())
-                        modDangerCount++;
-                    if (bloc.GetComponent<ModuleWeaponGun>())
-                        modGunCount++;
-                    if (bloc.GetComponent<ModuleDrill>())
+                    var module = bloc.GetComponent<ModuleBooster>();
+                    if (module)
+                    {
+                        foreach (FanJet jet in module.GetComponentsInChildren<FanJet>())
+                        {
+                            if ((float)spinDat.GetValue(jet) <= 10)
+                            {
+                                Quaternion quat = new OrthoRotation(blocRaw.r);
+                                biasDirection -= quat * (jet.EffectorForward * (float)thrustRate.GetValue(jet));
+                            }
+                        }
+                        foreach (BoosterJet boost in module.GetComponentsInChildren<BoosterJet>())
+                        {
+                            //We have to get the total thrust in here accounted for as well because the only way we CAN boost is ALL boosters firing!
+                            boostBiasDirection -= boost.LocalThrustDirection * (float)forceVal.GetValue(boost);
+                        }
+                        modBoostCount++;
+                    }
+                    if (BD.HasHovers)
+                        modHoverCount++;
+
+                    if (BD.FloatsOnWater)
+                        canFloat = true;
+                    if (BD.IsGyro)
+                        modGyroCount++;
+                    if (BD.HasWheels)
+                        modWheelCount++;
+                    else if (BD.IsOmniDirectional)
+                        isOmniEngine = true;
+                    if (BD.HasAntiGravity)
+                        modAGCount++;
+
+                }
+                if (BD.IsCab)
+                    modControlCount++;
+                else if (BD.IsWeapon)
+                {
+                    modDangerCount++;
+                    if (BD.IsMelee)
                         modDrillCount++;
+                    else
+                        modGunCount++;
                 }
 
                 try
@@ -354,7 +391,7 @@ namespace TerraTechETCUtil
                     //Debug_TTExt.Log("RawTech: GetHandler - error");
                 }
 
-                if (bloc.GetComponent<ModuleWing>())
+                if (BD.HasWings)
                 {
                     //Get the slowest spooling one
                     foreach (ModuleWing.Aerofoil Afoil in bloc.GetComponent<ModuleWing>().m_Aerofoils)
@@ -377,8 +414,8 @@ namespace TerraTechETCUtil
                 purposes.Add(BasePurpose.Harvesting);
                 isDef = false;
             }
-            if (NotMP)
-                purposes.Add(BasePurpose.MPUnsafe);
+            
+            // if (NotMP) purposes.Add(BasePurpose.MPUnsafe);
             if (Anchored)
             {
                 if (hasReceiver)
@@ -429,6 +466,17 @@ namespace TerraTechETCUtil
                 //Debug_TTExt.Log("RawTech: Purposes: Anchored (static)");
                 return purposes;
             }
+            else if (mems.Count == 1)
+            {
+                if (isOmniEngine)
+                    terra = BaseTerrain.Space;
+                else if (isFlyingDirectionForwards && MovingFoilCount > 3)
+                    terra = BaseTerrain.Air;
+                else if (!isFlyingDirectionForwards)
+                    terra = BaseTerrain.Air;
+                else if (canFloat && modWheelCount == 0)
+                    terra = BaseTerrain.Sea;
+            }
             else if (modBoostCount > 2 && (modHoverCount > 2 || modAGCount > 0))
             {   //Starship
                 terra = BaseTerrain.Space;
@@ -441,7 +489,7 @@ namespace TerraTechETCUtil
             {   // Chopper
                 terra = BaseTerrain.Air;
             }
-            else if (FoilCount > 0 && modGyroCount > 0 && modBoostCount > 0 && (modWheelCount < 4 || modHoverCount > 1))
+            else if (ModStatusChecker.IsWaterModAvail && FoilCount > 0 && modGyroCount > 0 && modBoostCount > 0 && (modWheelCount < 4 || modHoverCount > 1))
             {   // Naval
                 terra = BaseTerrain.Sea;
             }
@@ -581,16 +629,16 @@ namespace TerraTechETCUtil
                     var module = bloc.GetComponent<ModuleBooster>();
                     foreach (FanJet jet in module.GetComponentsInChildren<FanJet>())
                     {
-                        if (jet.spinDelta <= 10)
+                        if ((float)spinDat.GetValue(jet) <= 10)
                         {
                             Quaternion quat = new OrthoRotation(blocRaw.r);
-                            biasDirection -= quat * (jet.EffectorForwards * jet.force);
+                            biasDirection -= quat * (jet.EffectorForward * (float)thrustRate.GetValue(jet));
                         }
                     }
                     foreach (BoosterJet boost in module.GetComponentsInChildren<BoosterJet>())
                     {
                         //We have to get the total thrust in here accounted for as well because the only way we CAN boost is ALL boosters firing!
-                        boostBiasDirection -= boost.LocalBoostDirection * (float)forceVal.GetValue(boost);
+                        boostBiasDirection -= boost.LocalThrustDirection * (float)forceVal.GetValue(boost);
                     }
                     modBoostCount++;
                 }
@@ -865,16 +913,16 @@ namespace TerraTechETCUtil
                     var module = bloc.GetComponent<ModuleBooster>();
                     foreach (FanJet jet in module.GetComponentsInChildren<FanJet>())
                     {
-                        if (jet.spinDelta <= 10)
+                        if ((float)spinDat.GetValue(jet) <= 10)
                         {
                             Quaternion quat = new OrthoRotation(blocRaw.r);
-                            biasDirection -= quat * (jet.EffectorForwards * jet.force);
+                            biasDirection -= quat * (jet.EffectorForward * (float)thrustRate.GetValue(jet));
                         }
                     }
                     foreach (BoosterJet boost in module.GetComponentsInChildren<BoosterJet>())
                     {
                         //We have to get the total thrust in here accounted for as well because the only way we CAN boost is ALL boosters firing!
-                        boostBiasDirection -= boost.LocalBoostDirection * (float)forceVal.GetValue(boost);
+                        boostBiasDirection -= boost.LocalThrustDirection * (float)forceVal.GetValue(boost);
                     }
                     modBoostCount++;
                 }
@@ -1588,6 +1636,31 @@ namespace TerraTechETCUtil
         }
 
         private static StringBuilder RAWCase = new StringBuilder();
+        public static void JSONToMemoryExternal(List<RawBlockMem> mem, string toLoad)
+        {   // Loading a Tech from the BlockMemory
+            try
+            {
+                foreach (char ch in toLoad)
+                {
+                    if (ch != '\\')
+                    {
+                        if (ch == '|')//new block
+                        {
+                            mem.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
+                            RAWCase.Clear();
+                        }
+                        else
+                            RAWCase.Append(ch);
+                    }
+                }
+                mem.Add(JsonUtility.FromJson<RawBlockMem>(RAWCase.ToString()));
+                //Debug_TTExt.Log("RawTech:  DesignMemory: saved " + mem.Count);
+            }
+            finally
+            {
+                RAWCase.Clear();
+            }
+        }
         public static List<RawBlockMem> JSONToMemoryExternal(string toLoad)
         {   // Loading a Tech from the BlockMemory
             try

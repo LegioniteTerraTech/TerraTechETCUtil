@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -27,8 +25,11 @@ namespace TerraTechETCUtil
             {
                 queued = new Queue<AbilityElement>();
                 Active = new List<AbilityElement>();
-                ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
-                ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
+                ready = ManGameMode.inst.GetModePhase() == ManGameMode.GameState.InGame;
+                if (ready)
+                    ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
+                else
+                    ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
             }
             if (ready)
                 add.Initiate();
@@ -45,7 +46,8 @@ namespace TerraTechETCUtil
                 {
                     queued.Dequeue().Initiate();
                 }
-                ManGameMode.inst.ModeStartEvent.Unsubscribe(TrySetup);
+                ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
+                ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(NotReady);
                 ready = true;
             }
             catch (Exception e)
@@ -56,6 +58,8 @@ namespace TerraTechETCUtil
         internal static void NotReady(Mode ignor)
         {
             ready = false;
+            ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
+            ManGameMode.inst.ModeStartEvent.Unsubscribe(TrySetup);
         }
         public static void InitAbilityBar()
         {

@@ -113,6 +113,7 @@ namespace TerraTechETCUtil
                 corpShortName = ((FactionSubTypes)corpID).ToString();
             OnWikiPageMade.Send(this);
         }
+        public override void GetIcon() { }
         public override void DisplaySidebar() => ButtonGUIDisp();
         public override void DisplayGUI()
         {
@@ -239,6 +240,37 @@ namespace TerraTechETCUtil
             if (info != null)
             {
                 info.DisplayGUI();
+            }
+            if (ActiveGameInterop.inst)
+            {
+                if (GUILayout.Button("Make ALL Nuterra Blocks load faster", AltUI.ButtonOrangeLarge, GUILayout.Height(40)))
+                {
+                    List<TankBlock> ToSend = new List<TankBlock>();
+                    foreach (var item in ManIngameWiki.AllWikis)
+                    {
+                        if (item.Value?.Pages != null)
+                        {
+                            foreach (var item2 in item.Value.Pages)
+                            {
+                                if (item2 != null && item2 is ManIngameWiki.WikiPageGroup group &&
+                                    group.NestedPages != null && "Blocks" == group.name)
+                                {
+                                    foreach (var item3 in group.NestedPages)
+                                    {
+                                        if (item3 is WikiPageBlock WPB)
+                                        {
+                                            var BT = (BlockTypes)WPB.blockID;
+                                            if (ManMods.inst.IsModdedBlock(BT) &&
+                                            ManSpawn.inst.GetCorporation(BT) == (FactionSubTypes)corpID)
+                                                ToSend.Add(ManSpawn.inst.GetBlockPrefab(BT));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ActiveGameInterop.TransmitAllBlocks(ToSend);
+                }
             }
         }
         public override bool ReleaseAsMuchAsPossible()

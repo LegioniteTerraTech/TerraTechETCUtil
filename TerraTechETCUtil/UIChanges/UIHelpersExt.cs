@@ -15,6 +15,7 @@ namespace TerraTechETCUtil
         private static FieldInfo dist = typeof(ManHUD).GetField("m_RadialMouseDistanceThreshold", BindingFlags.NonPublic | BindingFlags.Instance);
         private static MethodInfo overlays = typeof(ManOverlay).GetMethod("AddQueuedOverlay", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        public static Sprite ModContentIcon { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("ICON_MOD").ConvertToSprite();
         public static Sprite NullSprite => ManUI.inst.GetSprite(ObjectTypes.Block, -1);
         internal static bool UseNullIfNoSpriteProvided = true;
         internal static float _ROROpenTimeDelay = 0.10f;

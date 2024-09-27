@@ -35,7 +35,7 @@ namespace TerraTechETCUtil
                 {
                     foreach (var item in modules)
                     {
-                        item.block = block;
+                        item.visible = block.visible;
                         item.OnPostPool();
                         item.OnAttach();
                     }

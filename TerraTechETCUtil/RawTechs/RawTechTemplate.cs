@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using UnityEngine;
 using Newtonsoft.Json;
 
@@ -10,24 +7,7 @@ namespace TerraTechETCUtil
 {
     public class RawTechTemplate : RawTechBase
     {
-        public FactionTypesExt faction = FactionTypesExt.GSO;
-        public string factionName = null;
-        [JsonIgnore]
-        public string FactionActual => 
-            (factionName != null && factionName.Length > 0) ? factionName : faction.ToString(); 
-        /// <summary>
-        /// Mostly here to restrict spawns based on best corp in the spawns
-        /// </summary>
-        public FactionLevel factionLim = FactionLevel.NULL;
-        public HashSet<BasePurpose> purposes;
-        public int IntendedGrade = -1;
-        public BaseTerrain terrain = BaseTerrain.Land;
-        public int startingFunds = 5000;
-        public int baseCost = 0;
-        public int blockCount = 0;
         public string savedTech = "{\"t\":\"GSOAnchorFixed_111\",\"p\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"r\":0}";
-        public bool environ = false; // are we not a miner?
-        public bool deployBoltsASAP = false; // press X on spawn
 
 #if !EDITOR
 
@@ -41,7 +21,7 @@ namespace TerraTechETCUtil
         public RawTechTemplate()
         {
         }
-        public RawTechTemplate(TechData tech, bool ExceptionIfFail = false)
+        public RawTechTemplate(TechData tech, bool MustBeExact = false)
         {
             techName = tech.Name;
             faction = GetTopCorp(tech);
@@ -49,14 +29,14 @@ namespace TerraTechETCUtil
                 factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
             else
                 factionName = faction.ToString();
-            savedTech = MemoryToJSONExternal(TechToMemoryExternal(tech, ExceptionIfFail));
+            savedTech = MemoryToJSONExternal(TechToMemoryExternal(tech, MustBeExact));
             bool anchored = tech.CheckIsAnchored();
             purposes = GetHandler(savedTech, faction, anchored, out terrain, out IntendedGrade);
             serialDataBlock = EncodeSerialData(tech);
 
-            this.ValidateBlocksInTech();
+            this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
-        public RawTechTemplate(string Name, List<RawBlockMem> mems, bool anchored = false)
+        public RawTechTemplate(string Name, List<RawBlockMem> mems, bool anchored = false, bool MustBeExact = false)
         {
             techName = Name;
             List<RawBlockMem> mem = mems;
@@ -65,10 +45,10 @@ namespace TerraTechETCUtil
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
             serialDataBlock = new Dictionary<int, List<string>>();
 
-            this.ValidateBlocksInTech();
+            this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
 
-        public RawTechTemplate(string Name, string rawTech, bool anchored = false)
+        public RawTechTemplate(string Name, string rawTech, bool anchored = false, bool MustBeExact = false)
         {
             techName = Name;
             List<RawBlock> mem = JSONToMemoryExternalNonAlloc(rawTech);
@@ -77,17 +57,25 @@ namespace TerraTechETCUtil
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
             serialDataBlock = new Dictionary<int, List<string>>();
 
-            this.ValidateBlocksInTech();
+            this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
 
-        public RawTechTemplate(RawTech tech, bool anchored = false) : base(tech)
+        public RawTechTemplate(RawTech tech) : base(tech)
         {
             techName = tech.techName;
-            faction = GetTopCorp(tech.savedTech);
+            faction = tech.faction;
+            baseCost = tech.baseCost;
+            blockCount = tech.blockCount;
+            deployBoltsASAP = tech.deployBoltsASAP;
+            factionName = tech.factionName;
+            factionLim = tech.factionLim;
+            environ = tech.environ;
+            IntendedGrade = tech.IntendedGrade;
+            serialDataBlock = tech.serialDataBlock;
+            serialDataTech = tech.serialDataTech;
+            terrain = tech.terrain;
             savedTech = MemoryToJSONExternal(tech.savedTech);
-            purposes = GetHandler(tech.savedTech, faction, anchored, out terrain, out IntendedGrade);
-            
-            this.ValidateBlocksInTech();
+            purposes = new HashSet<BasePurpose>(tech.purposes);
         }
         public RawTech ToActive()
         {
@@ -112,7 +100,8 @@ namespace TerraTechETCUtil
         /// <param name="Charged"></param>
         /// <param name="ForceInstant"></param>
         /// <returns></returns>
-        public override Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, bool Charged = false, bool randomSkins = false)
+        public override Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, 
+            bool Charged = false, bool randomSkins = false, bool CanBeIncomplete = true)
         {
             if (savedTech == null)
                 throw new NullReferenceException("TTExtUtil: SpawnTechExternal - Was handed a NULL Blueprint!");

@@ -106,7 +106,7 @@ namespace TerraTechETCUtil
         public bool IgnoreChecks = false;
         private bool dirty = true;
         private List<RawBlockMem> _savedTech = null;
-        private RawTechCollisionMatrix matrix { get; }
+        private RawTechCollisionMatrix matrix = null;
         public List<RawBlockMem> savedTech
         {
             get
@@ -125,22 +125,29 @@ namespace TerraTechETCUtil
             }
         }
 
+        public static implicit operator int(RawTech BT)
+        {
+            if (BT.baseCost == 0 && BT.savedTech.Any())
+                BT.baseCost = GetBBCost(BT.savedTech);
+            return BT.baseCost;
+        }
+
         public RawTech()
         {
             _savedTech = new List<RawBlockMem>();
             serialDataBlock = new Dictionary<int, List<string>>();
-            matrix = new RawTechCollisionMatrix(this);
+            //matrix = new RawTechCollisionMatrix(this);
         }
-        public RawTech(TechData tech, bool ExceptionIfFail = false)
+        public RawTech(TechData tech, bool MustBeExact = false)
         {
             techName = tech.Name;
             _savedTech = new List<RawBlockMem>();
-            _savedTech = TechToMemoryExternal(tech, ExceptionIfFail);
+            _savedTech = TechToMemoryExternal(tech, MustBeExact);
             serialDataBlock = EncodeSerialData(tech);
-            matrix = new RawTechCollisionMatrix(this);
-            InsureValid();
+            //matrix = new RawTechCollisionMatrix(this);
+            InsureValid(!MustBeExact, MustBeExact);
         }
-        public RawTech(string Name, List<RawBlockMem> mems)
+        public RawTech(string Name, List<RawBlockMem> mems, bool MustBeExact = false)
         {
             techName = Name;
             _savedTech = mems;
@@ -149,34 +156,48 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("RawTech created with null mems parameter");
             if (!_savedTech.Any())
                 throw new NullReferenceException("RawTech created with empty mems parameter");
-            matrix = new RawTechCollisionMatrix(this);
-            InsureValid();
+            //matrix = new RawTechCollisionMatrix(this);
+            InsureValid(!MustBeExact, MustBeExact);
         }
 
-        public RawTech(string Name, string rawTech)
+        public RawTech(string Name, string rawTech, bool MustBeExact = false)
         {
             techName = Name;
             _savedTech = JSONToMemoryExternal(rawTech);
             serialDataBlock = new Dictionary<int, List<string>>();
-            matrix = new RawTechCollisionMatrix(this);
+            //matrix = new RawTechCollisionMatrix(this);
 
-            InsureValid();
+            InsureValid(!MustBeExact, MustBeExact);
         }
         public RawTech(RawTechTemplate tech) : base(tech)
         {
             techName = tech.techName;
-            _savedTech = new List<RawBlockMem>();
+            faction = tech.faction;
+            baseCost = tech.baseCost;
+            blockCount = tech.blockCount;
+            deployBoltsASAP = tech.deployBoltsASAP;
+            factionName = tech.factionName;
+            factionLim = tech.factionLim;
+            environ = tech.environ;
+            IntendedGrade = tech.IntendedGrade;
+            serialDataBlock = tech.serialDataBlock;
+            serialDataTech = tech.serialDataTech;
+            terrain = tech.terrain;
+            purposes = new HashSet<BasePurpose>(tech.purposes);
             _savedTech = JSONToMemoryExternal(tech.savedTech);
-            matrix = new RawTechCollisionMatrix(this);
-
-            InsureValid();
+            //matrix = new RawTechCollisionMatrix(this);
         }
         public RawTechTemplate ToTemplate()
         {
-            InsureValid();
             return new RawTechTemplate(this);
         }
 
+        public BlockTypes GetFirstBlock()
+        {
+            if (savedTech.Any())
+                return savedTech.First().typeSlow;
+            return BlockTypes.GSOAIController_111;
+        }
         public void Re_Referencing(BlockTypes prev, BlockTypes newSet)
         {
             for (int step = 0; step < _savedTech.Count; step++)
@@ -197,7 +218,9 @@ namespace TerraTechETCUtil
                     Debug_TTExt.Log("Failed to attach " + RB.typeSlow.ToString() + " at " + RB.p + " because block invalid");
                     return false;
                 }
-                if(!matrix.TryAdd(RB))
+                if (matrix == null)
+                    matrix = new RawTechCollisionMatrix(this);
+                if (!matrix.TryAdd(RB))
                 {
                     Debug_TTExt.Log("Failed to attach " + RB.typeSlow.ToString() + " at " + RB.p + " because other block occupies cell");
                     return false;
@@ -207,6 +230,8 @@ namespace TerraTechETCUtil
             }
             else
             {
+                if (matrix == null)
+                    matrix = new RawTechCollisionMatrix(this);
                 if (RB.IsValid() && matrix.TryAdd(RB))
                 {
                     _savedTech.Add(RB);
@@ -241,14 +266,15 @@ namespace TerraTechETCUtil
                 return false;
         }
 
-        public override Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, bool Charged = false, bool randomSkins = false)
+        public override Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, 
+            bool Charged = false, bool randomSkins = false, bool CanBeIncomplete = true)
         {
             if (savedTech == null)
                 throw new NullReferenceException("TTExtUtil: SpawnTechExternal - Was handed a NULL Blueprint!");
 
             try
             {
-                InsureValid();
+                InsureValid(CanBeIncomplete, true);
 
                 Tank theTech = InstantTech(pos, forwards, Team, techName, savedTech, serialDataBlock, snapTerrain, ForceAnchor: false, Team == -1, randomSkins);
                 Debug_TTExt.Log("TTExtUtil: SpawnTechExternal - Spawned " + techName + " at " + pos + ". Snapped to terrain " + snapTerrain);
@@ -268,11 +294,11 @@ namespace TerraTechETCUtil
             }
         }
 
-        public void InsureValid()
+        public void InsureValid(bool removeInvalid, bool throwOnFail)
         {
             if (dirty)
             {
-                if (!ValidateBlocksInTech())
+                if (!ValidateBlocksInTech(removeInvalid, throwOnFail))
                     throw new InvalidOperationException("SpawnRawTech failed because tech was invalid!");
             }
         }
@@ -280,7 +306,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Checks all of the blocks in a Raw Tech to make sure it's safe to spawn as well as calculate other requirements for it.
         /// </summary>
-        public bool ValidateBlocksInTech()
+        public bool ValidateBlocksInTech(bool removeInvalid, bool throwOnFail)
         {
             try
             {
@@ -295,49 +321,87 @@ namespace TerraTechETCUtil
                 for (int step = 0; step < _savedTech.Count;)
                 {
                     RawBlockMem bloc = _savedTech[step];
-                    BlockTypes type = BlockIndexer.StringToBlockType(bloc.t);
-                    if (!Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(type))
+                    try
                     {
-                        _savedTech.RemoveAt(step);
-                        continue;
-                    }
+                        if (!BlockIndexer.StringToBlockType(bloc.t, out BlockTypes type))
+                            throw new NullReferenceException("Block does not exists - \nBlockName: " +
+                                (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
+                        if (!ManMods.inst.IsModdedBlock(type) && !ManSpawn.inst.IsTankBlockLoaded(type))
+                            throw new NullReferenceException("Block is not loaded - \nBlockName: " +
+                                (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
 
-                    FactionSubTypes FST = Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
-                    FactionLevel FL = RawTechUtil.GetFactionLevel(FST);
-                    if (FL >= FactionLevel.ALL)
-                    {
-                        if (ManMods.inst.IsModdedCorp(FST))
+                        FactionSubTypes FST = Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
+                        FactionLevel FL = RawTechUtil.GetFactionLevel(FST);
+                        if (FL >= FactionLevel.ALL)
                         {
-                            ModdedCorpDefinition MCD = ManMods.inst.GetCorpDefinition(FST);
-                            if (Enum.TryParse(MCD.m_RewardCorp, out FactionSubTypes FST2))
+                            try
                             {
-                                FST = FST2;
+                                if (ManMods.inst.IsModdedCorp(FST))
+                                {
+                                    ModdedCorpDefinition MCD = ManMods.inst.GetCorpDefinition(FST);
+                                    if (Enum.TryParse(MCD.m_RewardCorp, out FactionSubTypes FST2))
+                                    {
+                                        FST = FST2;
+                                    }
+                                    else
+                                        throw new InvalidOperationException("Block with invalid m_RewardCorp - \nBlockType: " + type.ToString());
+                                }
+                                else
+                                    throw new InvalidOperationException("Block with invalid corp - \nCorp Level: " + FL.ToString() + " \nBlockType: " + type.ToString());
                             }
-                            else
+                            catch (InvalidOperationException e)
                             {
-                                _savedTech.RemoveAt(step);
-                                continue;
+                                throw e;
+                            }
+                            catch (Exception)
+                            {
+                                throw new Exception("Block with invalid data - \nBlockType: <?NULL?>");
                             }
                         }
-                        else
-                        {
-                            _savedTech.RemoveAt(step);
-                            continue;
-                        }
+                        bloc.t = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type).name;
+                        step++;
                     }
-                    bloc.t = Singleton.Manager<ManSpawn>.inst.GetBlockPrefab(type).name;
-                    step++;
+                    catch (Exception e)
+                    {
+                        if (removeInvalid)
+                            _savedTech.RemoveAt(step);
+                        else
+                            throw e;
+                    }
                 }
                 if (!_savedTech.Any())
                 {
                     Debug_TTExt.Log("RawTech: ValidateBlocksInTech - FAILED as no blocks were present afterwards!");
                     return false;
                 }
-                matrix.RegenerateCollisionOverlay();
+                if (matrix != null)
+                    matrix.RegenerateCollisionOverlay();
             }
-            catch
+            catch (Exception e)
             {
-                Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech was corrupted via unexpected mod changes!");
+                if (throwOnFail)
+                {
+                    try
+                    {
+                        throw new Exception("RawTech: ValidateBlocksInTech - Tech " + techName + " is invalid!", e);
+                    }
+                    catch (Exception)
+                    {
+                        throw new Exception("RawTech: ValidateBlocksInTech - Tech <?NULL?> is invalid!", e);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech " + techName + " is invalid! - " + e);
+                    }
+                    catch (Exception)
+                    {
+                        Debug_TTExt.Log("RawTech: ValidateBlocksInTech - Tech <?NULL?> is invalid! - " + e);
+                    }
+                }
+                return false;
             }
             return true;
         }

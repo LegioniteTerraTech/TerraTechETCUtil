@@ -24,7 +24,8 @@ namespace TerraTechETCUtil
         /// <param name="DLLDirectory">DLL Directory in disk.  Should be gathered on game startup and not preset.</param>
         /// <param name="MC">ModContainer of the mod to look into for assets.  Use ResourcesHelper.TryGetModContainer() to get the mod container.</param>
         /// <param name="cursorsByNameInOrder">Name of each cursor to add. Will be registered in a lookup in CursorIndexCache</param>
-        public static CursorChangeCache GetCursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC, params string[] cursorsByNameInOrder)
+        public static CursorChangeCache GetCursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC, 
+            params KeyValuePair<string, bool>[] cursorsByNameInOrder)
         {
             return new CursorChangeCache(DLLDirectory, IconsFolderName, MC, cursorsByNameInOrder);
         }
@@ -75,6 +76,7 @@ namespace TerraTechETCUtil
             {
                 get { return _CursorIndexCache[i]; }
             }
+            public int Count => _CursorIndexCache.Length;
             public CursorChangeCache CursorIndexCache => this;
             private List<Texture2D> CursorTextureCache;
 
@@ -85,11 +87,24 @@ namespace TerraTechETCUtil
             /// Get the CursorChangeCache registered
             /// </summary>
             /// <param name=""></param>
-            internal CursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC, string[] cursorsByNameInOrder)
+            internal CursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC,
+                KeyValuePair<string, bool>[] cursorsByNameInOrder)
             {
                 _CursorIndexCache = new GameCursor.CursorState[cursorsByNameInOrder.Length];
                 CursorTextureCache = new List<Texture2D>(cursorsByNameInOrder.Length);
                 AddNewCursors(MC, DLLDirectory, IconsFolderName, cursorsByNameInOrder);
+            }
+            internal CursorChangeCache(string DLLDirectory, string IconsFolderName, ModContainer MC,
+                string[] cursorsByNameInOrder)
+            {
+                _CursorIndexCache = new GameCursor.CursorState[cursorsByNameInOrder.Length];
+                CursorTextureCache = new List<Texture2D>(cursorsByNameInOrder.Length);
+                KeyValuePair<string, bool>[] pairs = new KeyValuePair<string, bool>[cursorsByNameInOrder.Length];
+                for (int i = 0; i < cursorsByNameInOrder.Length; i++)
+                {
+                    pairs[i] = new KeyValuePair<string, bool>(cursorsByNameInOrder[i], true);
+                }
+                AddNewCursors(MC, DLLDirectory, IconsFolderName, pairs);
             }
             public GameCursor.CursorState GetCursor(int index)
             {
@@ -104,7 +119,8 @@ namespace TerraTechETCUtil
             }
 
 
-            protected void AddNewCursors(ModContainer MC, string DLLDirectory, string IconsFolderName, string[] cursorsByNameOrder)
+            protected void AddNewCursors(ModContainer MC, string DLLDirectory, string IconsFolderName, 
+                KeyValuePair<string, bool>[] cursorsByNameOrder)
             {
                 MousePointer MP = UnityEngine.Object.FindObjectOfType<MousePointer>();
                 if (!MP)
@@ -126,9 +142,10 @@ namespace TerraTechETCUtil
                         List<CursorDataTable.CursorData> cursorTypes = item.m_CursorData.ToList();
 
                         int cursorIndex = 0;
-                        foreach (var item2 in cursorsByNameOrder)
+                        for (int i = 0; i < cursorsByNameOrder.Length; i++)
                         {
-                            TryAddNewCursor(MC, cursorTypes, DirectoryTarget, item2, LODLevel, Vector2.zero, cursorIndex);
+                            TryAddNewCursor(MC, cursorTypes, DirectoryTarget, cursorsByNameOrder[i].Key, LODLevel,
+                                cursorsByNameOrder[i].Value ? new Vector2(0.5f, 0.5f) : Vector2.zero, cursorIndex);
                             cursorIndex++;
                         }
 
