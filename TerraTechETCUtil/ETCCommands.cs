@@ -11,11 +11,11 @@ namespace TerraTechETCUtil
     internal class ETCCommands
     {
         [DevCommand(Name = "TTETCUtil.EnableAdvancedDebug", Access = Access.Public, Users = User.Host)]
-        public static ManDevCommands.CommandReturn OpenDebugMenuAdvanced()
+        public static CommandReturn OpenDebugMenuAdvanced()
         {
             if (ManGameMode.inst.IsCurrentModeMultiplayer())
             {
-                return new ManDevCommands.CommandReturn
+                return new CommandReturn
                 {
                     message = "Cannot use AdvancedDebug in Multiplayer!",
                     success = false,
@@ -27,7 +27,7 @@ namespace TerraTechETCUtil
                 {
                     DebugExtUtilities.AllowEnableDebugGUIMenu_KeypadEnter = true;
                     DebugExtUtilities.Open();
-                    return new ManDevCommands.CommandReturn
+                    return new CommandReturn
                     {
                         message = "Enabled!",
                         success = true,
@@ -35,7 +35,7 @@ namespace TerraTechETCUtil
                 }
                 else
                 {
-                    return new ManDevCommands.CommandReturn
+                    return new CommandReturn
                     {
                         message = "Cannot open AdvancedDebug as this will cause a crash without the R&D DLC!",
                         success = true,

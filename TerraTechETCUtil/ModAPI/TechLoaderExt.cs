@@ -29,14 +29,14 @@ namespace TerraTechETCUtil
             if (ele && ele.HudElementType == ManHUD.HUDElementType.TechLoader)
             {
                 if (!QueuedOpen)
-                    OnFinishedUsing();
+                    SwitchToVanilla();
             }
         }
         private static void OnHudClosed(UIHUDElement ele)
         {
             if (ele && ele.HudElementType == ManHUD.HUDElementType.TechLoader)
             {
-                OnFinishedUsing();
+                OnFinishedUsing(true);
             }
         }
 
@@ -147,7 +147,14 @@ namespace TerraTechETCUtil
             return false;
         }
 
-        private static void OnFinishedUsing(bool sendNull = true)
+        private static void SwitchToVanilla()
+        {
+            OnSelectedFolderCallback = null;
+            OnSelectedTechCallback = null;
+            UIControl.m_SwapOptionVisible.Value = true;
+            UIControl.m_PlaceOptionVisible.Value = true;
+        }
+        private static void OnFinishedUsing(bool sendNull)
         {
             if (!UIControl)
                 throw new NullReferenceException("UIControl NULL");
@@ -184,6 +191,8 @@ namespace TerraTechETCUtil
                 }
                 OnSelectedFolderCallback = null;
                 OnSelectedTechCallback = null;
+                Debug_TTExt.Assert("TechSelectorExt.OnFinishedUsing()");
+                //ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.TechLoader);
                 ManHUD.inst.HideHudElement(ManHUD.HUDElementType.TechLoader);
             }
             catch { }
@@ -219,7 +228,7 @@ namespace TerraTechETCUtil
                     }
                     error = 3;
                     if (didOverride)
-                        OnFinishedUsing();
+                        OnFinishedUsing(true);
                 }
                 else
                 {
@@ -317,7 +326,7 @@ namespace TerraTechETCUtil
                         didOverride = true;
                     }
                     if (didOverride)
-                        OnFinishedUsing();
+                        OnFinishedUsing(true);
                 }
                 else
                 {

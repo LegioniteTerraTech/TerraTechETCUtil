@@ -282,7 +282,7 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Assert("TTUtil: UIHelpersExt - warningBanner IS NULL");
                 return;
             }
-            if (warningBanner.Message.NullOrEmpty())
+            if (warningBanner.Message1.Text.NullOrEmpty())
             {
                 if (startNoise)
                     ManSFX.inst.PlayMiscLoopingSFX(ManSFX.MiscSfxType.PayloadIncoming);
@@ -291,11 +291,11 @@ namespace TerraTechETCUtil
                 InvokeHelper.CancelInvokeSingle(RemoveWarning);
             if (Text == null)
                 Text = string.Empty;
-            warningBanner.Message = Text;
+            warningBanner.Message1.SetText(Text);
             InvokeHelper.InvokeSingle(RemoveWarning, 4f);
             if (!subbed)
             {
-                warningBanner.OnMessageChanged.Subscribe(RemoveSub);
+                warningBanner.Message1.SetEvent.Subscribe(RemoveSub);
                 subbed = true;
             }
             bannerActive = true;
@@ -305,7 +305,7 @@ namespace TerraTechETCUtil
             if (subbed)
             {
                 InvokeHelper.CancelInvokeSingle(RemoveWarning);
-                warningBanner.OnMessageChanged.Unsubscribe(RemoveSub);
+                warningBanner.Message1.SetEvent.Unsubscribe(RemoveSub);
                 subbed = false;
             }
         }
@@ -313,7 +313,7 @@ namespace TerraTechETCUtil
         {
             RemoveSub(null);
             ManSFX.inst.StopMiscLoopingSFX(ManSFX.MiscSfxType.PayloadIncoming);
-            warningBanner.Message = "";
+            warningBanner.Message1.SetText("");
             bannerActive = false;
         }
 
