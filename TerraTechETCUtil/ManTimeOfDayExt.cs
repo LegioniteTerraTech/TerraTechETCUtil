@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
+using static Biome;
 
 namespace TerraTechETCUtil
 {
@@ -12,13 +13,21 @@ namespace TerraTechETCUtil
     /// </summary>
     public class ManTimeOfDayExt
     {
-        public struct TOD_Ordering
+        public class TOD_Ordering
         {
-            public int priority;
-            public Action setTheSky;
-            public string ModID;
+            public TOD_Ordering(string ModID, int priority, Func<Color, Color> ColorForSetSkyInOrder, Action<DayNightColours, DayNightColours> KeepTheSkyInOrder)
+            {
+                this.ModID = ModID;
+                this.priority = priority;
+                setTheSky = ColorForSetSkyInOrder;
+                keepTheSky = KeepTheSkyInOrder;
+            }
+            public readonly int priority;
+            public readonly Func<Color,Color> setTheSky;
+            public readonly Action<DayNightColours,DayNightColours> keepTheSky;
+            public readonly string ModID;
         }
-        private static Dictionary<string, Action> modIDs = new Dictionary<string, Action>();
+        private static Dictionary<string, TOD_Ordering> modIDs = new Dictionary<string, TOD_Ordering>();
         private static List<TOD_Ordering> applyCommand = new List<TOD_Ordering>();
         private static FieldInfo m_Sky = typeof(ManTimeOfDay).GetField("m_Sky", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FogMode fM = RenderSettings.fogMode;
@@ -42,6 +51,7 @@ namespace TerraTechETCUtil
         private static Gradient nightSkyColors;
         private static Gradient dayAmbColors;
         private static Gradient nightAmbColors;
+        private static float updateFrame = Time.time;
 
         /// <summary>
         /// Higher priority goes first
@@ -50,7 +60,7 @@ namespace TerraTechETCUtil
         /// <param name="priority"></param>
         /// <param name="setTheSky"></param>
         /// <returns></returns>
-        public static bool SetState(string modID, int priority, Action setTheSky)
+        public static bool SetState(TOD_Ordering order)
         {
             if (modIDs.Count == 0)
             {
@@ -76,24 +86,27 @@ namespace TerraTechETCUtil
                 nightAmbColors = sky.Night.AmbientColor;
                 ManTimeOfDay.inst.DayNightChangedEvent.Subscribe(ReinforceState);
             }
-            if (!modIDs.ContainsKey(modID))
+            if (!modIDs.ContainsKey(order.ModID))
             {
-                modIDs.Add(modID, setTheSky);
-                if (!applyCommand.Any() || applyCommand.First().priority <= priority)
-                    setTheSky();
-                int index = applyCommand.FindIndex(x => x.priority < priority);
+                modIDs.Add(order.ModID, order);
+                if (!applyCommand.Any() || applyCommand.First().priority <= order.priority)
+                    if (updateFrame != Time.time)
+                    {
+                        ReinforceState();
+                        updateFrame = Time.time;
+                    }
+                int index = applyCommand.FindIndex(x => x.priority < order.priority);
                 if (index == -1)
                     index = applyCommand.Count;
-                applyCommand.Insert(index, new TOD_Ordering
-                {
-                    ModID = modID,
-                    priority = priority,
-                    setTheSky = setTheSky,
-                });
+                applyCommand.Insert(index, order);
                 return true;
             }
-            else if (applyCommand.First().priority <= priority)
-                setTheSky();
+            else if (applyCommand.First().priority <= order.priority)
+                if (updateFrame != Time.time)
+                {
+                    ReinforceState();
+                    updateFrame = Time.time;
+                }
             return false;
 
         }
@@ -138,7 +151,23 @@ namespace TerraTechETCUtil
         public static void ReinforceState(bool ignored = false)
         {
             if (applyCommand.Any())
-                applyCommand.First().setTheSky();
+            {
+                Color transColor = new Color(1f, 1f, 1f, 1f);
+                foreach (var item in applyCommand)
+                {
+                    transColor = item.setTheSky(transColor);
+                }
+            }
+        }
+        public static void ReinforceStateActive(ref DayNightColours dayColours, ref DayNightColours nightColours)
+        {
+            if (applyCommand.Any())
+            {
+                foreach (var item in applyCommand)
+                {
+                    item.keepTheSky(dayColours, nightColours);
+                }
+            }
         }
     }
 }

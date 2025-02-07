@@ -511,6 +511,14 @@ namespace TerraTechETCUtil
             }
         }
 
+        [HarmonyPatch(typeof(ManTimeOfDay), "UpdateBiomeColours")]
+        private static class MaintainEffects
+        {
+            internal static void Postfix(ref DayNightColours dayColours, ref DayNightColours nightColours)
+            {
+                ManTimeOfDayExt.ReinforceStateActive(ref dayColours, ref nightColours);
+            }
+        }
     }
 }
 #endif
