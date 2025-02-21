@@ -10,6 +10,7 @@ using System.Drawing;
 using Newtonsoft.Json;
 using System.Runtime.InteropServices;
 #if !EDITOR
+using FMOD;
 using FMODUnity;
 #endif
 
@@ -98,7 +99,7 @@ namespace TerraTechETCUtil
                 {
                     FMOD.VECTOR posD = default;
                     FMOD.VECTOR posF = value.ToFMODVector();
-                    Vector3 sounder = (Camera.main.transform.position - trans.position).normalized;
+                    Vector3 sounder = (Camera.main.transform.position - pos).normalized;
                     FMOD.VECTOR velo;
                     if (_pitch > 1)
                         velo = (sounder * ((_pitch * _pitch * speedSound) - speedSound)).ToFMODVector();
@@ -198,7 +199,7 @@ namespace TerraTechETCUtil
                 switch (type)
                 {
                     case FMOD.CHANNELCONTROL_CALLBACK_TYPE.END:
-                        Stopped();
+                        StopPosUpdates();
                         break;
                     case FMOD.CHANNELCONTROL_CALLBACK_TYPE.VIRTUALVOICE:
                         break;
@@ -297,6 +298,8 @@ namespace TerraTechETCUtil
                 throw e;
             }
         }
+
+
         public AudioInst Copy()
         {
             return new AudioInst(ref sound)
@@ -311,11 +314,11 @@ namespace TerraTechETCUtil
                 RangeVariance = RangeVariance,
             };
         }
-        private void Started()
+        public void StartPosUpdates()
         {
             ManAudioExt.managed.Add(this);
         }
-        private void Stopped()
+        public void StopPosUpdates()
         {
             ManAudioExt.managed.Remove(this);
         }
@@ -353,7 +356,7 @@ namespace TerraTechETCUtil
                 ActiveSound.stop();
                 ActiveSound.setPaused(false);
                 ActiveSound.setPosition(0, FMOD.TIMEUNIT.MS);
-                Stopped();
+                StopPosUpdates();
             }
         }
         public void PlayFromBeginning()
@@ -361,7 +364,7 @@ namespace TerraTechETCUtil
             if (IsPlaying)
             {
                 ActiveSound.stop();
-                Stopped();
+                StopPosUpdates();
             }
             Play();
         }
@@ -439,7 +442,7 @@ namespace TerraTechETCUtil
                         else
                         {
                             AudioActive.setPaused(false);
-                            Started();
+                            StartPosUpdates();
                         }
                     }
                     catch (Exception e)
@@ -459,14 +462,14 @@ namespace TerraTechETCUtil
             if (!IsPaused)
             {
                 ActiveSound.setPaused(true);
-                Stopped();
+                StopPosUpdates();
             }
         }
         public void Resume()
         {
             if (IsPaused)
             {
-                Started();
+                StartPosUpdates();
                 ActiveSound.setPaused(false);
             }
         }
@@ -477,7 +480,9 @@ namespace TerraTechETCUtil
                 ActiveSound.stop();
                 ActiveSound.setPaused(false);
                 ActiveSound.setPosition(0, FMOD.TIMEUNIT.MS);
-                Stopped();
+                StopPosUpdates();
+                if (IsPlaying)
+                    throw new InvalidOperationException("We are still playing the sound even when we Stop()!");
             }
         }
 

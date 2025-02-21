@@ -5,6 +5,9 @@ using System.Text;
 using System.IO;
 using UnityEngine;
 using Newtonsoft.Json;
+using HarmonyLib;
+using System.Reflection.Emit;
+using System.Collections;
 
 #if !EDITOR
 namespace TerraTechETCUtil
@@ -21,7 +24,10 @@ namespace TerraTechETCUtil
         internal static HashSet<WorldTile> terrainsDeformed = new HashSet<WorldTile>();
         public static Event<WorldTile> OnTerrainDeformed = new Event<WorldTile>();
 
-        public Dictionary<IntVector2, TerrainModifier> TerrainModsActive = new Dictionary<IntVector2, TerrainModifier>();
+
+
+        private Dictionary<string, int> ModsToTerrainModPriority = new Dictionary<string, int>();
+        internal List<KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>> TerrainModsByPriority = new List<KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>>();
 
         public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaults;
 
@@ -32,7 +38,7 @@ namespace TerraTechETCUtil
         //private static bool SetupSaveSystem = false;
         private static int ToolSize = 8;
 
-        internal static void Init()
+        public static void Init()
         {
             if (inst == null)
             {
@@ -44,6 +50,7 @@ namespace TerraTechETCUtil
                 ToolSize = 16;
                 RecalibrateTools(TerrainDefaultsLarge);
                 ManGameMode.inst.ModeSetupEvent.Subscribe(OnGameSetup);
+                MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldTerraformEnabler), "TerraTechModExt", true);
                 inst.enabled = false;
             }
         }
@@ -66,6 +73,61 @@ namespace TerraTechETCUtil
 
         }
 
+        /// <summary>
+        /// Assign a mod that alters terrain here!  Values altered in the object "terraChange" will be 
+        /// applied automatically on world tile load or immedeately by call to TempResetALLTerrain() then ReloadTerrainMods().
+        /// </summary>
+        /// <param name="modName">The name of the mod to store. Must be unique</param>
+        /// <param name="priority">The assigned priority of the mod.  Lower priorities go first!</param>
+        /// <param name="terraChange">The TerrainMod to use.  You can change the given instance to directly edit the registered entry</param>
+        /// <returns>The final set priority of the mod</returns>
+        public static int RegisterModdedTerrain(string modName, int priority, Dictionary<IntVector2, TerrainModifier> terraChange)
+        {
+            if (inst.ModsToTerrainModPriority.TryGetValue(modName, out priority))
+                return priority;
+            while (inst.TerrainModsByPriority.Exists(x => x.Key == priority))
+            {
+                priority++;
+                if (priority == int.MaxValue)
+                    throw new IndexOutOfRangeException("Tried to insert mod " + modName + " priority of " + priority + 
+                        " but we appear to have exceeded the integer range.  Notify Legionite!");
+            }
+            inst.ModsToTerrainModPriority.Add(modName, priority);
+            for (int i = 0; i < inst.TerrainModsByPriority.Count; i++)
+            {
+                if (inst.TerrainModsByPriority[i].Key > priority)
+                {
+                    inst.TerrainModsByPriority.Insert(i, new KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>(priority, terraChange));
+                    return priority;
+                }
+            }
+            inst.TerrainModsByPriority.Add(new KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>(priority, terraChange));
+            return priority;
+        }
+        /// <summary>
+        /// Get the priority of the terrain affilated with a mod
+        /// </summary>
+        /// <param name="modName">The name of the mod to store. Must be unique</param>
+        /// <param name="priority">The set priority of the mod</param>
+        /// <returns>True if we found it</returns>
+        public static bool GetModdedTerrainPriorityIndex(string modName, out int priority)
+        {
+            return inst.ModsToTerrainModPriority.TryGetValue(modName, out priority);
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="modName">The modname to remove</param>
+        /// <returns>True if we removed it</returns>
+        public static bool UnregisterModdedTerrain(string modName)
+        {
+            if (inst.ModsToTerrainModPriority.TryGetValue(modName, out int priority))
+            {
+                inst.ModsToTerrainModPriority.Remove(modName);
+                return inst.TerrainModsByPriority.RemoveAll(x => x.Key == priority) > 0;
+            }
+            return false;
+        }
 
 
         // TOOL
@@ -134,213 +196,73 @@ namespace TerraTechETCUtil
             Slope
         }
 
+        public static IEnumerable<WorldTile> IterateModifiedWorldTiles() => terrainsDeformed;
 
-
-        /*
-        private static float applyStrength => 0.01f / TerrainOperations.RescaleFactor;
-        private static float levelingStrength => 0.1f / TerrainOperations.RescaleFactor;
-        private static bool active = false;
-        private static bool Large = true;
-        private static TerraformerType ToolMode = TerraformerType.Circle;
-        private static float cachedHeight = 0;
-        private static float delayTimer = 0;
-        private static float delayTimerDelay = 0.0356f;
-        private static KeyCode altHotKey = KeyCode.LeftShift;
-        public void Update_LEGACY()
-        {
-            bool delayTimed;
-            bool deltaed = false;
-            if (delayTimer <= 0)
-            {
-                delayTimer += delayTimerDelay;
-                delayTimed = true;
-            }
-            else
-            {
-                delayTimer -= Time.deltaTime;
-                delayTimed = false;
-            }
-            if (Singleton.playerTank)
-            {
-                if (Input.GetKeyDown(KeyCode.Insert))
-                    active = !active;
-                if (active)
-                {
-                    if (ManPointer.inst.DraggingItem != null)
-                    {
-                        active = false;
-                        return;
-                    }
-                    Vector3 terrainPosSpot;
-                    if (Input.GetKeyDown(KeyCode.Home))
-                    {
-                        SaveAllToSaveNonCompactedJson();
-                    }
-                    if (Input.GetKeyDown(KeyCode.Delete))
-                    {
-                        Large = !Large;
-                        if (Large)
-                        {
-                            ToolSize = 16;
-                            TerrainDefaults = TerrainDefaultsLarge;
-                        }
-                        else
-                        {
-                            ToolSize = 8;
-                            TerrainDefaults = TerrainDefaultsSmall;
-                        }
-                        UIHelpersExt.BigF5broningBanner("Tool Size: " + ToolSize, false);
-                    }
-                    if (Input.GetMouseButtonDown(2))
-                    {
-                        ToolMode = (TerraformerType)Mathf.Repeat((int)ToolMode + 1, Enum.GetValues(typeof(TerraformerType)).Length);
-                        UIHelpersExt.BigF5broningBanner("Tool: " + ToolMode, false);
-                    }
-                    else if (Input.GetMouseButtonDown(0) && Input.GetKey(altHotKey) &&
-                        GrabTerrainCursorPos(out terrainPosSpot))
-                    {
-                        var worldT = ManWorld.inst.TileManager.LookupTile(terrainPosSpot);
-                        if (worldT != null)
-                        {
-                            IntVector2 tilePosInTile = new IntVector2(
-                                (terrainPosSpot - worldT.Terrain.transform.position).ToVector2XZ() / TerrainModifier.tilePosToTileScale);
-                            cachedHeight = worldT.Terrain.terrainData.GetHeight(tilePosInTile.x, tilePosInTile.y) / TerrainOperations.RescaledFactor;
-                        }
-                    }
-                    if (delayTimed && GrabTerrainCursorPos(out terrainPosSpot))
-                    {
-                        Vector3 terrainPosSpotCorrect = terrainPosSpot;
-                        switch (ToolMode)
-                        {
-                            case TerraformerType.Circle:
-                                terrainPosSpotCorrect += new Vector3(0, 0, -ToolSize);
-                                if (Input.GetKey(altHotKey))
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        TerrainDefaults[ToolMode].FlushAdd(applyStrength, terrainPosSpotCorrect +
-                                            TerrainDefaults[ToolMode].Position.GameWorldPosition);
-                                    }
-                                    DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + new Vector3(0, 2, 0),
-                                        Vector3.up, Vector3.forward, ToolSize, Color.cyan, delayTimerDelay);
-                                }
-                                else
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        TerrainDefaults[ToolMode].FlushAdd(-applyStrength, terrainPosSpotCorrect +
-                                        TerrainDefaults[ToolMode].Position.GameWorldPosition);
-                                    }
-                                    DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot,
-                                        Vector3.up, Vector3.forward, ToolSize, Color.cyan, delayTimerDelay);
-                                }
-                                break;
-                            case TerraformerType.Square:
-                                terrainPosSpotCorrect += new Vector3(0, 0, -(ToolSize * 2));
-                                if (Input.GetKey(altHotKey))
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        TerrainDefaults[ToolMode].FlushAdd(applyStrength, terrainPosSpotCorrect + new Vector3(-ToolSize, 0, -ToolSize) +
-                                            TerrainDefaults[ToolMode].Position.GameWorldPosition);
-                                    }
-                                    DebugExtUtilities.DrawDirIndicatorRecPriz(terrainPosSpot + new Vector3(0, 2, 0),
-                                        new Vector3(ToolSize * 2, 1, ToolSize * 2), Color.cyan, delayTimerDelay);
-                                }
-                                else
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        TerrainDefaults[ToolMode].FlushAdd(-applyStrength, terrainPosSpotCorrect + new Vector3(-ToolSize, 0, -ToolSize) +
-                                            TerrainDefaults[ToolMode].Position.GameWorldPosition);
-                                    }
-                                    DebugExtUtilities.DrawDirIndicatorRecPriz(terrainPosSpot,
-                                        new Vector3(ToolSize * 2, 1, ToolSize * 2), Color.cyan, delayTimerDelay);
-                                }
-                                break;
-                            case TerraformerType.Level:
-                                terrainPosSpotCorrect += new Vector3(0, 0, -ToolSize);
-                                if (Input.GetKey(altHotKey))
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        var worldT = ManWorld.inst.TileManager.LookupTile(terrainPosSpot);
-                                        if (worldT != null)
-                                        {
-                                            DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + Vector3.up, Vector3.up,
-                                            Vector3.forward, ToolSize, Color.black, delayTimerDelay);
-                                            TerrainDefaults[TerraformerType.Circle].FlushLevel(cachedHeight, levelingStrength, 
-                                                terrainPosSpotCorrect + TerrainDefaults[TerraformerType.Circle].Position.GameWorldPosition);
-                                        }
-                                        else
-                                            DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + Vector3.up,
-                                                Vector3.up, Vector3.forward, ToolSize, Color.red, delayTimerDelay);
-                                    }
-                                    else
-                                        DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + Vector3.up, Vector3.up,
-                                        Vector3.forward, ToolSize, Color.white, delayTimerDelay);
-                                }
-                                else
-                                {
-                                    if (Input.GetMouseButton(0))
-                                    {
-                                        deltaed = true;
-                                        DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + Vector3.up,
-                                            Vector3.up, Vector3.forward, ToolSize, Color.yellow, delayTimerDelay);
-                                        TerrainDefaults[TerraformerType.Circle].FlushLevel(-1, levelingStrength, terrainPosSpotCorrect +
-                                            TerrainDefaults[TerraformerType.Circle].Position.GameWorldPosition);
-                                    }
-                                    else
-                                        DebugExtUtilities.DrawDirIndicatorCircle(terrainPosSpot + Vector3.up,
-                                            Vector3.up, Vector3.forward, ToolSize, Color.magenta, delayTimerDelay);
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-            }
-            if (delayTimed && !deltaed)
-            {
-                foreach (var item in terrainsDeformed)
-                {
-                    OnTerrainDeformed.Send(item);
-                    if (TerrainModsActive.TryGetValue(item.Coord, out TerrainModifier TM))
-                    {
-                        TM.Setup(item);
-                    }
-                    else
-                        TerrainModsActive.Add(item.Coord, new TerrainModifier(item));
-                }
-                terrainsDeformed.Clear();
-            }
-        }
-        */
         /// <summary>
-        /// Reloads allTerrainMods
+        /// Reloads ALL terrain affected by TerrainMods!
         /// </summary>
-        public static void TempResetALLTerrain()
+        public static void ResetALLModifiedTerrain()
+        {
+            foreach (var item in terrainsDeformed)
+            {
+                ManWorldTileExt.ReloadTile(item.Coord);
+            }
+            terrainsDeformed.Clear();
+        }
+
+        /// <summary>
+        /// Reloads terrain affected by TerrainMods, assuming the terrain mods were not changed beforehand!
+        /// </summary>
+        public static void ResetCurrentlyTargetedTerrain()
         {
             if (inst == null)
                 return;
-            foreach (var item in inst.TerrainModsActive)
+            foreach (var item in inst.TerrainModsByPriority)
             {
-                ManWorldTileExt.ReloadTile(item.Value.Position.TileCoord);
+                foreach (var item2 in item.Value)
+                {
+                    terrainsDeformed.Remove(ManWorld.inst.TileManager.LookupTile(item2.Key));
+                    ManWorldTileExt.ReloadTile(item2.Value.Position.TileCoord);
+                }
             }
         }
-        public static void ReloadTerrainMods()
+        /// <summary>
+        /// ADDITIVELY applies all registered TerrainMods to the world all at once.
+        ///   You may want to call ResetCurrentlyTargetedTerrain() before this!
+        /// </summary>
+        public static void ReloadALLTerrainMods()
         {
             if (inst == null)
                 return;
-            foreach (var item in inst.TerrainModsActive)
+            foreach (var item in inst.TerrainModsByPriority)
             {
-                item.Value.FlushApply(1, new WorldPosition(item.Key, Vector3.zero).ScenePosition);
+                foreach (var item2 in item.Value)
+                {
+                    item2.Value.FlushApply(1, new WorldPosition(item2.Key, Vector3.zero).ScenePosition);
+                }
+            }
+        }
+
+    }
+
+    internal class WorldTerraformEnabler
+    {
+        internal static class TileManagerPatches
+        {
+            internal static Type target = typeof(TileManager);
+
+            internal static void CreateTile_Postfix(TileManager __instance, ref WorldTile tile)
+            {
+                if (tile != null)
+                {
+                    foreach (var item in WorldDeformer.inst.TerrainModsByPriority)
+                    {
+                        if (item.Value.TryGetValue(tile.Coord, out var posSet))
+                        {
+                            posSet.Flush();
+                        }
+                    }
+                }
             }
         }
 

@@ -8,8 +8,9 @@ using FMOD;
 namespace TerraTechETCUtil
 {
 #if !EDITOR
-    public class ManAudioExt
+    public class ManAudioExt : MonoBehaviour
     {
+        public static ManAudioExt inst;
         public static float SFXVolume
         {
             get => _SFXVolume;
@@ -89,7 +90,7 @@ namespace TerraTechETCUtil
                                         engage = ResourcesHelper.GetAudioFromModAssetBundle(item.Value, nameNoExt + "_Engage", false),
                                     };
                                     soundsMain.Clear();
-                                    audioLib.Add(name, audioGroup);
+                                    audioLib.Add(name.Replace(AudioInstFile.leadingFileName, string.Empty), audioGroup);
                                 }
                                 else
                                     Debug_TTExt.LogError("AssetBundle Sound " + name + " for " + item.Key + " could not be added as it was corrupted!");
@@ -155,8 +156,9 @@ namespace TerraTechETCUtil
         internal static HashSet<AudioInst> managed;
         internal static void InsureInit()
         {
-            if (managed != null)
+            if (inst != null)
                 return;
+            inst = new GameObject("ManAudioExt").AddComponent<ManAudioExt>();
             managed = new HashSet<AudioInst>();
             ManWorldTreadmill.inst.OnAfterWorldOriginMoved.Subscribe(OnWorldMove);
             ManProfile.inst.OnProfileSaved.Subscribe(OnProfileDelta);
@@ -165,7 +167,6 @@ namespace TerraTechETCUtil
             sys.set3DSettings(1, 1, 1);
             sys.set3DNumListeners(1);
             sys.createChannelGroup("ExternalMods", out ModSoundGroup);
-            InvokeHelper.InvokeSingleRepeat(Update, 0.001f);
         }
         private static void OnWorldMove(IntVector3 move)
         {
@@ -193,8 +194,20 @@ namespace TerraTechETCUtil
             foreach (AudioInst inst in managed)
                 inst.Volume = inst.Volume;
         }
-
-        private static void Update()
+        /*
+        private void Update()
+        {
+            foreach (AudioInst inst in managed)
+            {
+                inst.RemoteUpdate();
+            }
+            FMOD.VECTOR vecP = Singleton.playerPos.ToFMODVector();
+            FMOD.VECTOR vecD = default;
+            FMOD.VECTOR vecF = Singleton.cameraTrans.forward.ToFMODVector();
+            FMOD.VECTOR vecU = Singleton.cameraTrans.up.ToFMODVector();
+            sys.set3DListenerAttributes(0, ref vecP, ref vecD, ref vecF, ref vecU);
+        }*/
+        private void FixedUpdate()
         {
             foreach (AudioInst inst in managed)
             {

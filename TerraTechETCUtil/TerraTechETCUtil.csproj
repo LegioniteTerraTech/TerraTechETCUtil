@@ -97,11 +97,11 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>C:/Users/Legionite/Desktop/Advanced AI/Assets/Mods/Newtonsoft.Json.dll</HintPath>
+      <HintPath>C:/Users/Legionite/Desktop/Advanced AI/Assets/EditorPlugins/Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Ionic.Zlib">
-      <HintPath>C:/Users/Legionite/Desktop/Advanced AI/Assets/Mods/Ionic.Zlib.dll</HintPath>
+      <HintPath>C:/Users/Legionite/Desktop/Advanced AI/Assets/EditorPlugins/Ionic.Zlib.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -254,9 +254,10 @@
     <Compile Include="RawTechs\RawTechBase.cs" />
     <Compile Include="RawTechs\RawTechTemplate.cs" />
     <Compile Include="Debug_TTExt.cs" />
-    <Compile Include="UIChanges\SuperNativeOptions.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="LegModExtOptions.cs" />
+    <Compile Include="UIChanges\SuperNativeOptions.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageDamageStats.cs" />
     <Compile Include="ManEvilFloraFauna.cs" />
     <Compile Include="ManTimeOfDayExt.cs" />
@@ -368,7 +369,7 @@ xcopy /S /Y /R "!e:~0,-1!" !modpathc!
 )
 
 if $(ConfigurationName) == SteamEditor (
-set modpathb5="C:\Users\Legionite\Desktop\Advanced AI\Assets\Mods"
+set modpathb5="C:\Users\Legionite\Desktop\Advanced AI\Assets\EditorPlugins"
 
 if exist !modpathb5! (
 echo Copying to editor

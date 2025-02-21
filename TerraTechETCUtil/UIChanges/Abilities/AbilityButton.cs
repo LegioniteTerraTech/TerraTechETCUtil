@@ -14,16 +14,21 @@ namespace TerraTechETCUtil
     {
         public Button button;
         public readonly UnityAction Callback;
+        public override bool PressedState() => false;
         public AbilityButton(string name, Sprite iconSprite, UnityAction callback, float cooldown) :
             base(name, iconSprite, cooldown)
         {
             Callback = callback;
             ManAbilities.InitElement(this);
         }
-        public void TriggerCooldownWrapper()
+        public override void TriggerNow() => TriggerThis();
+        private void TriggerThis()
         {
-            Callback.Invoke();
-            //TriggerCooldown();
+            if (button.interactable)
+            {
+                Callback.Invoke();
+                TriggerCooldown();
+            }
         }
         internal override void SetAvail(bool state)
         {
@@ -31,10 +36,10 @@ namespace TerraTechETCUtil
         }
         internal override void Initiate()
         {
-            button = ManAbilities.MakePrefabButton(Name, Sprite, TriggerCooldownWrapper);
+            button = ManAbilities.MakePrefabButton(Name, Sprite, TriggerThis);
             inst = button.gameObject;
             images = inst.GetComponentsInChildren<Image>(true);
-            ManAbilities.Active.Add(this);
+            ManAbilities.Ready.Add(this);
         }
     }
 }

@@ -182,6 +182,8 @@ namespace TerraTechETCUtil
                         blockDetailFlags |= (int)BlockDetails.Flags.Boosters;
                 }
 
+                if (prefab.GetComponent<ModuleBalloon>())
+                    blockDetailFlags |= (int)BlockDetails.Flags.AirFloats;
                 if (prefab.GetComponent<ModuleWing>())
                     blockDetailFlags |= (int)BlockDetails.Flags.Wings;
                 if (prefab.GetComponent<ModuleHover>())
@@ -206,7 +208,7 @@ namespace TerraTechETCUtil
                     prefab.GetComponent<ModuleFasteningLink>())
                     blockDetailFlags |= (int)BlockDetails.Flags.ControlsBlockman;
                 if (prefab.m_DefaultMass < prefab.filledCells.Length)
-                    blockDetailFlags |= (int)BlockDetails.Flags.Floats;
+                    blockDetailFlags |= (int)BlockDetails.Flags.WaterFloats;
 
                 foreach (var item in prefab.GetComponents<ExtModule>())
                     blockDetailFlags |= (int)item.BlockDetailFlags;

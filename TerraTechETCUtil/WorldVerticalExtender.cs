@@ -131,18 +131,6 @@ namespace TerraTechETCUtil
                     yield return item;
                 }
             }
-            private static void CreateTile_Postfix(TileManager __instance, ref WorldTile tile)
-            {
-                if (tile != null)
-                {
-                    // Obsolete - the transpilers above do the dirty work far more effectively
-                    // TerrainOperations.AmplifyTerrain(tile.Terrain);
-                    if (WorldDeformer.inst && WorldDeformer.inst.TerrainModsActive.TryGetValue(tile.Coord, out var posSet))
-                    {
-                        posSet.Flush();
-                    }
-                }
-            }
 
             //LowerTerrain1
             private static IEnumerable<CodeInstruction> CalcTileOrigin_Transpiler(IEnumerable<CodeInstruction> collection)

@@ -47,6 +47,7 @@ namespace TerraTechETCUtil
         public static Vector3 PlayerLoc = Vector3.zero;
         public static bool isCurrentlyOpen = false;
         public static bool IndexesChanged = false;
+        public static bool HideGUICompletelyWhenDragging = true;
 
         public static int numActivePopups;
         public static bool SetupAltWins = false;
@@ -179,27 +180,123 @@ namespace TerraTechETCUtil
 
         public static bool IsMouseOverModGUI { get; private set; } = false;
         private static bool UIKickoffState = false;
+        public static bool UIFadeState { get; private set; } = false;
         public static int IsMouseOverAnyModGUI = 0;
         public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked || IsMouseOverModGUI;
         public static bool IsUIInteractionBlocked => ManPointer.inst.DraggingItem;
+        private static Dictionary<ManHUD.HUDElementType, object> TempHidden = 
+            new Dictionary<ManHUD.HUDElementType, object>();
+        public static void HideGUI(ManHUD.HUDElementType type)
+        {
+            object context = null;
+            bool wasVisible = false;
+            switch (type)
+            {
+                //case ManHUD.HUDElementType.BlockMenuSelection:
+                case ManHUD.HUDElementType.BlockPalette:
+                //case ManHUD.HUDElementType.BlockShop:
+                //case ManHUD.HUDElementType.TechShop:
+                    wasVisible = ManHUD.inst.IsHudElementExpanded(type);
+                    ManPurchases.inst.ExpandPalette(false, UIShopBlockSelect.ExpandReason.Beam, true);
+                    break;
+                case ManHUD.HUDElementType.SkinsPalette:
+                case ManHUD.HUDElementType.TechLoader:
+                case ManHUD.HUDElementType.TechManager:
+                case ManHUD.HUDElementType.WorldMap:
+                case ManHUD.HUDElementType.RaDTestChamber:
+                case ManHUD.HUDElementType.TeleportMenu:
+                case ManHUD.HUDElementType.MissionBoard:
+                    wasVisible = ManHUD.inst.IsHudElementVisible(type);
+                    ManHUD.inst.HideHudElement(type);
+                    break;
+                default:
+                    // Unsupported!!!
+                    break;
+            }
+            if (wasVisible && !TempHidden.ContainsKey(type))
+                TempHidden.Add(type, context);
+        }
+        /// <summary>
+        /// DO NOT ITERATE TempHidden WHEN CALLING THIS
+        /// </summary>
+        /// <param name="type"></param>
+        public static void ShowGUI(ManHUD.HUDElementType type)
+        {
+            ShowGUI_Internal(type);
+            TempHidden.Remove(type);
+        }
+        private static void ShowGUI_Internal(ManHUD.HUDElementType type)
+        {
+            TempHidden.TryGetValue(type, out object context);
+            switch (type)
+            {
+                case ManHUD.HUDElementType.BlockPalette:
+                //case ManHUD.HUDElementType.BlockShop:
+                //case ManHUD.HUDElementType.TechShop:
+                    ManPurchases.inst.ExpandPalette(true, UIShopBlockSelect.ExpandReason.Beam);
+                    //case ManHUD.HUDElementType.BlockMenuSelection:
+                    //ManPurchases.inst.ShowPalette(true);
+                    break;
+                case ManHUD.HUDElementType.SkinsPalette:
+                case ManHUD.HUDElementType.TechLoader:
+                case ManHUD.HUDElementType.TechManager:
+                case ManHUD.HUDElementType.WorldMap:
+                case ManHUD.HUDElementType.RaDTestChamber:
+                case ManHUD.HUDElementType.TeleportMenu:
+                case ManHUD.HUDElementType.MissionBoard:
+                    ManHUD.inst.ShowHudElement(type, context);
+                    break;
+                default:
+                    // Unsupported!!!
+                    break;
+            }
+        }
         public static void HideAllObstructingUI()
         {
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockControl);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockControlOnOff);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockRecipeSelect);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.BlockOptionsContextMenu);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.PowerToggleBlockMenu);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.RaDTestChamber);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.TechManager);
-            ManHUD.inst.HideHudElement(ManHUD.HUDElementType.WorldMap);
-            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.BlockPalette);
-            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.BlockShop);
-            ManHUD.inst.CollapseHudElement(ManHUD.HUDElementType.TechLoader);
+            HideGUI(ManHUD.HUDElementType.BlockControl);
+            HideGUI(ManHUD.HUDElementType.BlockControlOnOff);
+            HideGUI(ManHUD.HUDElementType.BlockRecipeSelect);
+            HideGUI(ManHUD.HUDElementType.BlockOptionsContextMenu);
+            HideGUI(ManHUD.HUDElementType.PowerToggleBlockMenu);
+
+            HideGUI(ManHUD.HUDElementType.RaDTestChamber);
+            HideGUI(ManHUD.HUDElementType.TechManager);
+            HideGUI(ManHUD.HUDElementType.WorldMap);
+
+            //HideGUI(ManHUD.HUDElementType.BlockMenuSelection);
+            HideGUI(ManHUD.HUDElementType.BlockPalette);
+            HideGUI(ManHUD.HUDElementType.BlockShop);
+            HideGUI(ManHUD.HUDElementType.TechShop);
+            HideGUI(ManHUD.HUDElementType.TechLoader);
+        }
+        /// <summary>Attempts to reopen any windows closed by HideAllObstructingUI() or HideGUI()</summary>
+        public static void TryReopenPreviouslyClosedUI()
+        {
+            try
+            {
+                foreach (var item in TempHidden)
+                {
+                    ShowGUI_Internal(item.Key);
+                }
+            }
+            finally
+            {
+                TempHidden.Clear();
+            }
         }
         private static FieldInfo lmb = typeof(ManPointer).GetField("m_LMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo rmb = typeof(ManPointer).GetField("m_RMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo mmb = typeof(ManPointer).GetField("m_MMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
-        public static void ReleaseMouse()
+
+        public static bool ManPointerMouseRightDown => ((Vector3)rmb.GetValue(ManPointer.inst)).x != -1;
+        public static bool ManPointerMouseMiddleDown => ((Vector3)mmb.GetValue(ManPointer.inst)).x != -1;
+        public static bool ManPointerMouseLeftDown => ((Vector3)lmb.GetValue(ManPointer.inst)).x != -1;
+
+        /// <summary>
+        ///   Makes the mouse release hold of whatever it was holding previously. 
+        ///    USE SPARINGLY AS THIS IS ANNOYING TO DEAL WITH!!!
+        /// </summary>
+        public static void ForceReleaseRightMouse()
         {
             Vector3 RMB = (Vector3)rmb.GetValue(ManPointer.inst);
             if (RMB.x != -1)
@@ -207,14 +304,13 @@ namespace TerraTechETCUtil
                 ManPointer.inst.MouseEvent.Send(ManPointer.Event.RMB, false, Input.mousePosition == RMB);
                 rmb.SetValue(ManPointer.inst, RMB.SetX(-1f));
             }
-            /*
-            Vector3 LMB = (Vector3)lmb.GetValue(ManPointer.inst);
-            if (LMB.x != -1)
-            {
-                ManPointer.inst.MouseEvent.Send(ManPointer.Event.LMB, false, Input.mousePosition == LMB);
-                lmb.SetValue(ManPointer.inst, LMB.SetX(-1f));
-            }
-            */
+        }
+        /// <summary>
+        ///   Makes the mouse release hold of whatever it was holding previously. 
+        ///    USE SPARINGLY AS THIS IS ANNOYING TO DEAL WITH!!!
+        /// </summary>
+        public static void ForceReleaseMiddleMouse()
+        {
             Vector3 MMB = (Vector3)mmb.GetValue(ManPointer.inst);
             if (MMB.x != -1)
             {
@@ -222,33 +318,22 @@ namespace TerraTechETCUtil
                 mmb.SetValue(ManPointer.inst, MMB.SetX(-1f));
             }
         }
-        internal static void MainUpdateMouseOverAnyWindow()
+        /// <summary>
+        ///   Makes the mouse release hold of whatever it was holding previously. 
+        ///    USE SPARINGLY AS THIS IS ANNOYING TO DEAL WITH!!!
+        /// </summary>
+        public static void ForceReleaseLeftMouse()
         {
-            if (UIKickoffState != IsMouseOverModGUI && !Input.GetMouseButton(0))
+            Vector3 LMB = (Vector3)lmb.GetValue(ManPointer.inst);
+            if (LMB.x != -1)
             {
-                UIKickoffState = IsMouseOverModGUI;
-                //Debug_TTExt.Log("ManModGUI.UI_released - " + mouseOverMenu);
-                ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, IsMouseOverModGUI);
-                if (IsMouseOverModGUI)
-                {
-                    HideAllObstructingUI();
-                    ReleaseMouse();
-                }
-                else
-                    UIHelpersExt.ReleaseControl();
+                ManPointer.inst.MouseEvent.Send(ManPointer.Event.LMB, false, Input.mousePosition == LMB);
+                lmb.SetValue(ManPointer.inst, LMB.SetX(-1f));
             }
         }
-        internal static void UpdateMouseOverAnyWindow()
+        internal static void MainUpdateMouseOverAnyWindow()
         {
             bool mouseOverMenu = false;
-            foreach (var item in AllPopups)
-            {
-                if (item.isOpen && UIHelpersExt.MouseIsOverSubMenu(item.Window))
-                {
-                    IsMouseOverAnyModGUI = 2;
-                    break;
-                }
-            }
             if (IsMouseOverAnyModGUI > 0)
                 mouseOverMenu = true;
             if (mouseOverMenu != IsMouseOverModGUI)
@@ -258,6 +343,57 @@ namespace TerraTechETCUtil
             }
             else if (IsMouseOverAnyModGUI > 0)
                 IsMouseOverAnyModGUI--;
+            var buildMode = ManPointer.inst.BuildMode;
+            bool IsInteracting = Input.GetMouseButton(1) ||Input.GetMouseButton(2) ||
+                (buildMode == ManPointer.BuildingMode.Grab && ManPointer.inst.DraggingItem != null) ||
+                buildMode == ManPointer.BuildingMode.PaintBlock ||
+                buildMode == ManPointer.BuildingMode.PaintSkin ||
+                buildMode == ManPointer.BuildingMode.PaintSkinTech;
+            if (UIFadeState && !IsInteracting)
+            {
+                AltUI.UIAlphaAuto = 1f;
+                UIFadeState = false;
+            }
+            if (UIKickoffState != IsMouseOverModGUI)
+            {
+                if (IsMouseOverModGUI && IsInteracting)
+                {   // Hold off on our UI and fade it for now!
+                    if (!UIFadeState)
+                    {
+                        AltUI.UIAlphaAuto = 0.2f;
+                        UIFadeState = true;
+                    }
+                }
+                else
+                {
+                    UIKickoffState = IsMouseOverModGUI;
+                    //Debug_TTExt.Log("ManModGUI.UI_released - " + mouseOverMenu);
+                    // The below does not work properly.  AT ALL
+                    //ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, IsMouseOverModGUI);
+                    if (IsMouseOverModGUI)
+                    {
+                        HideAllObstructingUI();
+                        //ForceReleaseRightMouse();
+                        //ForceReleaseMiddleMouse();
+                    }
+                    else
+                    {
+                        UIHelpersExt.ReleaseControl();
+                        TryReopenPreviouslyClosedUI();
+                    }
+                }
+            }
+        }
+        internal static void UpdateMouseOverAnyWindow()
+        {
+            foreach (var item in AllPopups)
+            {
+                if (item.isOpen && UIHelpersExt.MouseIsOverSubMenu(item.Window))
+                {
+                    IsMouseOverAnyModGUI = 2;
+                    break;
+                }
+            }
         }
 
 

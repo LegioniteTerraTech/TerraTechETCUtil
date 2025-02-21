@@ -74,9 +74,12 @@ namespace TerraTechETCUtil
                 }
             }
             SB.Append("\n");
-            foreach (var item in lines)
+            if (trans != null)
             {
-                item.GetStrings(inst, trans, SB, tabs +1);
+                foreach (var item in lines)
+                {
+                    item.GetStrings(inst, trans, SB, tabs + 1);
+                }
             }
             for (int i = 0; i < tabs; i++)
                 SB.Append('\t');
@@ -98,7 +101,16 @@ namespace TerraTechETCUtil
         {
             object fieldVal;
             if (inst == null)
-                fieldVal = field.GetRawConstantValue();
+            {
+                try
+                {
+                    fieldVal = field.GetRawConstantValue();
+                }
+                catch (Exception)
+                {
+                    fieldVal = null;
+                }
+            }
             else
                 fieldVal = field.GetValue(inst);
             for (int i = 0; i < tabs; i++)
@@ -142,7 +154,7 @@ namespace TerraTechETCUtil
                 else
                 {
                     AutoDocumentator AD = new AutoDocumentator(fieldVal.GetType(), "Field [" + field.FieldType.Name +
-                        (field.FieldType != fieldVal.GetType() ? "], Set value [" + fieldVal.GetType().Name + "]" : "]") + 
+                        (field.FieldType != fieldVal.GetType() ? "], Set value [" + fieldVal.GetType().Name + "]" : "]") +
                         " - " + desc);
                     //SB.Append("//\"" + field.Name + "\": null, //This field is unsupported by NuterraSteam");
                     SB.Append("\"" + field.Name + "\": ");

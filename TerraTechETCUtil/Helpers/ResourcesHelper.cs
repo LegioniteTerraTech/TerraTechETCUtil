@@ -919,7 +919,8 @@ namespace TerraTechETCUtil
                     if (DLLDirectory == null)
                         DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
                     string destination = Path.Combine(DLLDirectory, textNameWithExt);
-                    tex = File.ReadAllBytes(destination);
+                    if (File.Exists(destination))
+                        tex = File.ReadAllBytes(destination);
                 }
                 if (tex != null)
                     return tex;
@@ -946,7 +947,8 @@ namespace TerraTechETCUtil
                     if (DLLDirectory == null)
                         DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
                     string destination = Path.Combine(DLLDirectory, textNameWithExt);
-                    tex = File.ReadAllText(destination);
+                    if (File.Exists(destination))
+                        tex = File.ReadAllText(destination);
                 }
                 if (tex != null)
                     return tex;
@@ -973,6 +975,7 @@ namespace TerraTechETCUtil
                     if (DLLDirectory == null)
                         DLLDirectory = new DirectoryInfo(MC.AssetBundlePath).Parent.ToString();
                     string destination = Path.Combine(DLLDirectory , pngName);
+                    if (File.Exists(destination))
                         tex = FileUtils.LoadTexture(destination);
                 }
                 if (tex)

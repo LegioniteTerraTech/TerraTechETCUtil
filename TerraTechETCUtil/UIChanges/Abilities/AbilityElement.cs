@@ -15,25 +15,39 @@ namespace TerraTechETCUtil
         public readonly string Name;
         public readonly Sprite Sprite;
         protected GameObject inst;
-        protected float Cooldown = 1;
+        protected float Cooldown = 0;
         private float cooldownCur = 0;
         protected Image[] images;
+        public abstract bool PressedState();
         public AbilityElement(string name, Sprite iconSprite, float cooldown)
         {
             Name = name;
             Sprite = iconSprite;
             Cooldown = cooldown;
         }
-        public void SetShown(bool state) => inst.SetActive(state);
+        internal void ShowInUI_Internal(bool state) => inst.SetActive(state);
+        public void SetShown(bool state)
+        {
+            if (state)
+                Show();
+            else
+                Hide();
+        }
         public void Show()
         {
-            inst.SetActive(true);
+            ManAbilities.Shown.Add(this);
+            ManAbilities.RefreshPage();
         }
-        public void Hide() => inst.SetActive(false);
+        public void Hide()
+        {
+            ManAbilities.Shown.Remove(this);
+            ManAbilities.RefreshPage();
+        } 
         public void Destroy()
         {
             UnityEngine.Object.Destroy(inst);
-            ManAbilities.Active.Remove(this);
+            ManAbilities.Shown.Remove(this);
+            ManAbilities.Ready.Remove(this);
             ManAbilities.updating.Remove(this);
             if (!ManAbilities.updating.Any())
                 InvokeHelper.CancelInvokeSingleRepeat(CheckCooldowns);
@@ -50,9 +64,10 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public void TriggerCooldown()
+        public abstract void TriggerNow();
+        internal void TriggerCooldown()
         {
-            if (inst)
+            if (inst && Cooldown > 0)
             {
                 cooldownCur = Cooldown;
                 if (!ManAbilities.updating.Any())

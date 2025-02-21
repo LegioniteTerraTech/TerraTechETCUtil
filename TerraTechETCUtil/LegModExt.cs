@@ -15,7 +15,8 @@ namespace TerraTechETCUtil
 {
     public static class LegModExt
     {
-        internal static Harmony harmonyInstance = new Harmony("legionite.ttmodextensions");
+        internal static string modID = "TerraTechModExt";
+        internal static Harmony harmonyInstance = new Harmony("legionite." + modID.ToLower());
 
         private static bool patched = false;
         public static bool BypassSetPieceChecks = false;
@@ -151,7 +152,7 @@ namespace TerraTechETCUtil
                 //ManAbilities.InitAbilityBar();
                 try
                 {
-                    harmonyInstance.MassPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt", true);
+                    harmonyInstance.MassPatchAllWithin(typeof(AllProjectilePatches), modID, true);
                     Debug_TTExt.Log("TerraTechETCUtil: Mass patched");
                 }
                 catch (Exception e)
@@ -166,6 +167,16 @@ namespace TerraTechETCUtil
                 catch (Exception e)
                 {
                     throw new Exception("TerraTechETCUtil failed to perform finer patches", e);
+                }
+                try
+                {
+                    LegModExtOptions.InitOptionsAndConfig();
+                    Debug_TTExt.Info("TerraTechETCUtil: Found NativeOptions & ConfigHelper");
+                }
+                catch (Exception e)
+                {
+                    Debug_TTExt.Log("TerraTechETCUtil failed to find NativeOptions & ConfigHelper");
+                    Debug_TTExt.Log(e);
                 }
                 UIHelpersExt.Init();
                 ResourcesHelper.ModsPreLoadEvent.Send();
@@ -270,7 +281,7 @@ namespace TerraTechETCUtil
             internal static FieldInfo anchorRequired = typeof(ModuleItemConsume).GetField(
                 "m_NeedsToBeAnchored", BindingFlags.NonPublic | BindingFlags.Instance);
 
-            private static void Prefix(ref ModuleBlockAttributes __instance, Visible visible)
+            internal static void Prefix(ref ModuleBlockAttributes __instance, Visible visible)
             {
                 int errorcode = 0;
                 try
@@ -285,10 +296,10 @@ namespace TerraTechETCUtil
                             BlockAttributes blockAttributeFlags = (BlockAttributes)ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<BlockAttributes>(hash);
                             errorcode = 3;
                             var booster = __instance.GetComponent<ModuleBooster>();
-                            if (booster)
+                            if (booster && booster.FuelBurnPerSecond() > 0)
                             {
                                 if (booster.transform.GetComponentInChildren<BoosterJet>(true))
-                                    blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.FuelConsumer);
+                                    blockAttributeFlags.SetFlags(BlockAttributes.FuelConsumer, true);
                             }
                             errorcode = 4;
                             var energy = __instance.GetComponent<ModuleEnergy>();
@@ -302,12 +313,12 @@ namespace TerraTechETCUtil
                                 catch { }
                                 if ((float)generatorValue.GetValue(energy) > 0f)
                                 {
-                                    blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.PowerProducer);
+                                    blockAttributeFlags.SetFlags(BlockAttributes.PowerProducer, true);
                                     ModuleEnergy.OutputConditionFlags flags = (ModuleEnergy.OutputConditionFlags)generator.GetValue(energy);
                                     if ((flags & ModuleEnergy.OutputConditionFlags.Thermal) != 0)
-                                        blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.Steam);
+                                        blockAttributeFlags.SetFlags(BlockAttributes.Steam, true);
                                     if ((flags & ModuleEnergy.OutputConditionFlags.Anchored) != 0)
-                                        blockAttributeFlags.SetFlagsBitShift(true, BlockAttributes.Anchored);
+                                        blockAttributeFlags.SetFlags(BlockAttributes.Anchored, true);
                                 }
                             }
                             errorcode = 5;

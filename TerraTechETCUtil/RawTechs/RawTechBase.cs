@@ -10,10 +10,11 @@ namespace TerraTechETCUtil
 {
     public abstract class RawTechBase
     {
+#if !EDITOR
         public static FieldInfo spinDat = typeof(FanJet).GetField("spinDelta", BindingFlags.NonPublic | BindingFlags.Instance);
         public static FieldInfo thrustRate = typeof(Thruster).GetField("m_Force", BindingFlags.NonPublic | BindingFlags.Instance);
         public static FieldInfo fanThrustRateRev = typeof(FanJet).GetField("backForce", BindingFlags.NonPublic | BindingFlags.Instance);
-
+#endif
 
         public string techName = "!!!!null!!!!";
         public FactionTypesExt faction = FactionTypesExt.GSO;

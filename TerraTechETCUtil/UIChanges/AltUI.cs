@@ -2041,11 +2041,14 @@ namespace TerraTechETCUtil
             }
         }
 
+        public static float UIAlphaAuto { get; internal set; } = 1f;
 
         // SFX adders
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, Action closeCallback = null, params GUILayoutOption[] options)
         {
-            StartUISharp();
+            if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
+                return screenRect;
+            StartUISharp(UIAlphaAuto, UIAlphaAuto);
             var rect = GUILayout.Window(id, screenRect, x => {
                 GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
                 GUILayout.Label(title, LabelBlackTitle);
@@ -2069,6 +2072,9 @@ namespace TerraTechETCUtil
         }
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, float alpha, Action closeCallback = null, params GUILayoutOption[] options)
         {
+            if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
+                return screenRect;
+            alpha *= UIAlphaAuto;
             StartUISharp(alpha, alpha);
             var rect = GUILayout.Window(id, screenRect, x => {
                 GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));

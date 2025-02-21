@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using static ModeAttract;
 
 namespace TerraTechETCUtil
 {
@@ -11,20 +12,28 @@ namespace TerraTechETCUtil
     {
         internal static List<AbilityElement> updating = new List<AbilityElement>();
 
-
-
         internal static bool ready = false;
+        internal static bool dirtyBar = false;
         internal static GameObject inst;
-        internal static Queue<AbilityElement> queued = null;
-        internal static List<AbilityElement> Active = null;
+        internal static Queue<AbilityElement> queuedCreate = null;
+        internal static List<AbilityElement> Ready = null;
+        internal static List<AbilityElement> Shown = null;
+        internal static AbilityButton NextPageButton = null;
+
+        public static KeyCode AbilityTogglePage = KeyCode.Alpha1;
+        public static KeyCode ability1 = KeyCode.Alpha2;
+        public static KeyCode ability2 = KeyCode.Alpha3;
+        public static KeyCode ability3 = KeyCode.Alpha4;
+        public static KeyCode ability4 = KeyCode.Alpha5;
 
         internal static void InitElement(AbilityElement add)
         {
             InitAbilityBar();
-            if (queued == null)
+            if (queuedCreate == null)
             {
-                queued = new Queue<AbilityElement>();
-                Active = new List<AbilityElement>();
+                queuedCreate = new Queue<AbilityElement>();
+                Ready = new List<AbilityElement>();
+                Shown = new List<AbilityElement>();
                 ready = ManGameMode.inst.GetModePhase() == ManGameMode.GameState.InGame;
                 if (ready)
                     ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
@@ -34,7 +43,7 @@ namespace TerraTechETCUtil
             if (ready)
                 add.Initiate();
             else
-                queued.Enqueue(add);
+                queuedCreate.Enqueue(add);
         }
         internal static void TrySetup(Mode ignor)
         {
@@ -42,12 +51,16 @@ namespace TerraTechETCUtil
             {
                 if (!ManGameMode.inst.GetIsInPlayableMode())
                     return;
-                while (queued.Any())
+                while (queuedCreate.Any())
                 {
-                    queued.Dequeue().Initiate();
+                    queuedCreate.Dequeue().Initiate();
                 }
                 ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
                 ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(NotReady);
+                ManUpdate.inst.AddAction(ManUpdate.Type.Update, ManUpdate.Order.First, UpdateThis, 9001);
+                NextPageButton = new AbilityButton("Next Page",
+                    ResourcesHelper.GetTexture2DFromBaseGameAllFast("ArrowRight").ConvertToSprite(), NextPage, 0f);
+                NextPageButton.Hide();
                 ready = true;
             }
             catch (Exception e)
@@ -58,6 +71,7 @@ namespace TerraTechETCUtil
         internal static void NotReady(Mode ignor)
         {
             ready = false;
+            ManUpdate.inst.RemoveAction(ManUpdate.Type.Update, ManUpdate.Order.First, UpdateThis);
             ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
             ManGameMode.inst.ModeStartEvent.Unsubscribe(TrySetup);
         }
@@ -152,6 +166,100 @@ namespace TerraTechETCUtil
             catch (Exception e)
             {
                 Debug_TTExt.Log("ManAbilities.InitAbilityBar() - UI Ability Bar FAILED to init!!! - " + e);
+            }
+        }
+
+        private static int shownIndex = 0;
+        private static bool NextPageButtonActive = false;
+        private static void ShowNextPageButton(bool state)
+        {
+            if (NextPageButtonActive != state)
+            {
+                NextPageButtonActive = state;
+                if (state)
+                {
+                    NextPageButton.Show();
+                    Shown.Remove(NextPageButton);
+                }
+                else
+                {
+                    NextPageButton.Hide();
+                }
+            }
+        }
+        private static void UpdateThis()
+        {
+            if (Shown.Count > shownIndex)
+            {
+                AbilityElement AE = Shown[shownIndex];
+                if (AE is AbilityToggle)
+                {
+                    if (Input.GetKeyDown(ability1))
+                        AE.TriggerNow();
+                }
+                else if (Input.GetKey(ability1))
+                    AE.TriggerNow();
+            }
+            if (Shown.Count > shownIndex + 1)
+            {
+                AbilityElement AE = Shown[shownIndex + 1];
+                if (AE is AbilityToggle)
+                {
+                    if (Input.GetKeyDown(ability2))
+                        AE.TriggerNow();
+                }
+                else if (Input.GetKey(ability2))
+                    AE.TriggerNow();
+            }
+            if (Shown.Count > shownIndex + 2)
+            {
+                AbilityElement AE = Shown[shownIndex + 2];
+                if (AE is AbilityToggle)
+                {
+                    if (Input.GetKeyDown(ability3))
+                        AE.TriggerNow();
+                }
+                else if (Input.GetKey(ability3))
+                    AE.TriggerNow();
+            }
+            if (Shown.Count > shownIndex + 3)
+            {
+                AbilityElement AE = Shown[shownIndex + 3];
+                if (AE is AbilityToggle)
+                {
+                    if (Input.GetKeyDown(ability4))
+                        AE.TriggerNow();
+                }
+                else if (Input.GetKey(ability4))
+                    AE.TriggerNow();
+            }
+
+            if (Input.GetKey(AbilityTogglePage))
+                NextPageButton.TriggerNow();
+        }
+        private static void NextPage() 
+        {
+            if (shownIndex > Shown.Count - 4)
+            {
+                shownIndex = 0;
+            }
+            else if (shownIndex > Shown.Count - 3)
+                shownIndex = Shown.Count - 4;
+            else
+                shownIndex += 4;
+            RefreshPage();
+        }
+        internal static void RefreshPage()
+        {
+            ShowNextPageButton(Shown.Count > 4);
+
+            foreach (var shown in Shown)
+            {
+                shown.ShowInUI_Internal(false);
+            }
+            for (int i = shownIndex; i < shownIndex + 3; i++)
+            {
+                Shown[i].ShowInUI_Internal(true);
             }
         }
 

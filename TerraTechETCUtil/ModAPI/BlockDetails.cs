@@ -19,9 +19,9 @@ namespace TerraTechETCUtil
             Melee = 512,
             Short = 1024,
             Bubble = 2048,
-            Floats = 4096,
+            WaterFloats = 4096,
             ControlsBlockman = 8192,
-            UNUSED_Crafting = 16384,
+            AirFloats = 16384,
             UNUSED_unset = 32768,
         }
 
@@ -38,7 +38,7 @@ namespace TerraTechETCUtil
         public bool IsBasic => flags == 0 && attributesHash == 0;
         private const Flags MovementFlags = Flags.Boosters | Flags.Fans | 
             Flags.Wings | Flags.Hovers |  Flags.Wheels | Flags.Gyro | 
-            Flags.AntiGrav | Flags.OmniDirectional;
+            Flags.AntiGrav | Flags.OmniDirectional | Flags.AirFloats;
         public bool DoesMovement => flags.HasAnyFlag(MovementFlags);
         private const Flags RotateFlags = Flags.Boosters |
             Flags.Fans | Flags.Wings | Flags.Hovers |
@@ -47,10 +47,11 @@ namespace TerraTechETCUtil
         private const Flags PushFlags = Flags.Boosters |
             Flags.Fans | Flags.Hovers | Flags.Wheels | Flags.OmniDirectional;
         public bool CanPushTech => flags.HasAnyFlag(PushFlags);
-        private const Flags FloatControlFlags = Flags.Boosters |
-            Flags.Fans | Flags.Wings | Flags.Hovers | Flags.OmniDirectional;
+        private const Flags FloatControlFlags = Flags.Boosters | Flags.Fans | Flags.Wings | 
+            Flags.Hovers | Flags.OmniDirectional | Flags.WaterFloats | Flags.AirFloats;
         public bool CanWorkOffGround => flags.HasAnyFlag(FloatControlFlags);
 
+        public bool HasFloaters => flags.HasFlag(Flags.AirFloats);
         public bool HasBoosters => flags.HasFlag(Flags.Boosters);
         public bool HasFans => flags.HasFlag(Flags.Fans);
         public bool HasWings => flags.HasFlag(Flags.Wings);
@@ -66,7 +67,7 @@ namespace TerraTechETCUtil
         public bool IsAIModule => attributesHash.HasFlagBitShift(BlockAttributes.AI);
         public bool IsPlayerControlled => attributesHash.HasFlagBitShift(BlockAttributes.PlayerCab);
         public bool IsCab => IsAIModule || IsPlayerControlled;
-        public bool FloatsOnWater => flags.HasFlag(Flags.Floats);
+        public bool FloatsOnWater => flags.HasFlag(Flags.WaterFloats);
         public bool AttachesAndOrDetachesBlocks => flags.HasFlag(Flags.ControlsBlockman);
         public bool HasCircuits => attributesHash.HasFlagBitShift(BlockAttributes.CircuitsEnabled);
         public bool RequiresAnchoring => attributesHash.HasFlagBitShift(BlockAttributes.Anchored);

@@ -839,7 +839,7 @@ namespace TerraTechETCUtil
         }
         private static List<WikiPage> backtrace = new List<WikiPage>();
 
-        public static KeyCode WikiButtonKeybind = KeyCode.Backslash;
+        public static KeyCode WikiButtonKeybind = KeyCode.Slash;
         public bool sideOpen = true;
         public string wikiID;
         public string pageName;
@@ -867,7 +867,7 @@ namespace TerraTechETCUtil
                     open = state;
                     if (open)
                     {
-                        ManModGUI.HideAllObstructingUI();
+                        //ManModGUI.HideAllObstructingUI();
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Open);
                     }
                     else
