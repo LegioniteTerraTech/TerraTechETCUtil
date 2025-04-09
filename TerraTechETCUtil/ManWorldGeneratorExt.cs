@@ -11,36 +11,18 @@ using System.IO;
 
 namespace TerraTechETCUtil
 {
-    public static class ModifiedTerrainExt
+    public class ManWorldGeneratorExt
     {
+        /// <summary>
+        /// The terrain has been vertically expanded by TerrainOperations.RescaleFactor = 4x
+        /// </summary>
+        public static bool AmplifiedTerrain => preInit;
+        public static float CurrentHeightMultiplier => AmplifiedTerrain ? TerrainOperations.RescaleFactor : 1f;
+        public static float CurrentTotalHeight => AmplifiedTerrain ? TerrainOperations.TileHeightRescaled : TerrainOperations.TileHeightDefault;
+        public static float CurrentMinHeight => AmplifiedTerrain ? TerrainOperations.TileYOffsetRescaled : TerrainOperations.TileYOffsetDefault;
+        public static float CurrentMaxHeight => AmplifiedTerrain ? (TerrainOperations.TileHeightRescaled + TerrainOperations.TileYOffsetRescaled) : 
+            (TerrainOperations.TileHeightDefault + TerrainOperations.TileYOffsetDefault);
 
-        private static Dictionary<IntVector2, TerrainModifier> ModsTemp =
-            new Dictionary<IntVector2, TerrainModifier>();
-        public static void ApplyAll(this Dictionary<IntVector2, TerrainModifier> Mods,
-            IntVector2 offsetTileCoord = default)
-        {
-            foreach (var item in Mods)
-            {
-                item.Value.FlushApply(1, new WorldPosition(item.Key + offsetTileCoord, Vector3.zero).ScenePosition);
-            }
-        }
-        public static void NudgeAll(this Dictionary<IntVector2, TerrainModifier> Mods, IntVector2 vec)
-        {
-            foreach (var item in Mods)
-            {
-                ModsTemp.Add(item.Key + vec, item.Value);
-            }
-            Mods.Clear();
-            foreach (var item in ModsTemp)
-            {
-                Mods.Add(item.Key, item.Value);
-            }
-            ModsTemp.Clear();
-        }
-    }
-
-    public class WorldTerraformer
-    {
         private static bool preInit = false;
         private static bool mainInit = false;
         public static void InsurePreInit()
@@ -409,7 +391,7 @@ namespace TerraTechETCUtil
 
         private static void OnModeStart(Mode mode)
         {
-            if (!WorldDeformer.inst)
+            if (!ManWorldDeformerExt.inst)
                 return;
             switch (mode.GetGameType())
             {
@@ -418,15 +400,15 @@ namespace TerraTechETCUtil
 #if DEBUG
                     WorldDeformer.inst.enabled = true;
 #else
-                    WorldDeformer.inst.enabled = false;
+                    ManWorldDeformerExt.inst.enabled = false;
 #endif
                     break;
                 case ManGameMode.GameType.RaD:
                 case ManGameMode.GameType.Creative:
-                    WorldDeformer.inst.enabled = true;
+                    ManWorldDeformerExt.inst.enabled = true;
                     break;
                 default:
-                    WorldDeformer.inst.enabled = false;
+                    ManWorldDeformerExt.inst.enabled = false;
                     break;
             }
         }

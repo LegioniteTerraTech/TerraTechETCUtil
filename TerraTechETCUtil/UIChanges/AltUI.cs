@@ -1456,11 +1456,11 @@ namespace TerraTechETCUtil
             output.Apply();
             RenderTexture.active = act;
         }
-        internal static void ComesInBlack(Texture2D target, ref Texture2D output)
+        public static void ComesInBlack(Texture2D target, ref Texture2D output)
         {
             ComesInColor(target, ref output, ColorDefaultGrey);
         }
-        internal static void ComesInBlackTrans(Texture2D target, ref Texture2D output)
+        public static void ComesInBlackTrans(Texture2D target, ref Texture2D output)
         {
             var temp = new RenderTexture(target.width, target.height, 0, RenderTextureFormat.ARGBInt,  
                 RenderTextureReadWrite.Linear);

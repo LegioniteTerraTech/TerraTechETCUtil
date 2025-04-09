@@ -50,10 +50,10 @@ namespace TerraTechETCUtil
                 try
                 {
                     Singleton.Manager<ManNetwork>.inst.SendToClient(connectionID, (TTMsgType)hook.AssignedID, message);
-                    Debug_TTExt.Log("TTExtUtil: SendToClient - Sent new network update for " + hook.AssignedID + ", type " + hook.Type);
+                    Debug_TTExt.Log("TTExtUtil: SendToClient - Sent new network update for " + hook.NameFull + ", type " + hook.Type);
                     return true;
                 }
-                catch { Debug_TTExt.Log("TTExtUtil: SendToClient - Failed to send new network update for " + hook.AssignedID + ", type " + hook.Type); }
+                catch { Debug_TTExt.Log("TTExtUtil: SendToClient - Failed to send new network update for " + hook.NameFull + ", type " + hook.Type); }
                 return false;
             }
             else
@@ -66,10 +66,10 @@ namespace TerraTechETCUtil
                 try
                 {
                     Singleton.Manager<ManNetwork>.inst.SendToAllClients((TTMsgType)hook.AssignedID, message, Host);
-                    Debug_TTExt.Log("TTExtUtil: SendToAllClients - Sent new network update for " + hook.AssignedID + ", type " + hook.Type);
+                    Debug_TTExt.Log("TTExtUtil: SendToAllClients - Sent new network update for " + hook.NameFull + ", type " + hook.Type);
                     return true;
                 }
-                catch { Debug_TTExt.Log("TTExtUtil: SendToAllClients - Failed to send new network update for " + hook.AssignedID + ", type " + hook.Type); }
+                catch { Debug_TTExt.Log("TTExtUtil: SendToAllClients - Failed to send new network update for " + hook.NameFull + ", type " + hook.Type); }
                 return false;
             }
             else
@@ -82,10 +82,10 @@ namespace TerraTechETCUtil
                 try
                 {
                     Singleton.Manager<ManNetwork>.inst.SendToServer((TTMsgType)hook.AssignedID, message, Host);
-                    Debug_TTExt.Log("TTExtUtil: SendToServer - Sent new network update for " + hook.AssignedID + ", type " + hook.Type);
+                    Debug_TTExt.Log("TTExtUtil: SendToServer - Sent new network update for " + hook.NameFull + ", type " + hook.Type);
                     return true;
                 }
-                catch { Debug_TTExt.Log("TTExtUtil: SendToServer - Failed to send new network update for " + hook.AssignedID + ", type " + hook.Type); }
+                catch { Debug_TTExt.Log("TTExtUtil: SendToServer - Failed to send new network update for " + hook.NameFull + ", type " + hook.Type); }
                 return false;
             }
             else
@@ -111,10 +111,12 @@ namespace TerraTechETCUtil
     /// <summary>
     /// Use NetworkHook<T> instead!
     /// </summary>
-    public class NetworkHook
+    public abstract class NetworkHook
     {
         public int AssignedID = -1;
         public NetMessageType Type;
+
+        public abstract string NameFull { get; }
 
         /// <summary>
         /// Must be called before game scene fully loads.  Do not unhook unless we are certain the hook is no longer needed!
@@ -193,6 +195,10 @@ namespace TerraTechETCUtil
                 default:
                     throw new Exception("TryBroadcast - Invalid NetMessageType");
             }
+        }
+        public bool TryBroadcastTarget(MessageBase message, NetPlayer targetPlayer)
+        {
+            return TryBroadcastToClient(targetPlayer.connectionToClient.connectionId, message);
         }
         protected bool TryBroadcastToClient(int connectionID, MessageBase message)
         {

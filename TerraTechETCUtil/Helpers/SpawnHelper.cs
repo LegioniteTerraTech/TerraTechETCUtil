@@ -592,11 +592,12 @@ namespace TerraTechETCUtil
                     {
                         for (int y = min.y - 1; y <= max.y; y++)
                         {
-                            ManWorldTileExt.ReloadTile(new IntVector2(x, y));
+                            ManWorldTileExt.HostReloadTile(new IntVector2(x, y), false);
                         }
                     }
                     if (TSP.name != name)
                         throw new NullReferenceException("SpawnSetPiece failed to find the CORRECT SetPiece it had spawned!");
+                    ManWorldTileExt.RushTileLoading();
                     return TSP;
                 }
                 throw new NullReferenceException("SpawnSetPiece failed to find the SetPiece it had spawned!");

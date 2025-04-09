@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -15,8 +16,22 @@ namespace TerraTechETCUtil
 
     public class ManWorldTileExt
     {
+        public const float BroadphasePhysicsExtendSizeMultiplier = 64;
+        public enum PhysicsMode
+        {
+            DefaultBroadphase,
+            Standard,
+            BroadphaseExtended,
+            BroadphaseDynamic,
+        }
+
         private static bool init = false;
+        private static PhysicsMode phyMode = PhysicsMode.DefaultBroadphase;
+        public static bool AutomaticBroadphase => Globals.inst.DynamicMultiBoxBroadphaseRegions;
+
         public static Bounds BoundsPhysics = default;
+
+
         public static Dictionary<IntVector2, WorldTile.State> RequestedLoaded => LoadedTileCoords;
         public static Dictionary<IntVector2, WorldTile.State> Perimeter => PerimeterTileSubLoaded;
         private static readonly Dictionary<IntVector2, float> TempLoaders = new Dictionary<IntVector2, float>();
@@ -24,32 +39,117 @@ namespace TerraTechETCUtil
         private static readonly List<ITileLoader> DynamicTileLoaders = new List<ITileLoader>();
         private static readonly Dictionary<IntVector2, WorldTile.State> SetTiles = new Dictionary<IntVector2, WorldTile.State>();
 
+        private static bool rushTiles = false;
+        public static bool RushingTiles => rushTiles;
+
         public const float TempDurationDefault = 6; // In seconds
+        public const float RushLoadingDuration = 1.5f; // In seconds
         public const float MaxWorldPhysicsSafeDistance = 100_000; // In blocks
-        private static int _MaxWorldPhysicsSafeDistanceTiles = Mathf.CeilToInt(100_000 / ManWorld.inst.TileSize) - 1; // In blocks
-        public static int MaxWorldPhysicsSafeDistanceTiles => _MaxWorldPhysicsSafeDistanceTiles; // In blocks
+
+        private static int _MaxWorldPhysicsSafeDistanceTiles = Mathf.CeilToInt(MaxWorldPhysicsSafeDistance / ManWorld.inst.TileSize) - 1; // In worldTile Coords
+        public static int MaxWorldPhysicsSafeDistanceTiles => _MaxWorldPhysicsSafeDistanceTiles; // In worldTile Coords
 
         public static Dictionary<IntVector2, WorldTile.State> LoadedTileCoords = new Dictionary<IntVector2, WorldTile.State>();
 
         public static Dictionary<IntVector2, WorldTile.State> PerimeterTileSubLoaded = new Dictionary<IntVector2, WorldTile.State>();
+
+        internal static void SetDynamicBroadphase()
+        {
+            if (phyMode == PhysicsMode.BroadphaseDynamic)
+                return;
+            Globals.inst.DynamicMultiBoxBroadphaseRegions = true;
+            phyMode = PhysicsMode.BroadphaseDynamic;
+            Debug_TTExt.Log("Setting physics to " + phyMode);
+        }
+        internal static void SetExtendedBroadphase()
+        {
+            if (phyMode == PhysicsMode.BroadphaseExtended)
+                return;
+            if (BoundsPhysics == default)
+                BoundsPhysics = (Bounds)typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(ManWorld.inst.TileManager);
+
+            if (BoundsPhysics == default)
+            {
+                Debug_TTExt.Log("BoundsPhysics is not set, making new...");
+                float tileSizeExts = ManWorld.inst.TileSize * 8;
+                BoundsPhysics.min = new Vector3(-tileSizeExts, Globals.inst.m_VisibleEmergencyKillHeight, -tileSizeExts);
+                BoundsPhysics.max = new Vector3(tileSizeExts, Globals.inst.m_VisibleEmergencyKillMaxHeight, tileSizeExts);
+            }
+
+            //Globals.inst.DynamicMultiBoxBroadphaseRegions = false;
+            if (Globals.inst.DynamicMultiBoxBroadphaseRegions)
+                Debug_TTExt.Log("Note: physics was already set to dynamic");
+            Globals.inst.DynamicMultiBoxBroadphaseRegions = true;
+            phyMode = PhysicsMode.BroadphaseExtended;
+            Debug_TTExt.Log("Setting physics to " + phyMode);
+            Debug_TTExt.Log("Physics bounds was previously " + BoundsPhysics.min + ", " + BoundsPhysics.max);
+            Vector3 temp = BoundsPhysics.min;
+            temp.Scale(new Vector3(BroadphasePhysicsExtendSizeMultiplier, 1f, BroadphasePhysicsExtendSizeMultiplier));
+            BoundsPhysics.min = temp;
+            temp = BoundsPhysics.max;
+            temp.Scale(new Vector3(BroadphasePhysicsExtendSizeMultiplier, 1f, BroadphasePhysicsExtendSizeMultiplier));
+            BoundsPhysics.max = temp;
+            Physics.RebuildBroadphaseRegions(BoundsPhysics, 16);
+            typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(ManWorld.inst.TileManager, BoundsPhysics);
+            Debug_TTExt.Log("Expanded physics bounds to " + BoundsPhysics.min + ", " + BoundsPhysics.max);
+        }
 
         public static void InsureInit()
         {
             if (init)
                 return;
             init = true;
+            ManTechs.inst.TankPostSpawnEvent.Subscribe(InsureTechNotUnderTerrain);
             InvokeHelper.InvokeSingleRepeat(UpdateTileLoading, 0.6f);
             MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldTilePatches), "TerraTechModExt");
+            if (Globals.inst.DynamicMultiBoxBroadphaseRegions)
+                phyMode = PhysicsMode.BroadphaseDynamic;
+            else
+                phyMode = PhysicsMode.DefaultBroadphase;
+            Debug_TTExt.Log("Current physics is " + phyMode);
+        }
+        private static void InsureTechNotUnderTerrain(Tank tech)
+        {
+            if (tech == null || !ManNetwork.IsHost || tech.IsAnchored)
+                return;
+            Vector3 pos = tech.boundsCentreWorldNoCheck;
+            float height = ManWorld.inst.TileManager.GetTerrainHeightAtPosition(pos, out _, true);
+            if (height > pos.y + 2)
+            {
+                tech.PositionBaseCentred(pos.SetY(height));
+                Debug_TTExt.Log("Tech " + (tech.name.NullOrEmpty() ? "NULL" : tech.name) + " spawned but was BELOW terrain and not anchored, setting ABOVE terrain");
+            }
+        }
+        public static void RushTileLoading()
+        {
+            rushTiles = true;
+            InvokeHelper.InvokeSingle(EndOverclockTileLoading, RushLoadingDuration);
+        }
+        private static void EndOverclockTileLoading() => rushTiles = false;
+
+        public static bool HostCanCommandTileLoaderQuiet()
+        {
+            return ManNetwork.IsHost;
+        }
+        public static bool HostCanCommandTileLoader()
+        {
+            if (HostCanCommandTileLoaderQuiet())
+                return true;
+            Debug_TTExt.Assert("Tried to control Tile Loading on client (use the non-Host functions for this!)");
+            return false;
         }
 
-
-        public static void ClearAll()
+        public static void HostClearAll()
         {
+            if (!HostCanCommandTileLoader())
+                return;
             FixedTileLoaders.Clear();
             DynamicTileLoaders.Clear();
         }
-        public static void SetTileLoading(IntVector2 worldTilePos, bool Yes)
+        public static void HostSetTileLoading(IntVector2 worldTilePos, bool Yes)
         {
+            if (!HostCanCommandTileLoader())
+                return;
             InsureInit();
             if (Yes)
             {
@@ -65,20 +165,34 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public static void SetTileState(IntVector2 worldTilePos, WorldTile.State state)
+        public static void HostSetTileState(IntVector2 worldTilePos, WorldTile.State state)
         {
+            if (!HostCanCommandTileLoader())
+                return;
             InsureInit();
             SetTiles[worldTilePos] = state;
         }
-        public static void ClearTileState(IntVector2 worldTilePos)
+        public static void HostClearTileState(IntVector2 worldTilePos)
         {
+            if (!HostCanCommandTileLoader())
+                return;
             SetTiles.Remove(worldTilePos);
         }
-        public static bool TempLoadTile(IntVector2 posTile, float loadTime = TempDurationDefault)
+
+        public static bool HostIsRequestLoadingTile(IntVector2 posTile)
         {
+            return TempLoaders.ContainsKey(posTile);
+        }
+        public static bool HostTempLoadTile(IntVector2 posTile, bool rush, float loadTime = TempDurationDefault)
+        {
+            if (!HostCanCommandTileLoader())
+                return false;
             InsureInit();
+            if (rush)
+                RushTileLoading();
             if (!TempLoaders.ContainsKey(posTile))
             {
+                SetExtendedBroadphase();
                 //DebugRandAddi.Info("TEMP LOADING TILE (extended) " + posTile.ToString());
                 TempLoaders.Add(posTile, loadTime + Time.time);
             }
@@ -92,14 +206,24 @@ namespace TerraTechETCUtil
         /// <summary>
         /// DANGEROUS - ONLY USE IN DEBUG TESTING ENVIRONMENT
         /// </summary>
-        public static bool ReloadTile(Vector3 scenePos)
+        public static bool HostReloadTile(Vector3 scenePos, bool rush)
         {
+            if (!HostCanCommandTileLoader())
+                return false;
             InsureInit();
-            if (ManWorld.inst.TileManager.IsTileAtPositionLoaded(scenePos))
+            if (rush)
+                RushTileLoading();
+            if (ManWorld.inst.TileManager.LookupTile(scenePos)?.IsCreated ?? false)
             {
+                if (!IsWithinPhysicsRegions(scenePos, ManWorld.inst.TileSize))
+                {
+                    Debug_TTExt.Log("TILE at " + WorldPosition.FromScenePosition(scenePos).TileCoord + 
+                        " was out of our physics broadphase regions.  We are upscaling the regions!");
+                    SetExtendedBroadphase();
+                }
                 IntVector2 tilePos = WorldPosition.FromScenePosition(scenePos).TileCoord;
-                SetTileState(tilePos, WorldTile.State.Empty);
-                InvokeHelper.Invoke(ClearTileState, 1, tilePos);
+                HostSetTileState(tilePos, WorldTile.State.Empty);
+                InvokeHelper.Invoke(HostClearTileState, 1, tilePos);
                 //LoadedTileCoords
             }
             else
@@ -108,13 +232,23 @@ namespace TerraTechETCUtil
         }/// <summary>
          /// DANGEROUS - ONLY USE IN DEBUG TESTING ENVIRONMENT
          /// </summary>
-        public static bool ReloadTile(IntVector2 tilePos)
+        public static bool HostReloadTile(IntVector2 tilePos, bool rush)
         {
+            if (!HostCanCommandTileLoader())
+                return false;
             InsureInit();
-            if (ManWorld.inst.TileManager.IsTileAtPositionLoaded(ManWorld.inst.TileManager.CalcTileCentreScene(tilePos)))
+            if (rush)
+                RushTileLoading();
+            if (ManWorld.inst.TileManager.LookupTile(tilePos)?.IsCreated ?? false)
             {
-                SetTileState(tilePos, WorldTile.State.Empty);
-                InvokeHelper.Invoke(ClearTileState, 1, tilePos);
+                if (!IsWithinPhysicsRegions(new WorldPosition(tilePos, Vector3.zero).ScenePosition, ManWorld.inst.TileSize))
+                {
+                    Debug_TTExt.Log("TILE at " + tilePos +
+                        " was out of our physics broadphase regions.  We are upscaling the regions!");
+                    SetExtendedBroadphase();
+                }
+                HostSetTileState(tilePos, WorldTile.State.Empty); 
+                InvokeHelper.Invoke(HostClearTileState, 1, tilePos);
                 //LoadedTileCoords
             }
             else
@@ -122,21 +256,28 @@ namespace TerraTechETCUtil
             return false;
         }
 
-        public static void ReloadENTIREScene()
+        public static void HostReloadENTIREScene(bool rush)
         {
+            if (!HostCanCommandTileLoader())
+                return;
+            if (rush)
+                RushTileLoading();
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(WorldTile.State.Created))
             {
-                ReloadTile(item.Coord);
+                HostReloadTile(item.Coord, false);
             }
         }
 
-        public static bool RegisterDynamicTileLoader(ITileLoader loader)
+        public static bool HostRegisterDynamicTileLoader(ITileLoader loader)
         {
+            if (!HostCanCommandTileLoader())
+                return false;
             InsureInit();
             if (loader != null)
             {
                 if (!DynamicTileLoaders.Contains(loader))
                 {
+                    SetExtendedBroadphase();
                     DynamicTileLoaders.Add(loader);
                     return true;
                 }
@@ -146,8 +287,10 @@ namespace TerraTechETCUtil
             }
             return false;
         }
-        public static bool UnregisterDynamicTileLoader(ITileLoader loader)
+        public static bool HostUnregisterDynamicTileLoader(ITileLoader loader)
         {
+            if (!HostCanCommandTileLoader())
+                return false;
             if (loader != null)
             {
                 return DynamicTileLoaders.Remove(loader);
@@ -231,6 +374,44 @@ namespace TerraTechETCUtil
             if (!ManGameMode.inst.GetIsInPlayableMode())
                 MaintainPlayerTech();
         }*/
+
+        public static bool IsWithinPhysicsRegions(Vector3 posScene, float boundsRadius = 76)
+        {
+            Bounds bounds = BoundsPhysics;
+            if (posScene.x < bounds.center.x)
+            {
+                if (posScene.x < bounds.center.x + boundsRadius)
+                    return false;
+            }
+            else
+            {
+                if (posScene.x > bounds.center.x - boundsRadius)
+                    return false;
+            }
+
+            if (posScene.y < bounds.center.y)
+            {
+                if (posScene.y < bounds.center.y + boundsRadius)
+                    return false;
+            }
+            else
+            {
+                if (posScene.y > bounds.center.y - boundsRadius)
+                    return false;
+            }
+
+            if (posScene.z < bounds.center.z)
+            {
+                if (posScene.z < bounds.center.z + boundsRadius)
+                    return false;
+            }
+            else
+            {
+                if (posScene.z > bounds.center.z - boundsRadius)
+                    return false;
+            }
+            return true;
+        }
 
         private static void GetActiveTilePerimeterForRequestedLoaded()
         {
@@ -480,6 +661,17 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(TileManager);
 
+            [HarmonyLib.HarmonyPriority(50)]
+            internal static bool GetWorkBudget_Prefix(TileManager __instance, ref int __result)
+            {
+                if (ManWorldTileExt.RushingTiles)
+                {
+                    __result = int.MaxValue;
+                    return false;
+                }
+                return true;
+            }
+
             private static bool removeCorruptedTest = false;
             private const float maxDistFromOrigin = 80000;
             private static bool broadphase => Globals.inst.DynamicMultiBoxBroadphaseRegions;
@@ -491,7 +683,8 @@ namespace TerraTechETCUtil
             /// <summary>
             /// EnableTileLoading
             /// </summary>
-            private static void UpdateTileRequestStates_Postfix(TileManager __instance, ref List<IntVector2> tileCoordsToCreate)
+            [HarmonyLib.HarmonyPriority(50)]
+            internal static void UpdateTileRequestStates_Postfix(TileManager __instance, ref List<IntVector2> tileCoordsToCreate)
             {
                 try
                 {

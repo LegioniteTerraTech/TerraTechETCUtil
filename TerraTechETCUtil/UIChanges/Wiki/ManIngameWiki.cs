@@ -869,9 +869,13 @@ namespace TerraTechETCUtil
                     {
                         //ManModGUI.HideAllObstructingUI();
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Open);
+                        ManModGUI.AddEscapeableCallback(QuitWiki, false);
                     }
                     else
+                    {
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
+                        ManModGUI.RemoveEscapeableCallback(QuitWiki, false);
+                    }
                     try
                     {
                         WikiButton.SetToggleState(open);
@@ -879,6 +883,7 @@ namespace TerraTechETCUtil
                     catch { }
                 }
             }
+            private void QuitWiki() => SetGUI(false);
             public void Update()
             {
                 if (Input.GetKeyDown(WikiButtonKeybind))

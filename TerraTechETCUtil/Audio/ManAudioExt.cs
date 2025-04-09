@@ -167,6 +167,9 @@ namespace TerraTechETCUtil
             sys.set3DSettings(1, 1, 1);
             sys.set3DNumListeners(1);
             sys.createChannelGroup("ExternalMods", out ModSoundGroup);
+            ADVANCEDSETTINGS settings = default;
+            sys.getAdvancedSettings(ref settings);
+            ManUpdate.inst.AddAction(ManUpdate.Type.Update, ManUpdate.Order.Last, inst.OnUpdate, 109001);
         }
         private static void OnWorldMove(IntVector3 move)
         {
@@ -207,17 +210,28 @@ namespace TerraTechETCUtil
             FMOD.VECTOR vecU = Singleton.cameraTrans.up.ToFMODVector();
             sys.set3DListenerAttributes(0, ref vecP, ref vecD, ref vecF, ref vecU);
         }*/
-        private void FixedUpdate()
+
+        /// <summary>
+        /// Needed to deal with desync
+        /// </summary>
+        private static Vector3 latentPosVec;
+        private static Vector3 latentFwdVec;
+        private static Vector3 latentUpVec;
+        private void OnUpdate()
         {
             foreach (AudioInst inst in managed)
             {
                 inst.RemoteUpdate();
             }
-            FMOD.VECTOR vecP = Singleton.playerPos.ToFMODVector();
+            FMOD.VECTOR vecP = latentPosVec.ToFMODVector();
             FMOD.VECTOR vecD = default;
-            FMOD.VECTOR vecF = Singleton.cameraTrans.forward.ToFMODVector();
-            FMOD.VECTOR vecU = Singleton.cameraTrans.up.ToFMODVector();
+            FMOD.VECTOR vecF = latentFwdVec.ToFMODVector();
+            FMOD.VECTOR vecU = latentUpVec.ToFMODVector();
             sys.set3DListenerAttributes(0, ref vecP, ref vecD, ref vecF, ref vecU);
+            sys.update();
+            latentPosVec = Singleton.cameraTrans.position;
+            latentFwdVec = Singleton.cameraTrans.forward;
+            latentUpVec = Singleton.cameraTrans.up;
         }
 
 

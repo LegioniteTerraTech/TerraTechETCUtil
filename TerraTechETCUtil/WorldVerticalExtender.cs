@@ -17,7 +17,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(TerrainSetPiece);
             // InsureSetPieceTerrainRescaled -Setup new WorldTile
-            private static IEnumerable<CodeInstruction> ApplyHeightMap_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> ApplyHeightMap_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int Stloc_SCount = 0;
                 foreach (var item in collection)
@@ -37,29 +37,17 @@ namespace TerraTechETCUtil
             }
         }
 
-        /*
-        internal static class BiomeMapDatabasePatches
-        {
-            internal static Type target = typeof(BiomeMap).GetNestedType("BiomeMapDatabase", BindingFlags.NonPublic);
-            
-            //AddOceanicBiomes
-            private static void Init_Prefix(ref BiomeMap map)
-            {
-                WorldTerraformer.AddOceanicBiomes(map);
-            }
-        }*/
-
         internal static class BiomeMapPatches
         {
 
             internal static Type target = typeof(BiomeMap);
             //InsureScenerySpawnsNormally
-            private static void EstimateSteepness_Postfix(ref float __result)
+            internal static void EstimateSteepness_Postfix(ref float __result)
             {
                 __result = __result * TerrainOperations.RescaleFactor;
             }
             //InsureScenerySpawnsNormally2
-            private static IEnumerable<CodeInstruction> GenerateSceneryCells_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> GenerateSceneryCells_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 MethodInfo MI = AccessTools.Method(typeof(MapGenerator),
                     "GeneratePoint", new Type[] { typeof(MapGenerator.GenerationContext) ,
@@ -85,7 +73,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(TileManager);
 
-            private static void GenerateTerrainData_Prefix(MapGenerator __instance)
+            internal static void GenerateTerrainData_Prefix(MapGenerator __instance)
             {
                 if (ManWorld.inst.CurrentBiomeMap == null)
                 {
@@ -95,7 +83,7 @@ namespace TerraTechETCUtil
                 }
             }
             //CorrectHeightMath
-            private static IEnumerable<CodeInstruction> GetTerrainHeightAtPosition_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> GetTerrainHeightAtPosition_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int Ldc_R4Count = 0;
                 foreach (var item in collection)
@@ -114,7 +102,7 @@ namespace TerraTechETCUtil
             }
 
             //ExpandWorld
-            private static IEnumerable<CodeInstruction> CreateTile_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> CreateTile_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int Ldc_R4Count = 0;
                 foreach (var item in collection)
@@ -133,7 +121,7 @@ namespace TerraTechETCUtil
             }
 
             //LowerTerrain1
-            private static IEnumerable<CodeInstruction> CalcTileOrigin_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> CalcTileOrigin_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int Ldc_R4Count = 0;
                 foreach (var item in collection)
@@ -151,7 +139,7 @@ namespace TerraTechETCUtil
                 }
             }
             //LowerTerrain2
-            private static IEnumerable<CodeInstruction> CalcTileCentre_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> CalcTileCentre_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int Ldc_R4Count = 0;
                 foreach (var item in collection)
@@ -169,7 +157,7 @@ namespace TerraTechETCUtil
                 }
             }
             //SaveCamAtDefaultHeight
-            private static void StoreAllLoadedTileData_Prefix()
+            internal static void StoreAllLoadedTileData_Prefix()
             {
                 ManSaveGame.CameraPosition camPos = ManSaveGame.inst.CurrentState.m_CameraPos;
                 Vector3 pos = camPos.m_WorldPosition.TileRelativePos;
@@ -182,7 +170,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(MapGenerator);
             // RemoveTerrainLimitations
-            private static IEnumerable<CodeInstruction> GeneratePoint_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> GeneratePoint_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int bltCount = 0;
                 foreach (var item in collection)
@@ -214,17 +202,17 @@ namespace TerraTechETCUtil
                     yield return item;
                 }
             }
-            private static void GeneratePoint_Postfix(MapGenerator __instance, ref float __result)
+            internal static void GeneratePoint_Postfix(MapGenerator __instance, ref float __result)
             {
                 //*
-                if (WorldTerraformer.LowerTerrainHeightClamped.TryGetValue(__instance, out float val) &&
+                if (ManWorldGeneratorExt.LowerTerrainHeightClamped.TryGetValue(__instance, out float val) &&
                     __result < val)
                     __result = val;
                 // */ /* */
 
             }
             //RemoveTerrainLimitations2
-            private static IEnumerable<CodeInstruction> GeneratePointLegacy_Transpiler(IEnumerable<CodeInstruction> collection)
+            internal static IEnumerable<CodeInstruction> GeneratePointLegacy_Transpiler(IEnumerable<CodeInstruction> collection)
             {
                 int bltCount = 0;
                 foreach (var item in collection)
@@ -246,10 +234,10 @@ namespace TerraTechETCUtil
                     yield return item;
                 }
             }
-            private static void GeneratePointLegacy_Postfix(MapGenerator __instance, ref float __result)
+            internal static void GeneratePointLegacy_Postfix(MapGenerator __instance, ref float __result)
             {
                 //*
-                if (WorldTerraformer.LowerTerrainHeightClamped.TryGetValue(__instance, out float val) &&
+                if (ManWorldGeneratorExt.LowerTerrainHeightClamped.TryGetValue(__instance, out float val) &&
                     __result < val)
                     __result = val;
                 // */ /* */
@@ -283,7 +271,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(Visible);
             //SaveVisiblesAtDefaultHeight
-            private static void SaveForStorage_Postfix(ManSaveGame.StoredVisible sv)
+            internal static void SaveForStorage_Postfix(ManSaveGame.StoredVisible sv)
             {
                 Vector3 pos = sv.m_WorldPosition.TileRelativePos;
                 sv.m_WorldPosition = new WorldPosition(sv.m_WorldPosition.TileCoord,
@@ -295,7 +283,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(ManSaveGame.StoredVisible);
             //LoadVisiblesAtResizedHeight
-            private static void GetBackwardsCompatiblePosition_Postfix(ManSaveGame.StoredVisible __instance, ref Vector3 __result)
+            internal static void GetBackwardsCompatiblePosition_Postfix(ManSaveGame.StoredVisible __instance, ref Vector3 __result)
             {
                 __result = __instance.m_Position;
                 if (__instance.m_WorldPosition != default && __instance.m_Position == Vector3.zero)
@@ -309,7 +297,7 @@ namespace TerraTechETCUtil
         {
             internal static Type target = typeof(ManSaveGame.CameraPosition);
             //LoadCamAtResizedHeight
-            private static bool GetBackwardsCompatiblePosition_Prefix(ManSaveGame.CameraPosition __instance, ref Vector3 __result)
+            internal static bool GetBackwardsCompatiblePosition_Prefix(ManSaveGame.CameraPosition __instance, ref Vector3 __result)
             {
                 __result = __instance.m_Position;
                 if (__instance.m_WorldPosition != default && __instance.m_Position == Vector3.zero)

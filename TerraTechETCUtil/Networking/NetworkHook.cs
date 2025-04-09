@@ -18,6 +18,7 @@ namespace TerraTechETCUtil
         /// MessageBase, IsServer
         /// </summary>
         protected Func<T, bool, bool> receiveAction;
+        public override string NameFull => typeof(T).ToString() +" [" + AssignedID + "]";
 
         public NetworkHook(Func<T, bool, bool> onReceive, NetMessageType type)
         {

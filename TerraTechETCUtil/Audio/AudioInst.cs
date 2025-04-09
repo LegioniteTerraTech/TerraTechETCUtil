@@ -9,6 +9,8 @@ using UnityEngine;
 using System.Drawing;
 using Newtonsoft.Json;
 using System.Runtime.InteropServices;
+using System.Drawing.Drawing2D;
+
 #if !EDITOR
 using FMOD;
 using FMODUnity;
@@ -50,15 +52,26 @@ namespace TerraTechETCUtil
                     ActiveSound.setVolume(ManAudioExt._SFXVolume * value);
             }
         }
-        public float Range
+        public float RangeMax
         {
-            get => _range;
+            get => _rangeMax;
             set
             {
-                _range = value;
+                _rangeMax = value;
                 ActiveSound.isPlaying(out bool playing);
                 if (playing)
-                    ActiveSound.set3DMinMaxDistance(0, _range);
+                    ActiveSound.set3DMinMaxDistance(_rangeMin, _rangeMax);
+            }
+        }
+        public float RangeMin
+        {
+            get => _rangeMin;
+            set
+            {
+                _rangeMin = value;
+                ActiveSound.isPlaying(out bool playing);
+                if (playing)
+                    ActiveSound.set3DMinMaxDistance(_rangeMin, _rangeMax);
             }
         }
         public float Pitch
@@ -182,7 +195,8 @@ namespace TerraTechETCUtil
         private Transform trans;
         private Vector3 pos = Vector3.positiveInfinity;
         private float _pitch = 1;
-        private float _range = 80;
+        private float _rangeMax = 80;
+        private float _rangeMin = 20;
         private float _volume = 1;
         private bool _loop = false;
         private FMOD.MODE modeFlags;
@@ -236,7 +250,6 @@ namespace TerraTechETCUtil
                     ref soundinfo, out sound);
                 if (result != FMOD.RESULT.OK)
                     throw new InvalidOperationException("AudioInst(AudioInstJson) - Creation failed with code " + result);
-
                 IntPtr ptr1, ptr2;
                 uint len1, len2;
                 result = sound.@lock(0, AIJ.lengthBytes, out ptr1, out ptr2, out len1, out len2);
@@ -309,7 +322,7 @@ namespace TerraTechETCUtil
                 _pitch = _pitch,
                 _loop = _loop,
                 _volume = _volume,
-                _range = _range,
+                _rangeMax = _rangeMax,
                 PitchVariance = PitchVariance,
                 RangeVariance = RangeVariance,
             };
@@ -427,8 +440,20 @@ namespace TerraTechETCUtil
                             else
                                 posF = pos.ToFMODVector();
                             AudioActive.set3DLevel(1f);
+                            /*
+                            float[] matrix = null;
+                            AudioActive.getMixMatrix(matrix, out int numchannels, out int inchannels, 0);
+                            matrix[0] = 1f;
+                            matrix[1] = 1f;
+                            matrix[0 + 6] = 1f;
+                            matrix[1 + 6] = 1f;
+                            AudioActive.setMixMatrix(matrix, numchannels, inchannels, 0);
+                            */
+                            AudioActive.setMixLevelsOutput(1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f);
                             AudioActive.set3DAttributes(ref posF, ref posD, ref posD);
-                            AudioActive.set3DMinMaxDistance(0, _range + (_range * UnityEngine.Random.Range(-RangeVariance, RangeVariance)));
+                            AudioActive.set3DConeSettings(360f, 360f, 1f);
+                            AudioActive.set3DOcclusion(0f, 0f);
+                            AudioActive.set3DMinMaxDistance(_rangeMin, _rangeMax + (_rangeMax * UnityEngine.Random.Range(-RangeVariance, RangeVariance)));
                         }
                         AudioActive.setMode(modeFlags);
                         AudioActive.setVolume(ManAudioExt._SFXVolume * _volume);
@@ -447,13 +472,13 @@ namespace TerraTechETCUtil
                     }
                     catch (Exception e)
                     {
-                        Debug_TTExt.Log("Failed to Play() - " + e);
+                        Debug_TTExt.Log("AudioInst: Failed to Play() - " + e);
                     }
                 }
             }
             catch (Exception e)
             {
-                Debug_TTExt.Log("Failed to Play()[Outer] - " + e);
+                Debug_TTExt.Log("AudioInst: Failed to Play()[Outer] - " + e);
             }
         }
         private void StartWrapper(FMOD.Channel inst) => inst.setPaused(false);

@@ -5,34 +5,177 @@ using System.Text;
 using System.Reflection;
 using UnityEngine;
 using Newtonsoft.Json;
+using static CompoundExpression.EEInstance;
+using static BiomeMap.MapData;
 
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    public enum TerraApplyMode
+    {
+        /// <summary>Sets the terrain to the values set in the TerrainModifier with a offset based on mode</summary>
+        FlushAutoHeightAdjust,
+        /// <summary>Sets the terrain to EXACTLY the values set in the TerrainModifier</summary>
+        Flush,
+        /// <summary>Do Nothing</summary>
+        None,
+        /// <summary>Precisely controls the terrain elevation to the values set in the TerrainModifier</summary>
+        Apply,
+        /// <summary>Adds the terrain elevation to the values set in the TerrainModifier</summary>
+        Add,
+        /// <summary>Smooths out the terrain, using the TerrainModifier as a multiplier for the smoothing intensity</summary>
+        //Level,
+        /// <summary>Returns the terrain to it's original form, using the TerrainModifier as a multiplier for the reset intensity</summary>
+        Reset
+    }
+    public enum TerraDampenMode
+    {
+        DeformOnly,
+        DeformAndDampen,
+        DampenOnly,
+    }
+    public static class ModifiedTerrainExt
+    {
+
+        private static Dictionary<IntVector2, TerrainModifier> ModsTemp =
+            new Dictionary<IntVector2, TerrainModifier>();
+        public static void ApplyAll(this Dictionary<IntVector2, TerrainModifier> Mods,
+            IntVector2 offsetTileCoord = default)
+        {
+           ManWorldDeformerExt.ReloadTerrainMods(Mods, offsetTileCoord);
+        }
+        public static void NudgeAll(this Dictionary<IntVector2, TerrainModifier> Mods, IntVector2 vec)
+        {
+            foreach (var item in Mods)
+            {
+                ModsTemp.Add(item.Key + vec, item.Value);
+            }
+            Mods.Clear();
+            foreach (var item in ModsTemp)
+            {
+                Mods.Add(item.Key, item.Value);
+            }
+            ModsTemp.Clear();
+        }
+    }
+
+    /// <summary>
+    /// The compressed variant of TerrainModifier suitable for less disk space and less memory demand
+    /// </summary>
+    [Serializable]
+    public class TerrainModifierJSON
+    {
+        public WorldPosition Position;
+        public ushort[,] HeightDeltas;
+        public byte[,] additionalInfo;
+        public float EdgeDampening;
+        public bool UseAmplifiedTerrain;
+        public TerraApplyMode AutoMode = TerraApplyMode.None;
+
+        [JsonIgnore]
+        public bool IsCompressed => HeightDeltas != null;
+
+        public TerrainModifierJSON() { }
+
+        public TerrainModifierJSON(TerrainModifier toConvert)
+        {
+            Position = toConvert.Position;
+            EdgeDampening = toConvert.EdgeDampening;
+            UseAmplifiedTerrain = toConvert.UseAmplifiedTerrain;
+            AutoMode = toConvert.AutoMode;
+            var deltas = new ushort[toConvert.HeightmapDeltas.GetLength(0), toConvert.HeightmapDeltas.GetLength(1)];
+
+            for (int i = 0; i < toConvert.HeightmapDeltas.GetLength(0); i++)
+            {
+                for (int j = 0; j < toConvert.HeightmapDeltas.GetLength(1); j++)
+                {
+                    deltas[i, j] = (ushort)(toConvert.HeightmapDeltas[i, j] * TerrainModifier.compressSize);
+                    additionalInfo[i, j] = toConvert.AddInfo[i, j];
+                }
+            }
+
+            HeightDeltas = deltas;
+        }
+
+        public TerrainModifier ToInstance()
+        {
+            TerrainModifier inst = new TerrainModifier()
+            {
+                Position = Position,
+                EdgeDampening = EdgeDampening,
+                UseAmplifiedTerrain = UseAmplifiedTerrain,
+                AutoMode = AutoMode
+            };
+            var deltas = new float[HeightDeltas.GetLength(0), HeightDeltas.GetLength(1)];
+            var deltaInfo = new byte[HeightDeltas.GetLength(0), HeightDeltas.GetLength(1)];
+
+            for (int i = 0; i < HeightDeltas.GetLength(0); i++)
+            {
+                for (int j = 0; j < HeightDeltas.GetLength(1); j++)
+                {
+                    deltas[i, j] = (float)HeightDeltas[i, j] / TerrainModifier.compressSize;
+                    deltaInfo[i, j] = additionalInfo[i, j];
+                }
+            }
+
+            inst.HeightmapDeltas = deltas;
+            inst.AddInfo = deltaInfo;
+            return inst;
+        }
+    }
+    /// <summary>
+    /// The TerrainModifier at maximum quality
+    /// </summary>
     [Serializable]
     public class TerrainModifier
     {
+        public const ushort compressSize = ushort.MaxValue;
+
         public static int CellsInTile => Mathf.Max(1, 2 >> QualitySettingsExtended.ReducedHeightmapDetail) * ManWorld.inst.CellsPerTileEdge;
         public static int CellsInTileIndexer => CellsInTile + 1;
         public static float tilePosToTileScale => ManWorld.inst.TileSize / CellsInTile;
+        public static float TileHeight = 100;
         //private static float[,] HeightmapDeltasApplier = new float[CellsInTile, CellsInTile];
 
-
+        /// <summary>
+        /// This is ALWAYS the southwest corner of the entire TerrainModifier
+        /// </summary>
         public WorldPosition Position = WorldPosition.FromGameWorldPosition(Vector3.zero);
         public float[,] HeightmapDeltas;
+        public byte[,] AddInfo;
         public float EdgeDampening = 6;
-        public static float TileHeight = 100;
+        /// <summary>
+        /// Set this to true if this is working off of the 4x height range when ManWorldGeneratorExt is set to extend terrain heights
+        /// </summary>
+        public bool UseAmplifiedTerrain = false;
+        public TerraApplyMode AutoMode = TerraApplyMode.FlushAutoHeightAdjust;
+
+
+        [JsonIgnore]
+        public bool IsCompressed => HeightmapDeltas == null;
         [JsonIgnore]
         public bool Changed => deltaed;
         [JsonIgnore]
         public Action OnChanged = null;
 
+        /// <summary>
+        /// The size of ManWorld.inst.CellScale to convert to World scale
+        /// </summary>
         [JsonIgnore]
         private int Width = 0;
+        /// <summary>
+        /// The size of ManWorld.inst.CellScale to convert to World scale
+        /// </summary>
         [JsonIgnore]
         private int Height = 0;
+        /// <summary>
+        /// The magnitude radius of Width & Height
+        /// </summary>
         [JsonIgnore]
         private float ApproxRadius = 0;
+        /// <summary>
+        /// The magnitude radius of Width & Height with EdgeDampening applied
+        /// </summary>
         [JsonIgnore]
         private float ApproxRadiusDampen = 0;
         [JsonIgnore]
@@ -40,12 +183,38 @@ namespace TerraTechETCUtil
         [JsonIgnore]
         private IntVector2 offset = IntVector2.zero;
 
+        public TerrainModifier Clone()
+        {
+            InsureSetup();
+            int widthTile = HeightmapDeltas.GetLength(0);
+            int heightTile = HeightmapDeltas.GetLength(1);
+            float[,] newHeightmap = new float[widthTile, heightTile];
+            for (int x = 0; x < widthTile; x++)
+            {
+                for (int y = 0; y < heightTile; y++)
+                {
+                    newHeightmap[x,y] = HeightmapDeltas[x,y];
+                }
+            }
+            return new TerrainModifier(newHeightmap)
+            {
+                EdgeDampening = EdgeDampening,
+                ApproxRadius = ApproxRadius,
+                ApproxRadiusDampen = ApproxRadiusDampen,
+                Height = Height,
+                Width = Width,
+                OnChanged = OnChanged,
+                Position = Position,
+                UseAmplifiedTerrain = UseAmplifiedTerrain,
+            };
+        }
+
         /// <summary>
         /// SERIALIZATION ONLY
         /// </summary>
         public TerrainModifier()
         {
-            Setup();
+            //Debug_TTExt.Log("Created new TerrainModifier");
         }
         public TerrainModifier(int StartSize)
         {
@@ -61,59 +230,108 @@ namespace TerraTechETCUtil
             }
             Setup();
         }
-        public TerrainModifier(WorldTile tile)
+        public static bool TerrainHasDelta(WorldTile tile)
         {
-            Setup(tile);
+            if (tile == null)
+                throw new NullReferenceException("tile is NULL");
+            var heights = GetCurrentHeights(tile);
+            int widthTile = heights.GetLength(0);
+            int heightTile = heights.GetLength(1);
+            float[,] DefaultHeights = tile.BiomeMapData.heightData.heights;
+            for (int x = 0; x < widthTile; x++)
+            {
+                for (int y = 0; y < heightTile; y++)
+                {
+                    if (!heights[y, x].Approximately(DefaultHeights[y, x]))
+                        return true;
+                }
+            }
+            return false;
         }
-        public TerrainModifier(WorldTile tile, Vector3 overrideOrigin)
+        public TerrainModifier(WorldTile tile, TerraApplyMode modifierMode)
         {
+            if (tile == null)
+                throw new NullReferenceException("Tile null");
+            Setup(tile);
+            AutoMode = modifierMode;
+        }
+        public TerrainModifier(WorldTile tile, Vector3 overrideOrigin, TerraApplyMode modifierMode)
+        {
+            if (tile == null)
+                throw new NullReferenceException("Tile null");
             Setup(tile, overrideOrigin);
+            AutoMode = modifierMode;
         }
         public TerrainModifier(float[,] heightmapDeltaDirect)
         {
+            if (heightmapDeltaDirect == null)
+                throw new NullReferenceException("heightmapDeltaDirect null");
             HeightmapDeltas = heightmapDeltaDirect;
             Setup();
         }
 
         public void Setup(WorldTile tile, Vector3 overrideOrigin)
         {
-            var heights = GetRealHeights(tile);
+            if (tile == null)
+                throw new NullReferenceException("tile is NULL");
+            UseAmplifiedTerrain = ManWorldGeneratorExt.AmplifiedTerrain;
+            float[,] DefaultHeights = tile.BiomeMapData.heightData.heights;
+            var heights = GetCurrentHeights(tile);
             int widthTile = heights.GetLength(0);
             int heightTile = heights.GetLength(1);
             Position = WorldPosition.FromScenePosition(tile.CalcSceneOrigin() - overrideOrigin);
             HeightmapDeltas = new float[widthTile, heightTile];
+            AddInfo = new byte[widthTile, heightTile];
             Setup();
             for (int x = 0; x < widthTile; x++)
             {
                 for (int y = 0; y < heightTile; y++)
                 {
-                    SetModCellPosFromTileHeight(new IntVector2(x, y), heights[y, x]);
+                    SetModCellPosFromTileHeight(new IntVector2(x, y), heights[y, x], DefaultHeights[y, x]);
                 }
             }
         }
         public void Setup(WorldTile tile)
         {
-            var heights = GetRealHeights(tile);
+            if (tile == null)
+                throw new NullReferenceException("tile is NULL");
+            UseAmplifiedTerrain = ManWorldGeneratorExt.AmplifiedTerrain;
+            float[,] DefaultHeights = tile.BiomeMapData.heightData.heights;
+            var heights = GetCurrentHeights(tile);
             int widthTile = heights.GetLength(0);
             int heightTile = heights.GetLength(1);
             Position = new WorldPosition(tile.Coord, Vector3.zero);
             HeightmapDeltas = new float[widthTile, heightTile];
+            AddInfo = new byte[widthTile, heightTile];
             Setup();
             for (int x = 0; x < widthTile; x++)
             {
                 for (int y = 0; y < heightTile; y++)
                 {
-                    SetModCellPosFromTileHeight(new IntVector2(x, y), heights[y, x]);
+                    SetModCellPosFromTileHeight(new IntVector2(x, y), heights[y, x], DefaultHeights[y, x]);
                 }
             }
         }
         public void Setup()
         {
+            if (HeightmapDeltas == null)
+                throw new NullReferenceException("HeightmapDeltas is NULL");
             Width = HeightmapDeltas.GetLength(0);
             Height = HeightmapDeltas.GetLength(1);
+            if (AddInfo == null)
+                AddInfo = new byte[Width, Height];
             ApproxRadius = new Vector2(Width, Height).magnitude;
-            ApproxRadiusDampen = ApproxRadius * ManWorld.inst.CellScale + EdgeDampening;
+            ApproxRadiusDampen = (ApproxRadius + EdgeDampening) * ManWorld.inst.CellScale;
             //Debug_TTExt.Log("New TerrainModifier set to [" + Width + ", " + Height + "], radius " + ApproxRadius);
+        }
+        private void InsureSetup()
+        {
+            if (Width == 0)
+                Setup();
+        }
+
+        public void DampenSurrounding()
+        { 
         }
 
         public void OnDelta()
@@ -146,12 +364,13 @@ namespace TerraTechETCUtil
                 SB.Clear();
             }
         }
-        public IntVector2 TileWorldSceneOriginCellPos(WorldTile tile) => StandardPosToCellPos(tile.CalcSceneOrigin());
+        public static IntVector2 TileWorldSceneOriginCellPos(WorldTile tile) => StandardPosToCellPos(tile.CalcSceneOrigin());
+        public static IntVector2 TileWorldSceneOriginCellPos(IntVector2 tile) => StandardPosToCellPos(ManWorld.inst.TileManager.CalcTileOriginScene(tile));
         public IntVector2 SceneToModCellPos(Vector3 scenePos)
         {
             return SceneToModCellPos(scenePos, Position.ScenePosition);
         }
-        public IntVector2 SceneToModCellPos(Vector3 scenePos, Vector3 ModSceneOverride)
+        public static IntVector2 SceneToModCellPos(Vector3 scenePos, Vector3 ModSceneOverride)
         {
             Vector2 pos = scenePos.ToVector2XZ() - ModSceneOverride.ToVector2XZ();
             return new IntVector2(pos / tilePosToTileScale);
@@ -161,17 +380,63 @@ namespace TerraTechETCUtil
             Vector3 scenePos = Position.ScenePosition;
             return (((Vector3)modPos.ToVector3XZ(0) * tilePosToTileScale) + scenePos.SetY(0)).SetY(scenePos.y);
         }
-        public IntVector2 StandardPosToCellPos(Vector3 scenePos) => 
+        public static IntVector2 StandardPosToCellPos(Vector3 scenePos) => 
             new IntVector2(scenePos.ToVector2XZ() / tilePosToTileScale);
         public Vector3 CellPosToStandardPos(IntVector2 sceneCellPos) =>
             (Vector3)sceneCellPos.ToVector3XZ() * tilePosToTileScale;
+        public Vector3 GetCenterOffset() => new Vector3(0.5f * Width * tilePosToTileScale, 50, 0.5f * Height * tilePosToTileScale);
 
-        private float GetTileHeightFromModCellPos(IntVector2 modPos)
+        public void GetModTileCoords(Vector3 ModSceneOverride, out IntVector2 min, out IntVector2 max) =>
+            ManWorld.inst.TileManager.GetTileCoordRange(new Bounds(ModSceneOverride + GetCenterOffset(),
+                new Vector3(Width, 100, Height) * tilePosToTileScale), out min, out max);
+        public void GetModTileCoordsWithEdging(Vector3 ModSceneOverride, out IntVector2 min, out IntVector2 max) => 
+            ManWorld.inst.TileManager.GetTileCoordRange(new Bounds(ModSceneOverride + GetCenterOffset(),
+                Vector3.one * ApproxRadiusDampen), out min, out max);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="modPos">TerrainModifier Coord to set</param>
+        /// <param name="interpHeight">0 is Default, 1 is TerrainModifier</param>
+        public void SetAddInfoInterpHeight(IntVector2 modPos, float interpHeight)
         {
+            AddInfo[modPos.x, Height - 1 - modPos.y] &= (byte)(byte.MaxValue & ~30U);
+            AddInfo[modPos.x, Height - 1 - modPos.y] |= (byte)((Mathf.RoundToInt(
+                Mathf.Clamp(interpHeight * 15, 0, 15)) << 1) | 1);
+        }
+        public byte GetAddInfoInterpHeight(IntVector2 modPos)
+        {
+            return (byte)((AddInfo[modPos.x, Height - 1 - modPos.y] & 30) >> 1);
+        }
+        public bool UsesDefaultTerrain(IntVector2 modPos)
+        {
+            return (AddInfo[modPos.x, Height - 1 - modPos.y] & 1) == 1;
+        }
+        private float GetInterpoliatedHeight(IntVector2 modPos, float modVal, float defaultVal) 
+        {
+            return Mathf.Lerp(defaultVal, modVal, Mathf.InverseLerp(0, 15, GetAddInfoInterpHeight(modPos)));
+        }
+        private float GetTileHeightFromModCellPos(IntVector2 modPos, float defaultVal)
+        {
+            InsureSetup();
             try
             {
-                return HeightmapDeltas[modPos.x, Height - 1 - modPos.y];
-                //return HeightmapDeltas[Height - 1 - modPos.y, Width - 1 - modPos.x];
+                float modVal = HeightmapDeltas[modPos.x, Height - 1 - modPos.y];
+                if (UsesDefaultTerrain(modPos))
+                    return GetInterpoliatedHeight(modPos, modVal, defaultVal);
+                if (UseAmplifiedTerrain)
+                {
+                    if (ManWorldGeneratorExt.AmplifiedTerrain)
+                        return modVal;
+                    else
+                        return Mathf.Clamp01(modVal * TerrainOperations.RescaleFactor);
+                }
+                else
+                {
+                    if (ManWorldGeneratorExt.AmplifiedTerrain)
+                        return modVal / TerrainOperations.RescaleFactor;
+                    else
+                        return modVal;
+                }
             }
             catch (IndexOutOfRangeException e)
             {
@@ -179,9 +444,32 @@ namespace TerraTechETCUtil
                     (modPos.y) + "", e);
             }
         }
-        private void SetModCellPosFromTileHeight(IntVector2 modPos, float val)
+
+        /// <summary>
+        /// Returns true if tile height was altered
+        /// </summary>
+        /// <param name="modPos"></param>
+        /// <param name="val"></param>
+        /// <param name="defaultVal"></param>
+        /// <returns></returns>
+        private bool SetModCellPosFromTileHeight(IntVector2 modPos, float val, float defaultVal)
         {
             HeightmapDeltas[modPos.y, modPos.x] = val;
+            if (val.Approximately(defaultVal))
+            {
+                AddInfo[modPos.y, modPos.x] &= (byte)(byte.MaxValue & ~30U);
+                AddInfo[modPos.y, modPos.x] |= 1;
+                return false;
+            }
+            return true;
+        }
+
+        public static IntVector2 InTilePosToInTileCoord(Vector3 pos)
+        {
+            return new IntVector2(
+                Mathf.Clamp(Mathf.RoundToInt(pos.x / tilePosToTileScale), 0, CellsInTile),
+                Mathf.Clamp(Mathf.RoundToInt(pos.y / tilePosToTileScale), 0, CellsInTile)
+                );
         }
 
         public Vector3 TryEncapsulate(IntVector2 modPos)
@@ -750,6 +1038,7 @@ namespace TerraTechETCUtil
 
         public bool Within(IntVector2 modPos)
         {
+            InsureSetup();
             return modPos.x >= 0 && modPos.y >= 0 && modPos.x < Width && modPos.y < Height;
         }
         public bool Intersects(Vector3 scenePos)
@@ -758,6 +1047,7 @@ namespace TerraTechETCUtil
         }
         public bool Intersects(Vector2 lowerScenePos, Vector2 higherScenePos)
         {
+            InsureSetup();
             Vector2 thisOrigin = Position.ScenePosition.ToVector2XZ();
             Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale, Height * tilePosToTileScale);
             return (thisOrigin.x <= higherScenePos.x || lowerScenePos.x <= thisOriginEnd.x) &&
@@ -765,12 +1055,14 @@ namespace TerraTechETCUtil
         }
         public bool Intersects(IntVector2 lowerModPos, IntVector2 higherModPos)
         {
+            InsureSetup();
             Vector2 thisOriginEnd = new IntVector2(Width , Height);
             return (0 <= higherModPos.x || lowerModPos.x <= thisOriginEnd.x) &&
                 (0 <= higherModPos.y || lowerModPos.y <= thisOriginEnd.y);
         }
         public bool Intersects(WorldTile WT)
         {
+            InsureSetup();
             Vector2 thisOrigin = Position.ScenePosition.ToVector2XZ();
             Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale * 2, Height * tilePosToTileScale * 2);
             Vector2 tileOrigin = WT.CalcSceneOrigin().ToVector2XZ();
@@ -780,6 +1072,7 @@ namespace TerraTechETCUtil
         }
         public bool Intersects(WorldTile WT, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             Vector2 thisOrigin = ModSceneOverride.ToVector2XZ();
             Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale, Height * tilePosToTileScale);
             Vector2 tileOrigin = WT.CalcSceneOrigin().ToVector2XZ();
@@ -787,190 +1080,332 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
                 (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
         }
+        public bool Intersects(IntVector2 tilePos, Vector3 ModSceneOverride)
+        {
+            InsureSetup();
+            Vector2 thisOrigin = ModSceneOverride.ToVector2XZ();
+            Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale, Height * tilePosToTileScale);
+            Vector2 tileOrigin = ManWorld.inst.TileManager.CalcTileOrigin(tilePos).ToVector2XZ();
+            Vector2 tileOriginEnd = tileOrigin + new Vector2(ManWorld.inst.TileSize * 2, ManWorld.inst.TileSize * 2);
+            return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
+                (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
+        }
+        public bool IntersectsWithEdges(WorldTile WT, Vector3 ModSceneOverride)
+        {
+            InsureSetup();
+            Vector2 thisOrigin = ModSceneOverride.ToVector2XZ();
+            Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale, Height * tilePosToTileScale);
+            Vector2 tileOrigin = WT.CalcSceneOrigin().ToVector2XZ() - new Vector2(ManWorld.inst.TileSize, ManWorld.inst.TileSize);
+            Vector2 tileOriginEnd = tileOrigin + new Vector2(ManWorld.inst.TileSize * 3, ManWorld.inst.TileSize * 3);
+            return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
+                (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
+        }
+        public bool IntersectsWithEdges(IntVector2 tilePos, Vector3 ModSceneOverride)
+        {
+            InsureSetup();
+            Vector2 thisOrigin = ModSceneOverride.ToVector2XZ();
+            Vector2 thisOriginEnd = thisOrigin + new Vector2(Width * tilePosToTileScale, Height * tilePosToTileScale);
+            Vector2 tileOrigin = ManWorld.inst.TileManager.CalcTileOrigin(tilePos).ToVector2XZ() - new Vector2(ManWorld.inst.TileSize, ManWorld.inst.TileSize);
+            Vector2 tileOriginEnd = tileOrigin + new Vector2(ManWorld.inst.TileSize * 3, ManWorld.inst.TileSize * 3);
+            return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
+                (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
+        }
 
+        /// <summary>
+        /// Flushes (applies the absolute contents to) the existing terrain.
+        /// CONFLICTS WITH ANY OTHER FLUSH OPERATIONS ON THE SAME TILE.  DO FIRST!
+        /// </summary>
+        /// <param name="ModSceneOverride">The offset from scene space origin</param>
         public void Flush(Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoFlush(item, ModSceneOverride);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    DoFlush(heightsPrev, delta, item.BiomeMapData.heightData.heights,
+                        ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                }
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
+        /// <summary>
+        /// Flushes (applies the absolute contents to) the existing terrain.
+        /// DOES NOT WORK WITH MULTIPLE OVERLAPPING FLUSH OPERATIONS ON THE SAME TILE
+        /// </summary>
         public void Flush()
         {
             Flush(Position.ScenePosition);
         }
-        private void DoFlush(WorldTile Target, Vector3 ModSceneOverride)
+        private void DoFlush(float[,] heightsPrev, IntVector2 delta, float[,] OGHeights,
+            Vector3 ModSceneOverride, TerraDampenMode mode)
         {
             float dampen;
             float dampenInv;
-            var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
-            IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
-            //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
             {
                 for (int y = 0; y < heightsPrev.GetLength(1); y++)
                 {
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 modPos = inTilePos + delta;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
-                        heightsPrev[y, x] = GetTileHeightFromModCellPos(modPos);
+                        heightsPrev[y, x] = GetTileHeightFromModCellPos(modPos, OGHeights[y, x]);
                     }
-                    else
+                    else if (mode >= TerraDampenMode.DeformAndDampen)
                     {
-                        modPos = new IntVector2(Mathf.Clamp(modPos.x, 0, Width - 1),
+                        IntVector2 modPosClamped = new IntVector2(
+                            Mathf.Clamp(modPos.x, 0, Width - 1),
                             Mathf.Clamp(modPos.y, 0, Height - 1));
-                        dampenInv = Mathf.Clamp01(Mathf.Max(Mathf.Abs(x - modPos.x), Mathf.Abs(y - modPos.y)) / EdgeDampening);
+                        /*
+                        dampenInv = Mathf.Clamp01(Mathf.Max(
+                            Mathf.Abs(modPos.x - Mathf.Clamp(modPos.x, delta.x, delta.x + Width - 1)), 
+                            Mathf.Abs(modPos.y - Mathf.Clamp(modPos.y, delta.y, delta.y + Height - 1)))
+                            / EdgeDampening);
+                        */
+                        dampenInv = Mathf.Clamp01(Mathf.Max(
+                            Mathf.Abs(modPos.x - modPosClamped.x),
+                            Mathf.Abs(modPos.y - modPosClamped.y))
+                            / EdgeDampening);
                         dampen = 1 - dampenInv;
                         heightsPrev[y, x] = (heightsPrev[y, x] * dampenInv) +
-                            (GetTileHeightFromModCellPos(modPos) * dampen);
+                            (GetTileHeightFromModCellPos(modPosClamped, OGHeights[y, x]) * dampen);
                     }
                 }
             }
-
-            PushChanges(TD, heightsPrev);
+        }
+        private float CalcPointFlush(float prevHeight, IntVector2 inTilePos, IntVector2 delta, 
+            float OGHeight, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            IntVector2 modPos = inTilePos + delta;
+            if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
+            {
+                prevHeight = GetTileHeightFromModCellPos(modPos, OGHeight);
+            }
+            else if(mode >= TerraDampenMode.DeformAndDampen)
+            {
+                IntVector2 modPosClamped = new IntVector2(
+                    Mathf.Clamp(modPos.x, 0, Width - 1),
+                    Mathf.Clamp(modPos.y, 0, Height - 1));
+                float dampenInv = Mathf.Clamp01(Mathf.Max(
+                    Mathf.Abs(modPos.x - modPosClamped.x),
+                    Mathf.Abs(modPos.y - modPosClamped.y))
+                    / EdgeDampening);
+                float dampen = 1 - dampenInv;
+                prevHeight = (prevHeight * dampenInv) + (GetTileHeightFromModCellPos(modPosClamped, OGHeight) * dampen);
+            }
+            return prevHeight;
         }
 
-        public void FlushAdd(float AddMultiplier, Vector3 ModSceneOverride)
+        /// <summary>
+        /// Adds the contents of the TerrainModifier to the existing terrain.
+        /// Multiple operations
+        /// </summary>
+        /// <param name="ModSceneOverride">The offset from scene space origin</param>
+        public void FlushAdd(float TerraYMid, float AddMultiplier, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoAdd(item, ref AddMultiplier, ModSceneOverride);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    DoAdd(heightsPrev, delta, item.BiomeMapData.heightData.heights, ref TerraYMid,
+                        ref AddMultiplier, ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                }
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
-        public void FlushAdd(float AddMultiplier)
+        public void FlushAdd(float TerraYMid, float AddMultiplier)
         {
-            FlushAdd(AddMultiplier, Position.ScenePosition);
+            FlushAdd(TerraYMid, AddMultiplier, Position.ScenePosition);
         }
-        private void DoAdd(WorldTile Target, ref float addMulti, Vector3 ModSceneOverride)
+        private void DoAdd(float[,] heightsPrev, IntVector2 delta, float[,] OGHeights, ref float yMid, 
+            ref float addMulti, Vector3 ModSceneOverride, TerraDampenMode mode)
         {
-            var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
-            IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
-            //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
             {
                 for (int y = 0; y < heightsPrev.GetLength(1); y++)
                 {
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 modPos = inTilePos + delta;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
                         heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] +
-                            (GetTileHeightFromModCellPos(modPos) * addMulti));
+                            ((GetTileHeightFromModCellPos(modPos, OGHeights[y, x]) - yMid) * addMulti));
                     }
                 }
             }
-
-            PushChanges(TD, heightsPrev);
+        }
+        private float CalcPointAdd(float prevHeight, IntVector2 inTilePos, IntVector2 delta, float OGHeight,
+            float yMid, float addMulti, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            IntVector2 modPos = inTilePos + delta;
+            if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
+            {
+                prevHeight = Mathf.Clamp01(prevHeight +
+                    ((GetTileHeightFromModCellPos(modPos, OGHeight) - yMid) * addMulti));
+            }
+            return prevHeight;
         }
 
-        public void FlushApply(float intensity, Vector3 ModSceneOverride)
+        /// <summary>
+        /// Apply a TerrainModifier to existing terrain.
+        /// DOES NOT WORK WITH MULTIPLE OVERLAPPING FLUSH OPERATIONS ON THE SAME TILE
+        /// </summary>
+        /// <param name="curWeight">The weight of the terrain that already exists</param>
+        /// <param name="addWeight">The weight of the terrain that this TerrainModifier suggests</param>
+        /// <param name="ModSceneOverride">The offset from scene space origin</param>
+        public void FlushApply(float curWeight, float addWeight, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
-            intensity = Mathf.Clamp01(intensity);
-            float invIntensity = 1 - intensity;
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            curWeight = Mathf.Clamp01(curWeight);
+            addWeight = Mathf.Clamp01(addWeight);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoApply(item, ref intensity, ref invIntensity, ModSceneOverride);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    DoApply(heightsPrev, delta, item.BiomeMapData.heightData.heights, ref curWeight, 
+                        ref addWeight, ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                }
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
-        public void FlushApply(float intensity)
+        /// <summary>
+        /// Apply a TerrainModifier to existing terrain
+        /// DOES NOT WORK WITH MULTIPLE OVERLAPPING FLUSH OPERATIONS ON THE SAME TILE
+        /// </summary>
+        /// <param name="curWeight">The weight of the terrain that already exists</param>
+        /// <param name="addWeight">The weight of the terrain that this TerrainModifier suggests</param>
+        /// <param name="ModSceneOverride">The offset from origin</param>
+        public void FlushApply(float curWeight, float addWeight)
         {
-            FlushApply(intensity, Position.ScenePosition);
+            FlushApply(curWeight, addWeight, Position.ScenePosition);
         }
-        private void DoApply(WorldTile Target, ref float intensity, ref float invIntensity, Vector3 ModSceneOverride)
+        private void DoApply(float[,] heightsPrev, IntVector2 delta, float[,] OGHeights, ref float curWeight,
+            ref float addWeight, Vector3 ModSceneOverride, TerraDampenMode mode)
         {
             float dampen;
             float dampenInv;
-            var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
-            IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
-            //BoundsInt BI = new BoundsInt();
             for (int x = 0; x < heightsPrev.GetLength(0); x++)
             {
                 for (int y = 0; y < heightsPrev.GetLength(1); y++)
                 {
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 modPos = inTilePos + delta;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
-                        heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[x, y] * invIntensity) +
-                            (GetTileHeightFromModCellPos(modPos) * intensity);
+                        heightsPrev[y, x] = Mathf.Clamp01((heightsPrev[y, x] * curWeight) +
+                            (GetTileHeightFromModCellPos(modPos, OGHeights[y, x]) * addWeight));
                     }
-                    else
+                    else if (mode >= TerraDampenMode.DeformAndDampen)
                     {
-                        modPos = new IntVector2(Mathf.Clamp(modPos.x, 0, Width - 1),
+                        IntVector2 modPosClamped = new IntVector2(
+                            Mathf.Clamp(modPos.x, 0, Width - 1),
                             Mathf.Clamp(modPos.y, 0, Height - 1));
-                        dampenInv = Mathf.Clamp01(Mathf.Max(Mathf.Abs(x - modPos.x), Mathf.Abs(y - modPos.y)) / EdgeDampening) * intensity;
+                        dampenInv = Mathf.Clamp01(Mathf.Max(
+                            Mathf.Abs(modPos.x - modPosClamped.x),
+                            Mathf.Abs(modPos.y - modPosClamped.y))
+                            / EdgeDampening);
                         dampen = 1 - dampenInv;
-                        heightsPrev[y, x] = (heightsPrev[y, x] * dampenInv) +
-                            (GetTileHeightFromModCellPos(modPos) * dampen);
+                        heightsPrev[y, x] = Mathf.Clamp01((heightsPrev[y, x] * dampenInv) +
+                            (GetTileHeightFromModCellPos(modPosClamped, OGHeights[y, x]) * dampen * addWeight));
                     }
                 }
             }
-
-            PushChanges(TD, heightsPrev);
+        }
+        private float CalcPointApply(float prevHeight, IntVector2 inTilePos, IntVector2 delta, float OGHeight,
+            float curWeight, float addWeight, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            IntVector2 modPos = inTilePos + delta;
+            if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
+            {
+                prevHeight = Mathf.Clamp01((prevHeight * curWeight) +
+                    (GetTileHeightFromModCellPos(modPos, OGHeight) * addWeight));
+            }
+            else if (mode >= TerraDampenMode.DeformAndDampen)
+            {
+                IntVector2 modPosClamped = new IntVector2(
+                    Mathf.Clamp(modPos.x, 0, Width - 1),
+                    Mathf.Clamp(modPos.y, 0, Height - 1));
+                float dampenInv = Mathf.Clamp01(Mathf.Max(
+                    Mathf.Abs(modPos.x - modPosClamped.x),
+                    Mathf.Abs(modPos.y - modPosClamped.y))
+                    / EdgeDampening);
+                float dampen = 1 - dampenInv;
+                prevHeight = Mathf.Clamp01((prevHeight * dampenInv) +
+                    (GetTileHeightFromModCellPos(modPosClamped, OGHeight) * dampen * addWeight));
+            }
+            return prevHeight;
         }
 
+        /// <summary>
+        /// Note: cannot use in Auto mode due to reliance on neighboors.  Scales poorly.
+        /// </summary>
+        /// <param name="gradientRadius"></param>
+        /// <param name="intensity"></param>
+        /// <param name="ModSceneOverride"></param>
         public void FlushLevel(int gradientRadius, float intensity, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
             intensity = Mathf.Clamp01(intensity);
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoLevel(item, gradientRadius, ref intensity, ModSceneOverride);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 origin = TileWorldSceneOriginCellPos(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    DoLevel(heightsPrev, delta, origin, item.BiomeMapData.heightData.heights,
+                        gradientRadius, ref intensity, ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                };
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
         public void FlushLevel(int gradientRadius, float intensity) =>
             FlushLevel(gradientRadius, intensity, Position.ScenePosition);
-        private void DoLevel(WorldTile Target, int gradientRadius, ref float intensity, Vector3 ModSceneOverride)
+        private void DoLevel(float[,] heightsPrev, IntVector2 delta, IntVector2 origin, float[,] OGHeights, 
+            int gradientRadius, ref float intensity, Vector3 ModSceneOverride, TerraDampenMode mode)
         {
             float dampen;
             float dampenInv;
-            var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
-            IntVector2 origin = TileWorldSceneOriginCellPos(Target);
-            IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
             int widthT = heightsPrev.GetLength(0);
             int heightT = heightsPrev.GetLength(1);
@@ -980,7 +1415,7 @@ namespace TerraTechETCUtil
                 {
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 modPos = inTilePos + delta;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
                         float normalizingForces = 0;
 
@@ -1002,7 +1437,7 @@ namespace TerraTechETCUtil
                                         else
                                             normalizingForces += (ManWorld.inst.TileManager.GetTerrainHeightAtPosition(
                                                  CellPosToStandardPos(origin + inTilePos), out _) -
-                                                 Target.Terrain.transform.position.y) / TD.size.y;
+                                                 ManWorldGeneratorExt.CurrentMinHeight) / ManWorldGeneratorExt.CurrentTotalHeight;
                                         normalsCount++;
                                     }
                                 }
@@ -1014,7 +1449,7 @@ namespace TerraTechETCUtil
                             }
                         }
                         heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] - 
-                            (GetTileHeightFromModCellPos(modPos) * normalizingForces * intensity));
+                            (GetTileHeightFromModCellPos(modPos, OGHeights[y, x]) * normalizingForces * intensity));
                     }
                     /*
                     else
@@ -1028,38 +1463,38 @@ namespace TerraTechETCUtil
                     }*/
                 }
             }
-
-            PushChanges(TD, heightsPrev);
         }
 
 
         public void FlushReset(float intensity, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
             intensity = Mathf.Clamp01(intensity);
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoReset(item, ref intensity, ModSceneOverride);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 origin = TileWorldSceneOriginCellPos(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    DoReset(heightsPrev, delta, item.BiomeMapData.heightData.heights, ref intensity, 
+                        ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                }
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
         public void FlushReset(float intensity) => FlushReset(intensity, Position.ScenePosition);
-        private void DoReset(WorldTile Target, ref float intensity, Vector3 ModSceneOverride)
+        private void DoReset(float[,] heightsPrev, IntVector2 delta, float[,] OGHeights, 
+            ref float intensity, Vector3 ModSceneOverride, TerraDampenMode mode)
         {
-            float dampen;
-            float dampenInv;
-            var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
-            IntVector2 delta = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
-            //BoundsInt BI = new BoundsInt();
             int widthT = heightsPrev.GetLength(0);
             int heightT = heightsPrev.GetLength(1);
             for (int x = 0; x < widthT; x++)
@@ -1068,36 +1503,53 @@ namespace TerraTechETCUtil
                 {
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 modPos = inTilePos + delta;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
                         if (intensity >= 0)
                         {
-                            float OGHeight = Target.BiomeMapData.heightData.heights[y, x];
-                            float normalizingForces = OGHeight - heightsPrev[y, x];
-                            heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] + (GetTileHeightFromModCellPos(modPos) *
+                            float normalizingForces = OGHeights[y, x] - heightsPrev[y, x];
+                            heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] + (GetTileHeightFromModCellPos(modPos, OGHeights[y, x]) *
                                 normalizingForces * intensity));
                         }
                         else
                         {
                             intensity = -intensity;
-                            float OGHeight = Target.BiomeMapData.heightData.heights[y, x];
-                            float normalizingForces = OGHeight - heightsPrev[y, x];
-                            heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] + (GetTileHeightFromModCellPos(modPos) *
+                            float normalizingForces = OGHeights[y, x] - heightsPrev[y, x];
+                            heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] + (GetTileHeightFromModCellPos(modPos, OGHeights[y, x]) *
                                 normalizingForces * intensity));
                         }
                     }
                 }
             }
-
-            PushChanges(TD, heightsPrev);
+        }
+        private float CalcPointReset(float prevHeight, IntVector2 inTilePos, IntVector2 delta, 
+            float OGHeight, float intensity, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            IntVector2 modPos = inTilePos + delta;
+            if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
+            {
+                if (intensity >= 0)
+                {
+                    float normalizingForces = OGHeight - prevHeight;
+                    prevHeight = Mathf.Clamp01(prevHeight + (GetTileHeightFromModCellPos(modPos, OGHeight) *
+                        normalizingForces * intensity));
+                }
+                else
+                {
+                    intensity = -intensity;
+                    float normalizingForces = OGHeight - prevHeight;
+                    prevHeight = Mathf.Clamp01(prevHeight + (GetTileHeightFromModCellPos(modPos, OGHeight) *
+                        normalizingForces * intensity));
+                }
+            }
+            return prevHeight;
         }
 
         public void FlushRamp(float intensity, Vector3 start, Vector3 end, Vector3 ModSceneOverride)
         {
+            InsureSetup();
             deltaed = false;
-            ManWorld.inst.TileManager.GetTileCoordRange(
-                new Bounds(ModSceneOverride, Vector3.one * ApproxRadiusDampen),
-                out var vec1, out var vec2);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
             float lowHeight = 0;
             float highHeight = 0;
             bool gotTarget = false;
@@ -1134,21 +1586,21 @@ namespace TerraTechETCUtil
                     //Debug_TTExt.Log("VecNormal: " + vecNormal.ToString());
                     //Debug_TTExt.Log("VecDelta: " + vec4.y.ToString());
                 }
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
-                    DoRamp(item, ref intensity, ModSceneOverride, lowHeight, highHeight,
-                        rampCenter, vecNormal);
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                    DoRamp(item, ref intensity, item.BiomeMapData.heightData.heights, ModSceneOverride, lowHeight, highHeight,
+                        rampCenter, vecNormal, TerraDampenMode.DeformAndDampen);
             }
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
             {
-                if (item.Terrain != null && Intersects(item, ModSceneOverride))
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
                     PushFlush(item);
             }
         }
-        private void DoRamp(WorldTile Target, ref float intensity, Vector3 ModSceneOverride,
-            float lowHeight, float highHeight, Vector3 rampCenter, Vector3 vecNormal)
+        private void DoRamp(WorldTile Target, ref float intensity, float[,] OGHeights, Vector3 ModSceneOverride,
+            float lowHeight, float highHeight, Vector3 rampCenter, Vector3 vecNormal, TerraDampenMode mode)
         {
             var TD = Target.Terrain.terrainData;
-            float[,] heightsPrev = GetRealHeights(Target);
+            float[,] heightsPrev = GetCurrentHeights(Target);
             IntVector2 tileOriginCellWorld = TileWorldSceneOriginCellPos(Target);
             IntVector2 deltaCellTile = SceneToModCellPos(Target.Terrain.transform.position, ModSceneOverride);
             //BoundsInt BI = new BoundsInt();
@@ -1161,12 +1613,12 @@ namespace TerraTechETCUtil
                     IntVector2 inTilePos = new IntVector2(x, y);
                     IntVector2 CellPosWorld = tileOriginCellWorld + inTilePos;
                     IntVector2 modPos = inTilePos + deltaCellTile;
-                    if (Within(modPos))
+                    if (Within(modPos) && mode <= TerraDampenMode.DeformAndDampen)
                     {
                         float targetHeight = Revec(rampCenter, CellPosWorld, heightsPrev[y, x], vecNormal);
                         float normalizingForces = Mathf.Clamp(targetHeight, lowHeight, highHeight) - heightsPrev[y, x];
                         heightsPrev[y, x] = Mathf.Clamp01(heightsPrev[y, x] + Mathf.Clamp(normalizingForces * 
-                            GetTileHeightFromModCellPos(modPos), -intensity, intensity));
+                            GetTileHeightFromModCellPos(modPos, OGHeights[y, x]), -intensity, intensity));
                     }
                 }
             }
@@ -1183,7 +1635,123 @@ namespace TerraTechETCUtil
         }
 
 
-        private void PushChanges(TerrainData TD, float[,] newMap)
+
+        /// <summary>
+        /// YOU WILL NEED TO CALL AutoDelta1 AFTER
+        /// </summary>
+        internal static void AutoDelta0(WorldTile tile, out float[,] heightsPrev, out IntVector2 origin, out float[,] OGHeights)
+        {
+            heightsPrev = GetCurrentHeights(tile);
+            origin = TileWorldSceneOriginCellPos(tile);
+            OGHeights = tile.BiomeMapData.heightData.heights;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="delta">TileInPos to TerrainModifier space</param>
+        /// <returns></returns>
+        internal bool HasMainPartInTile(IntVector2 delta)
+        {
+            return delta.x + CellsInTile >= 0 && delta.y + CellsInTile >= 0 && delta.x < Width && delta.y < Height;
+        }
+
+        /// <summary>
+        /// YOU WILL NEED TO CALL PushFlush() AFTER
+        /// </summary>
+        internal void AutoDelta1(float[,] heightsPrev, IntVector2 delta, IntVector2 origin, float[,] OGHeights,
+            float curWeight, float addWeight, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            //Vector3 ModSceneOverride
+            switch (AutoMode)
+            {
+                case TerraApplyMode.None:
+                    break;
+                case TerraApplyMode.FlushAutoHeightAdjust:
+                    DoFlush(heightsPrev, delta, heightsPrev, ModSceneOverride, mode);
+                    break;
+                case TerraApplyMode.Flush:
+                    DoFlush(heightsPrev, delta, heightsPrev, ModSceneOverride, mode);
+                    break;
+                case TerraApplyMode.Add:
+                    float yMid = 0.5f;
+                    DoAdd(heightsPrev, delta, heightsPrev, ref yMid, ref addWeight, ModSceneOverride, mode);
+                    break;
+                    /* // Scales too poorly
+                case TerraApplyMode.Level:
+                    DoLevel(heightsPrev, delta, origin, Mathf.CeilToInt(ApproxRadius), ref addWeight, ModSceneOverride);
+                    break;*/
+                case TerraApplyMode.Reset:
+                    DoReset(heightsPrev, delta, OGHeights, ref addWeight, ModSceneOverride, mode);
+                    break;
+                case TerraApplyMode.Apply:
+                default:
+                    DoApply(heightsPrev, delta, heightsPrev, ref curWeight, ref addWeight, ModSceneOverride, mode);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// DOES NOT WORK PROPERLY IF ANY OVERLAPPING ARE SET TO FLUSH
+        /// </summary>
+        /// <param name="curWeight"></param>
+        /// <param name="addWeight"></param>
+        /// <param name="ModSceneOverride"></param>
+        internal void AutoDeltaSingle(float curWeight, float addWeight, Vector3 ModSceneOverride)
+        {
+            InsureSetup();
+            deltaed = false;
+            curWeight = Mathf.Clamp01(curWeight);
+            addWeight = Mathf.Clamp01(addWeight);
+            GetModTileCoordsWithEdging(ModSceneOverride, out var vec1, out var vec2);
+            foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
+            {
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                {
+                    float[,] heightsPrev = GetCurrentHeights(item);
+                    IntVector2 origin = TileWorldSceneOriginCellPos(item);
+                    IntVector2 delta = SceneToModCellPos(item.Terrain.transform.position, ModSceneOverride);
+                    AutoDelta1(heightsPrev, delta, origin, item.BiomeMapData.heightData.heights, curWeight, addWeight, 
+                        ModSceneOverride, TerraDampenMode.DeformAndDampen);
+
+                    PushChanges(item.Terrain.terrainData, heightsPrev);
+                };
+            }
+            foreach (var item in ManWorld.inst.TileManager.IterateTiles(vec1, vec2, WorldTile.State.Created))
+            {
+                if (item.Terrain != null && IntersectsWithEdges(item, ModSceneOverride))
+                    PushFlush(item);
+            }
+        }
+        internal float AutoCalcPoint(float prevHeight, IntVector2 inTilePos, IntVector2 delta, IntVector2 origin, float OGHeight,
+            float curWeight, float addWeight, Vector3 ModSceneOverride, TerraDampenMode mode)
+        {
+            //Vector3 ModSceneOverride
+            switch (AutoMode)
+            {
+                case TerraApplyMode.None:
+                    return prevHeight;
+                case TerraApplyMode.FlushAutoHeightAdjust:
+                    return CalcPointFlush(prevHeight, inTilePos, delta, OGHeight, ModSceneOverride, mode);
+                case TerraApplyMode.Flush:
+                    return CalcPointFlush(prevHeight, inTilePos, delta, OGHeight, ModSceneOverride, mode);
+                case TerraApplyMode.Add:
+                    float yMid = 0.5f;
+                    return CalcPointAdd(prevHeight, inTilePos, delta, OGHeight, yMid, addWeight, ModSceneOverride, mode);
+                /* // Scales too poorly
+            case TerraApplyMode.Level:
+                DoLevel(heightsPrev, delta, origin, Mathf.CeilToInt(ApproxRadius), ref addWeight, ModSceneOverride);
+                break;*/
+                case TerraApplyMode.Reset:
+                    return CalcPointReset(prevHeight, inTilePos, delta, OGHeight, addWeight, ModSceneOverride, mode);
+                case TerraApplyMode.Apply:
+                default:
+                    return CalcPointApply(prevHeight, inTilePos, delta, OGHeight, curWeight, addWeight, ModSceneOverride, mode);
+            }
+        }
+
+
+        public static void PushChanges(TerrainData TD, float[,] newMap)
         {
             TD.SetHeights(0, 0, newMap);
             //TD.UpdateDirtyRegion(0, 0, CellsInTile, CellsInTile, true);
@@ -1191,7 +1759,7 @@ namespace TerraTechETCUtil
         private static MethodInfo flusher = typeof(TileManager).GetMethod("ConnectNeighbouringTilesAndFlush", 
             BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.InvokeMethod);
         private static object[] flushCall = new object[2] { null, null };
-        private void PushFlush(WorldTile WT)
+        public static void PushFlush(WorldTile WT)
         {
             flushCall[0] = WT;
             flushCall[1] = true;
@@ -1199,19 +1767,48 @@ namespace TerraTechETCUtil
             Globals.inst.m_ManuallyConnectTerrainTiles = false;
             flusher.Invoke(ManWorld.inst.TileManager, flushCall);
             Terrain.SetConnectivityDirty();
-            WorldDeformer.terrainsDeformed.Add(WT);
+            for (int x = -1; x <= 1; x++)
+            {
+                for (int y = -1; y <= 1; y++)
+                {
+                    var tile = ManWorld.inst.TileManager.LookupTile(WT.Coord + new IntVector2(x, y));
+                    if (tile != null)
+                    {
+                        ManWorldDeformerExt.terrainsByDeformed.Add(WT.Coord);
+                        if (x == 0 && y == 0)
+                            ManWorldDeformerExt.terrainsDeformed.Add(WT.Coord);
+                    }
+                }
+            }
             Globals.inst.m_ManuallyConnectTerrainTiles = prevState;
         }
         private static float[,] heightsCached = new float[CellsInTileIndexer, CellsInTileIndexer];
-        private static float[,] GetRealHeights(WorldTile tile)
+        /// <summary>
+        /// DO NOT CALL WHEN USING
+        /// IT IS RECYCLED FOR LATER CALLS
+        /// </summary>
+        /// <param name="tile"></param>
+        /// <returns></returns>
+        private static float[,] GetCurrentHeights(WorldTile tile)
         {
-            float height = tile.Terrain.terrainData.size.y;
+            //heightsCached = new float[CellsInTileIndexer, CellsInTileIndexer];
+            float height = ManWorldGeneratorExt.CurrentTotalHeight;
             Vector2 delta = tile.WorldOrigin.ToVector2XZ();
             Terrain terra = tile.Terrain;
             for (int x = 0; x < CellsInTileIndexer; x++)
+            {
                 for (int y = 0; y < CellsInTileIndexer; y++)
-                    heightsCached[x, y] = terra.SampleHeight((delta + new Vector2(y * tilePosToTileScale, x * tilePosToTileScale)
+                {
+                    float heightOut = terra.SampleHeight((new Vector2(y * tilePosToTileScale, x * tilePosToTileScale)
+                        + delta
                         ).ToVector3XZ()) / height;
+                   // Vector3 worldSearch = (delta + new Vector2(y * tilePosToTileScale, x * tilePosToTileScale)
+                    //    ).ToVector3XZ();
+                    //if (!ManWorld.inst.GetTerrainHeight())
+                    //    throw new NullReferenceException("Tile exists but we are searching in the wrong area " + );
+                    heightsCached[x, y] = heightOut;
+                }
+            }
             return heightsCached;
         }
     }

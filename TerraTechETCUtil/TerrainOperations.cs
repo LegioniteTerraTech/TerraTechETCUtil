@@ -31,7 +31,9 @@ namespace TerraTechETCUtil
         public const float TileYOffsetScalarSeaLevelSceneryLand = -97 / TileHeightRescaled;
         public const float TileYOffsetScalarSeaLevelScenerySea = -106 / TileHeightRescaled;
 
-
+        /// <summary>
+        /// BROKEN, DO NOT USE UNTIL FURTHER NOTICE!!!
+        /// </summary>
         public static bool BeachingMode = false;
         const float QuarterHeight = 0.76f / 2f;
         const float QuarterHeightMid = 0.73f / 2f;

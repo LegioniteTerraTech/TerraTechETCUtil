@@ -197,7 +197,7 @@ namespace TerraTechETCUtil
             if (!patched)
                 return;
             ResourcesHelper.ModsPostLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
-            WorldTerraformer.DeInit();
+            ManWorldGeneratorExt.DeInit();
 
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), "TerraTechModExt");
             try
@@ -270,6 +270,27 @@ namespace TerraTechETCUtil
     }
     public class Patches
     {
+
+        [HarmonyPatch(typeof(ManHUD))]
+        [HarmonyPatch("HandleEscapeKey")]//
+        internal static class EatEscapeKeypress
+        {
+            internal static bool Prefix(ref ManHUD __instance, ref bool __result)
+            {
+                if (ManModGUI.CallEscapeCallbackPre())
+                {
+                    __result = true;
+                    return false;
+                }
+                return true;
+            }
+            internal static void Postfix(ref ManHUD __instance, ref bool __result)
+            {
+                if (!__result && ManModGUI.CallEscapeCallbackPost())
+                    __result = true;
+            }
+        }
+
         [HarmonyPatch(typeof(ModuleBlockAttributes))]
         [HarmonyPatch("InitBlockAttributes")]//
         internal static class InsureModdedIsRight

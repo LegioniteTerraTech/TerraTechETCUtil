@@ -59,6 +59,8 @@ namespace TerraTechETCUtil
         private static int updateClockDelay = 50;
 
         private static HashSet<ModBase> registered = new HashSet<ModBase>();
+        private static List<Action> EscHoldup = new List<Action>();
+        private static List<Action> EscHoldupPre = new List<Action>();
 
 
         public static void RequestInit(ModBase modRequestor)
@@ -97,6 +99,57 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: ManModGUI De-Init");
             }
         }
+
+
+        public static void AddEscapeableCallback(Action action, bool beforeAllGUI)
+        {
+            if (beforeAllGUI)
+                EscHoldupPre.Add(action);
+            else
+                EscHoldup.Add(action);
+        }
+        public static void RemoveEscapeableCallback(Action action, bool beforeAllGUI)
+        {
+            if (beforeAllGUI)
+                EscHoldupPre.Remove(action);
+            else
+                EscHoldup.Remove(action);
+        }
+        internal static bool CallEscapeCallbackPre()
+        {
+            if (EscHoldupPre.Any())
+            {
+                while (EscHoldupPre.Any())
+                {
+                    Action act = EscHoldupPre[0];
+                    EscHoldupPre.RemoveAt(0);
+                    if (act != null)
+                    {
+                        act();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        internal static bool CallEscapeCallbackPost()
+        {
+            if (EscHoldup.Any())
+            {
+                while (EscHoldup.Any())
+                {
+                    Action act = EscHoldup[0];
+                    EscHoldup.RemoveAt(0);
+                    if (act != null)
+                    {
+                        act();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
 
         public static void SetCurrentPopup(GUIPopupDisplay disp)
         {

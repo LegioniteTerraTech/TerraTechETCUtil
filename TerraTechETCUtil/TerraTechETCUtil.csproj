@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <ShouldCreateLogs>True</ShouldCreateLogs>
-    <AdvancedSettingsExpanded>True</AdvancedSettingsExpanded>
+    <AdvancedSettingsExpanded>False</AdvancedSettingsExpanded>
     <UpdateAssemblyVersion>True</UpdateAssemblyVersion>
     <UpdateAssemblyFileVersion>True</UpdateAssemblyFileVersion>
     <UpdateAssemblyInfoVersion>False</UpdateAssemblyInfoVersion>
@@ -256,6 +256,9 @@
     <Compile Include="Debug_TTExt.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="UIChanges\GUIButtonMadness.cs" />
+    <Compile Include="UIChanges\GUIModModal.cs" />
+    <Compile Include="UIChanges\PlaceholderRadialMenu.cs" />
     <Compile Include="LegModExtOptions.cs" />
     <Compile Include="UIChanges\SuperNativeOptions.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageDamageStats.cs" />
@@ -316,9 +319,9 @@
     <Compile Include="UIChanges\Wiki\WikiPageScenery.cs" />
     <Compile Include="Utilities.cs" />
     <Compile Include="ManWorldTileExt.cs" />
-    <Compile Include="WorldDeformer.cs" />
+    <Compile Include="ManWorldDeformerExt.cs" />
     <Compile Include="WorldVerticalExtender.cs" />
-    <Compile Include="WorldTerraformer.cs" />
+    <Compile Include="ManWorldGeneratorExt.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

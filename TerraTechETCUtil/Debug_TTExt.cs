@@ -11,8 +11,8 @@ namespace TerraTechETCUtil
         private const string modName = "TerraTechModExt";
 
         public static bool LogAll = false;
-        internal static bool ShouldLog = true;
-        internal static bool ShouldLogBiomeGen = false;
+        public static bool ShouldLog = true;
+        public static bool ShouldLogBiomeGen = false;
         private static bool LogDev = false;
 
         internal static void Info(string message)
