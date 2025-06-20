@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
+using UnityEngine.Experimental.UIElements;
 
 namespace TerraTechETCUtil
 {
@@ -541,7 +543,79 @@ namespace TerraTechETCUtil
         }
         private void OnGUI()
         {
+            if (WarningPopup)
+                AltUI.Window(IDErrorWindow, WarningPopupRect, WindowDisp, WarningIsError ? "Errors" : "Warnings", HideErrorPopup);
             ManModGUI.UpdateMouseOverAnyWindow();
+        }
+
+
+        class WarningLogged
+        {
+            public bool serious;
+            public string msg;
+            public Action tryFix;
+        }
+
+        public const int IDErrorWindow = 253254;
+        private static Vector2 Scroll = Vector2.zero;
+        private static bool WarningPopup = false;
+        private static bool WarningIsError = false;
+        private static Rect WarningPopupRect = new Rect(5, 5, 1200, 800);
+        private static List<WarningLogged> Warnings = new List<WarningLogged>();
+        internal static void ShowErrorPopup(string Warning, bool IsSeriousError = false, Action OnFixRequested = null)
+        {
+            InsureInit();
+            WarningPopupRect.width = Mathf.Min(Display.main.renderingWidth - 200, 800);
+            WarningPopupRect.height = Mathf.Min(Display.main.renderingHeight - 200, 600);
+            WarningPopupRect.x = (Display.main.renderingWidth - WarningPopupRect.width) * 0.5f;
+            WarningPopupRect.y = (Display.main.renderingHeight - WarningPopupRect.height) * 0.5f;
+            WarningPopup = true;
+            Warnings.Add(new WarningLogged()
+            {
+                serious = IsSeriousError,
+                msg = Warning,
+                tryFix = OnFixRequested
+            });
+            if (IsSeriousError)
+                WarningIsError = true;
+        }
+        private void WindowDisp(int ID)
+        {
+            Scroll = GUILayout.BeginScrollView(Scroll);
+            foreach (var item in Warnings)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.TextArea(item.msg, item.serious ? AltUI.TextfieldBorderedBlue : AltUI.TextfieldBlackHuge);
+                GUILayout.FlexibleSpace();
+                if (item.tryFix != null)
+                {
+                    if (GUILayout.Button("Fix", GUILayout.Width(40), GUILayout.Height(30)))
+                    {
+                        item.tryFix();
+                        item.tryFix = null;
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.BeginHorizontal(new GUILayoutOption[] { GUILayout.Height(100) });
+            GUILayout.FlexibleSpace();
+            GUILayout.EndScrollView();
+            if (GUILayout.Button("Close", AltUI.ButtonOrangeLarge, GUILayout.Width(200)))
+            {
+                HideErrorPopup();
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            GUI.DragWindow();
+        }
+        private void HideErrorPopup()
+        {
+            if (WarningPopup)
+            {
+                WarningPopup = false;
+                WarningIsError = false;
+                Warnings.Clear();
+            }
         }
 
         internal interface IInvokeable

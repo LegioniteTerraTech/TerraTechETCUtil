@@ -15,6 +15,12 @@ namespace TerraTechETCUtil
         public Button button;
         public readonly UnityAction Callback;
         public override bool PressedState() => false;
+        public AbilityButton(LocExtStringMod name, Sprite iconSprite, UnityAction callback, float cooldown) :
+            base(name, iconSprite, cooldown)
+        {
+            Callback = callback;
+            ManAbilities.InitElement(this);
+        }
         public AbilityButton(string name, Sprite iconSprite, UnityAction callback, float cooldown) :
             base(name, iconSprite, cooldown)
         {
@@ -36,7 +42,10 @@ namespace TerraTechETCUtil
         }
         internal override void Initiate()
         {
-            button = ManAbilities.MakePrefabButton(Name, Sprite, TriggerThis);
+            if (NameLoc != null)
+                button = ManAbilities.MakePrefabButton(NameLoc, Sprite, TriggerThis);
+            else
+                button = ManAbilities.MakePrefabButton(NameMain, Sprite, TriggerThis);
             inst = button.gameObject;
             images = inst.GetComponentsInChildren<Image>(true);
             ManAbilities.Ready.Add(this);

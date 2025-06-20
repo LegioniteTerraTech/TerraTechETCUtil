@@ -442,7 +442,7 @@ namespace TerraTechETCUtil
         [HarmonyPatch("IsTileUsableForNewSetPiece")]//
         private class BypassSetPieceChecks
         {
-            private static bool Prefix(ManWorld __instance, ref bool __result)
+            internal static bool Prefix(ManWorld __instance, ref bool __result)
             {
                 if (LegModExt.BypassSetPieceChecks)
                 {
@@ -457,14 +457,25 @@ namespace TerraTechETCUtil
         [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(string), typeof(string), typeof(Localisation.GlyphInfo[]) })]//
         private class ShoehornText
         {
-            private static bool Prefix(Localisation __instance, ref string bank, ref string id, ref string __result)
+            internal static bool Prefix(Localisation __instance, ref string bank, ref string id, ref string __result)
             {
-                if (id == "MOD")
+                if (bank.StartsWith(LocalisationExt.ModTag))
                 {
-                    __result = bank;
+                    if (char.IsDigit(bank.Last()) && int.TryParse(bank.Substring(3), out int ID) &&
+                        LocalisationExt.TryGetFrom(LocalisationExt.LOC_ExtGeneralID, ID, ref __result))
+                    {
+                        return false;
+                    }
+                    __result = id;
                     return false;
                 }
                 return true;
+            }
+            internal static void Postfix(Localisation __instance, ref string bank, ref string id, ref string __result)
+            {
+                if (DebugExtUtilities.LogAllStringLocalisationLoadEvents2)
+                    Debug_TTExt.Log("GetLocalisedString(bank: " + (bank.NullOrEmpty() ? "<NULL>" : bank) +
+                        ", id: " + (id.NullOrEmpty() ? "<NULL>" : id) + ") = " + (__result.NullOrEmpty() ? "<NULL>" : __result));
             }
         }
     
@@ -472,12 +483,11 @@ namespace TerraTechETCUtil
         [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(LocalisationEnums.StringBanks), typeof(int), typeof(Localisation.GlyphInfo[]) })]//
         private class ShoehornText2
         {
-            private static bool Prefix(Localisation __instance, ref LocalisationEnums.StringBanks bankName, ref int stringID, ref string __result)
+            internal static bool Prefix(Localisation __instance, ref LocalisationEnums.StringBanks bankName, ref int stringID, ref string __result)
             {
                 if (bankName < (LocalisationEnums.StringBanks)0)
                 {
-                    //throw new NotImplementedException("TerraTechETCUtil.LocalizationExt is still not complete and may not be used");
-                    if (!LocalisationExt.TryGetFrom(bankName,stringID, ref __result))
+                    if (!LocalisationExt.TryGetFrom(bankName, stringID, ref __result))
                         __result = "ERROR - LocalizedStringExt of ID " + stringID + " could not be found!!!";
                     return false;
                 }
@@ -488,11 +498,11 @@ namespace TerraTechETCUtil
         [HarmonyPatch("GetNextHint")]//
         private class TryLeverNextHint
         {
-            private static bool Prefix(UILoadingScreenHints __instance, ref string __result)
+            internal static bool Prefix(UILoadingScreenHints __instance, ref string __result)
             {
                 if (LoadingHintsExt.MandatoryHints.Any())
                 {
-                    __result = LoadingHintsExt.MandatoryHints.FirstOrDefault();
+                    __result = LoadingHintsExt.MandatoryHints.FirstOrDefault()?.ToString();
                     LoadingHintsExt.MandatoryHints.RemoveAt(0);
                     return false;
                 }
@@ -501,7 +511,7 @@ namespace TerraTechETCUtil
                     int count = LoadingHintsExt.ExternalHints.Count + Localisation.inst.GetLocalisedStringBank(LocalisationEnums.StringBanks.LoadingHints).Length;
                     if (UnityEngine.Random.Range(0, 100f) <= 35f || UnityEngine.Random.Range(0, count) <= LoadingHintsExt.ExternalHints.Count)
                     {
-                        __result = LoadingHintsExt.ExternalHints.GetRandomEntry();
+                        __result = LoadingHintsExt.ExternalHints.GetRandomEntry()?.ToString();
                         return false;
                     }
                     else

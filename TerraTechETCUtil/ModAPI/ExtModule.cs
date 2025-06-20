@@ -55,7 +55,7 @@ namespace TerraTechETCUtil
                 block = gameObject.GetComponent<TankBlock>();
                 if (!block)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: Modules must be in the lowest JSONBLOCK/Deserializer GameObject layer!\nThis operation cannot be handled automatically.\nCause of error - Block " + gameObject.name);
+                    BlockDebug.ThrowWarning(true, "TerraTechModExt: Modules must be in the lowest JSONBLOCK/Deserializer GameObject layer!\nThis operation cannot be handled automatically.\nCause of error - Block " + gameObject.name);
                     enabled = false;
                     return;
                 }
@@ -126,7 +126,7 @@ namespace TerraTechETCUtil
                 }
                 else if (gameObject.GetComponent<TankBlock>())
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: ChildModule must NOT be in the lowest layer of JSONBLOCK/Deserializer GameObject layer!\nThis operation cannot be handled automatically.\nCause of error - Block " + gameObject.name);
+                    BlockDebug.ThrowWarning(true, "TerraTechModExt: ChildModule must NOT be in the lowest layer of JSONBLOCK/Deserializer GameObject layer!\nThis operation cannot be handled automatically.\nCause of error - Block " + gameObject.name);
                     enabled = false;
                 }
                 else
@@ -160,7 +160,7 @@ namespace TerraTechETCUtil
                         }
                         else
                         {
-                            BlockDebug.ThrowWarning("TerraTechModExt: ChildModules must be in a valid Block or in a Projectile below a declared ChildProjectile!\nThis operation cannot be handled automatically.\nCause of error - Block " + transform.root.name);
+                            BlockDebug.ThrowWarning(true, "TerraTechModExt: ChildModules must be in a valid Block or in a Projectile below a declared ChildProjectile!\nThis operation cannot be handled automatically.\nCause of error - Block " + transform.root.name);
                             enabled = false;
                         }
                     }

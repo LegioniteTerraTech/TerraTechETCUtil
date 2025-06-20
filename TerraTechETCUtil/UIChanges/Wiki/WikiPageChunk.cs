@@ -5,11 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
+using static LocalisationEnums;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 
 namespace TerraTechETCUtil
 {
     public class WikiPageChunk : ManIngameWiki.WikiPage
     {
+        public static Func<ChunkTypes, string> GetChunkData = null;
         public static Func<int, string> GetChunkModName = GetChunkModNameDefault;
         public int chunkID;
         public string desc = "unset";
@@ -18,22 +21,24 @@ namespace TerraTechETCUtil
         internal ChunkDataInfo damageable;
         internal ChunkDataInfo[] modules;
         public WikiPageChunk(int ChunkID) :
-            base(GetChunkModName(ChunkID), StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
-            ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), "Chunks", ManIngameWiki.ChunksSprite)
+            base(GetChunkModName(ChunkID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
+                () => { return StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID); }),
+            ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), ManIngameWiki.LOC_Chunks, ManIngameWiki.ChunksSprite)
         {
             chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
 
         public WikiPageChunk(int ChunkID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetChunkModName(ChunkID), StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
+            base(GetChunkModName(ChunkID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
+                () => { return StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID); }),
             ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), group)
         {
             chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
         public override void DisplaySidebar() => ButtonGUIDisp();
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -54,7 +59,7 @@ namespace TerraTechETCUtil
         {
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, chunkID);
         }
-        public override void DisplayGUI()
+        protected override void DisplayGUI()
         {
             if (modules == null)
             {
@@ -155,6 +160,16 @@ namespace TerraTechETCUtil
             else
                 GUILayout.Label("Modules: None", AltUI.LabelBlackTitle);
             GUILayout.EndVertical();
+            if (ManIngameWiki.ShowJSONExport && GetChunkData != null)
+            {
+                if (AltUI.Button("ENTIRE CHUNK JSON to system clipboard", ManSFX.UISfxType.Craft))
+                {
+                    AutoDataExtractor.clipboard.Clear();
+                    AutoDataExtractor.clipboard.Append(GetChunkData.Invoke((ChunkTypes)chunkID));
+                    GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                }
+            }
         }
 
         public static string GetChunkModNameDefault(int chunkType)
@@ -176,18 +191,18 @@ namespace TerraTechETCUtil
                         if (grabbed.Contains(item))
                             continue;
                         grabbed.Add(item);
-                        if (AllowedTypes.Contains(typeCase))
+                        if (ModuleInfo.AllowedTypesUIWiki.Contains(typeCase))
                         {
                             cacher.Add(new ChunkDataInfo(typeCase, item, grabbed));
                         }
                         else if (item is Module)
                         {
-                            if (!ignoreTypes.Contains(typeCase))
+                            if (!ignoreModuleTypes.Contains(typeCase))
                                 cacher.Add(new ChunkDataInfo(typeCase, item, grabbed));
                         }
                         else if (item is ExtModule)
                         {
-                            if (!ignoreTypesExt.Contains(typeCase))
+                            if (!ignoreModuleTypesExt.Contains(typeCase))
                                 cacher.Add(new ChunkDataInfo(typeCase, item, grabbed));
                         }
                     }

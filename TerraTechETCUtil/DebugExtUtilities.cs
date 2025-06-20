@@ -21,6 +21,7 @@ namespace TerraTechETCUtil
     }
     public class DebugExtUtilities : MonoBehaviour
     {
+        public static bool LogAllStringLocalisationLoadEvents2 = false;
         private static bool allowEnableDebugMenu_KeypadEnter = false;
         /// <summary>
         /// Allow the Debug menu of ExtUtil to be accessable from in-game with (HOLD) End, (PRESS) Return.

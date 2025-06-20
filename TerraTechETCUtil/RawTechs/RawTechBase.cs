@@ -27,6 +27,9 @@ namespace TerraTechETCUtil
         /// </summary>
         public FactionLevel factionLim = FactionLevel.NULL;
         public HashSet<BasePurpose> purposes;
+        /// <summary>
+        /// Grade in RELATION to this tech's assigned faction.
+        /// </summary>
         public int IntendedGrade = -1;
         public BaseTerrain terrain = BaseTerrain.Land;
         public int startingFunds = 5000;

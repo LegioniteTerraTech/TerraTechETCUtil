@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Ionic.Zlib;
+using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.Networking;
+using static CompoundExpression;
 
 #if !EDITOR
 namespace TerraTechETCUtil
@@ -32,8 +37,108 @@ namespace TerraTechETCUtil
         public static Bounds BoundsPhysics = default;
 
 
+        
+        public enum NetWTMsgType
+        {
+            None,
+            TileStatesUpdate,
+            FixedTilesUpdate,
+            DynamicTilesUpdate,
+        }
+        public class NetWTMessage : MessageBase
+        {
+            public NetWTMessage() { }
+            public NetWTMessage(Dictionary<IntVector2, WorldTile.State> rawData)
+            {
+                this.type = (uint)NetWTMsgType.TileStatesUpdate;
+                AssignData(rawData);
+            }
+            public NetWTMessage(HashSet<IntVector2> rawData)
+            {
+                this.type = (uint)NetWTMsgType.FixedTilesUpdate;
+                AssignData(rawData);
+            }
+            public NetWTMessage(List<ITileLoader> rawData)
+            {
+                this.type = (uint)NetWTMsgType.DynamicTilesUpdate;
+                AssignData(rawData);
+            }
+            private void AssignData(object rawData)
+            {
+                using (MemoryStream FS = new MemoryStream())
+                {
+                    using (GZipStream GZS = new GZipStream(FS, CompressionMode.Compress))
+                    {
+                        using (StreamWriter SW = new StreamWriter(GZS))
+                        {
+                            SW.WriteLine(JsonConvert.SerializeObject(rawData, Formatting.None));
+                            SW.Flush();
+                        }
+                    }
+                    infoBytes = FS.ToArray();
+                }
+            }
+            public Dictionary<IntVector2, WorldTile.State> ExtractTileState() =>
+                ExtractData<Dictionary<IntVector2, WorldTile.State>>(NetWTMsgType.TileStatesUpdate);
+            public HashSet<IntVector2> ExtractFixedTileState() =>
+                ExtractData<HashSet<IntVector2>>(NetWTMsgType.FixedTilesUpdate);
+
+            public List<ITileLoader> ExtractDynamicTileState() =>
+                ExtractData<List<ITileLoader>>(NetWTMsgType.DynamicTilesUpdate);
+
+
+            private T ExtractData<T>(NetWTMsgType type) where T : class
+            {
+                if ((NetWTMsgType)this.type != type)
+                    throw new InvalidCastException("Message is not of casted type \"" + (NetWTMsgType)this.type + "\", it is type \"" + type + "\"");
+                using (MemoryStream FS = new MemoryStream(infoBytes))
+                {
+                    using (GZipStream GZS = new GZipStream(FS, CompressionMode.Decompress))
+                    {
+                        using (StreamReader SR = new StreamReader(GZS))
+                        {
+                            return JsonConvert.DeserializeObject<T>(SR.ReadToEnd());
+                        }
+                    }
+                }
+            }
+
+            public uint type;
+            public byte[] infoBytes;
+        }
+        private static NetworkHook<NetWTMessage>  netHook = new NetworkHook<NetWTMessage>("TerraTechETCUtil.NetWTMessage", 
+            OnWTMsgNetwork, NetMessageType.ToClientsOnly);
+            
+        private static bool OnWTMsgNetwork(NetWTMessage command, bool isServer)
+        {
+            NetWTMsgType type = (NetWTMsgType)command.type;
+            switch (type)
+            {
+                case NetWTMsgType.None:
+                    break;
+                case NetWTMsgType.TileStatesUpdate:
+                    SetTiles.Clear();
+                    var state = command.ExtractTileState();
+                    foreach (var item in state)
+                        SetTiles.Add(item.Key, item.Value);
+                    break;
+                case NetWTMsgType.FixedTilesUpdate:
+                    FixedTileLoaders.Clear();
+                    var state2 = command.ExtractFixedTileState();
+                    foreach (var item in state2)
+                        FixedTileLoaders.Add(item);
+                    break;
+                case NetWTMsgType.DynamicTilesUpdate:
+
+                    break;
+                default:
+                    break;
+            }
+            return true;
+        }
+
+
         public static Dictionary<IntVector2, WorldTile.State> RequestedLoaded => LoadedTileCoords;
-        public static Dictionary<IntVector2, WorldTile.State> Perimeter => PerimeterTileSubLoaded;
         private static readonly Dictionary<IntVector2, float> TempLoaders = new Dictionary<IntVector2, float>();
         private static readonly HashSet<IntVector2> FixedTileLoaders = new HashSet<IntVector2>();
         private static readonly List<ITileLoader> DynamicTileLoaders = new List<ITileLoader>();
@@ -49,10 +154,11 @@ namespace TerraTechETCUtil
         private static int _MaxWorldPhysicsSafeDistanceTiles = Mathf.CeilToInt(MaxWorldPhysicsSafeDistance / ManWorld.inst.TileSize) - 1; // In worldTile Coords
         public static int MaxWorldPhysicsSafeDistanceTiles => _MaxWorldPhysicsSafeDistanceTiles; // In worldTile Coords
 
-        public static Dictionary<IntVector2, WorldTile.State> LoadedTileCoords = new Dictionary<IntVector2, WorldTile.State>();
+        private static Dictionary<IntVector2, WorldTile.State> LoadedTileCoords = new Dictionary<IntVector2, WorldTile.State>();
 
-        public static Dictionary<IntVector2, WorldTile.State> PerimeterTileSubLoaded = new Dictionary<IntVector2, WorldTile.State>();
+        private static Dictionary<IntVector2, WorldTile.State> PerimeterTileSubLoaded = new Dictionary<IntVector2, WorldTile.State>();
 
+        public static void FORCEExtendedBroadphase() => SetExtendedBroadphase();
         internal static void SetDynamicBroadphase()
         {
             if (phyMode == PhysicsMode.BroadphaseDynamic)
@@ -99,8 +205,9 @@ namespace TerraTechETCUtil
             if (init)
                 return;
             init = true;
+            netHook.Enable();
             ManTechs.inst.TankPostSpawnEvent.Subscribe(InsureTechNotUnderTerrain);
-            InvokeHelper.InvokeSingleRepeat(UpdateTileLoading, 0.6f);
+            InvokeHelper.InvokeSingleRepeat(SlowUpdateTileLoading, 0.6f);
             MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldTilePatches), "TerraTechModExt");
             if (Globals.inst.DynamicMultiBoxBroadphaseRegions)
                 phyMode = PhysicsMode.BroadphaseDynamic;
@@ -120,6 +227,9 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("Tech " + (tech.name.NullOrEmpty() ? "NULL" : tech.name) + " spawned but was BELOW terrain and not anchored, setting ABOVE terrain");
             }
         }
+        /// <summary>
+        /// Rush loading ALL Worldtiles.  Only affects our client
+        /// </summary>
         public static void RushTileLoading()
         {
             rushTiles = true;
@@ -127,10 +237,16 @@ namespace TerraTechETCUtil
         }
         private static void EndOverclockTileLoading() => rushTiles = false;
 
+        /// <summary>
+        /// Returns true if we are the host and we can command the ManWorldTileExt. Silent variant with no log spam
+        /// </summary>
         public static bool HostCanCommandTileLoaderQuiet()
         {
             return ManNetwork.IsHost;
         }
+        /// <summary>
+        /// Returns true if we are the host and we can command the ManWorldTileExt
+        /// </summary>
         public static bool HostCanCommandTileLoader()
         {
             if (HostCanCommandTileLoaderQuiet())
@@ -139,13 +255,24 @@ namespace TerraTechETCUtil
             return false;
         }
 
+        /// <summary>
+        /// CLears All WorldTile loaders EXCEPT the Dynamic Tile Loaders.
+        /// </summary>
         public static void HostClearAll()
         {
             if (!HostCanCommandTileLoader())
                 return;
+            TempLoaders.Clear();
+            SetTiles.Clear();
             FixedTileLoaders.Clear();
-            DynamicTileLoaders.Clear();
+            TileStateDirty = true;
+            FixedTileLoadersDirty = true;
         }
+        /// <summary>
+        /// Set the World tile at a specific coordinate to stay loaded.  
+        /// </summary>
+        /// <param name="worldTilePos"></param>
+        /// <param name="Yes"></param>
         public static void HostSetTileLoading(IntVector2 worldTilePos, bool Yes)
         {
             if (!HostCanCommandTileLoader())
@@ -156,37 +283,55 @@ namespace TerraTechETCUtil
                 if (!FixedTileLoaders.Contains(worldTilePos))
                 {
                     FixedTileLoaders.Add(worldTilePos);
+                    FixedTileLoadersDirty = true;
                 }
             }
             else
             {
                 if (FixedTileLoaders.Remove(worldTilePos))
                 {
+                    FixedTileLoadersDirty = true;
                 }
             }
         }
+        private static bool FixedTileLoadersDirty = false;
+        /// <summary>
+        /// Set a specific tile coordinate to be loaded with a specific state.
+        /// </summary>
+        /// <param name="worldTilePos"></param>
+        /// <param name="state"></param>
         public static void HostSetTileState(IntVector2 worldTilePos, WorldTile.State state)
         {
             if (!HostCanCommandTileLoader())
                 return;
             InsureInit();
             SetTiles[worldTilePos] = state;
+            TileStateDirty = true;
         }
+        /// <summary>
+        /// Set a specific tile coordinate to be cleared of it's specific state
+        /// </summary>
         public static void HostClearTileState(IntVector2 worldTilePos)
         {
             if (!HostCanCommandTileLoader())
                 return;
-            SetTiles.Remove(worldTilePos);
+            if (SetTiles.Remove(worldTilePos))
+                TileStateDirty = true;
         }
+        private static bool TileStateDirty = false;
 
-        public static bool HostIsRequestLoadingTile(IntVector2 posTile)
+        /// <summary>
+        /// Check to see if a tile is being loaded.  This must be called once on every client.
+        /// </summary>
+        public static bool ClientIsRequestLoadingTile(IntVector2 posTile)
         {
             return TempLoaders.ContainsKey(posTile);
         }
-        public static bool HostTempLoadTile(IntVector2 posTile, bool rush, float loadTime = TempDurationDefault)
+        /// <summary>
+        /// Make a tile load completely by force!  This must be called once on every client.
+        /// </summary>
+        public static bool ClientTempLoadTile(IntVector2 posTile, bool rush, float loadTime = TempDurationDefault)
         {
-            if (!HostCanCommandTileLoader())
-                return false;
             InsureInit();
             if (rush)
                 RushTileLoading();
@@ -204,9 +349,9 @@ namespace TerraTechETCUtil
             return true;
         }
         /// <summary>
-        /// DANGEROUS - ONLY USE IN DEBUG TESTING ENVIRONMENT
+        /// Force unload and reload a tile.  This is Single-Player only!
         /// </summary>
-        public static bool HostReloadTile(Vector3 scenePos, bool rush)
+        public static bool HostOnly_ReloadTile(Vector3 scenePos, bool rush)
         {
             if (!HostCanCommandTileLoader())
                 return false;
@@ -229,10 +374,11 @@ namespace TerraTechETCUtil
             else
                 return true;
             return false;
-        }/// <summary>
-         /// DANGEROUS - ONLY USE IN DEBUG TESTING ENVIRONMENT
-         /// </summary>
-        public static bool HostReloadTile(IntVector2 tilePos, bool rush)
+        }
+        /// <summary>
+        /// Force unload and reload a tile.  This is Single-Player only!
+        /// </summary>
+        public static bool HostOnly_ReloadTile(IntVector2 tilePos, bool rush)
         {
             if (!HostCanCommandTileLoader())
                 return false;
@@ -256,7 +402,10 @@ namespace TerraTechETCUtil
             return false;
         }
 
-        public static void HostReloadENTIREScene(bool rush)
+        /// <summary>
+        /// Force unload and reload THE ENTIRE SCENE.  This is Single-Player only!
+        /// </summary>
+        public static void HostOnly_ReloadENTIREScene(bool rush)
         {
             if (!HostCanCommandTileLoader())
                 return;
@@ -264,14 +413,16 @@ namespace TerraTechETCUtil
                 RushTileLoading();
             foreach (var item in ManWorld.inst.TileManager.IterateTiles(WorldTile.State.Created))
             {
-                HostReloadTile(item.Coord, false);
+                HostOnly_ReloadTile(item.Coord, false);
             }
         }
-
-        public static bool HostRegisterDynamicTileLoader(ITileLoader loader)
+        /// <summary>
+        /// Register a Dynamically moving tile loader.  This must be called once on every client.
+        /// </summary>
+        /// <param name="loader"></param>
+        /// <returns></returns>
+        public static bool ClientRegisterDynamicTileLoader(ITileLoader loader)
         {
-            if (!HostCanCommandTileLoader())
-                return false;
             InsureInit();
             if (loader != null)
             {
@@ -287,13 +438,18 @@ namespace TerraTechETCUtil
             }
             return false;
         }
-        public static bool HostUnregisterDynamicTileLoader(ITileLoader loader)
+
+        /// <summary>
+        /// Unregister a Dynamically moving tile loader.  This must be called once on every client.
+        /// </summary>
+        public static bool ClientUnregisterDynamicTileLoader(ITileLoader loader)
         {
-            if (!HostCanCommandTileLoader())
-                return false;
             if (loader != null)
             {
-                return DynamicTileLoaders.Remove(loader);
+                if (DynamicTileLoaders.Remove(loader))
+                {
+                    return true;
+                };
             }
             else
             {
@@ -301,13 +457,14 @@ namespace TerraTechETCUtil
             return false;
         }
 
+
         private static readonly List<IntVector2> tilesPosCache = new List<IntVector2>();
-        private static void UpdateTileLoading()
+        private static void SlowUpdateTileLoading()
         {
             if (LoadedTileCoords != null)
             {
                 LoadedTileCoords.Clear();
-                if (ManWorld.inst.TileManager.IsClearing || ManWorld.inst.TileManager.IsCleared)
+                if (ManWorld.inst.TileManager.IsClearing || ManWorld.inst.CurrentBiomeMap == null)
                     return;
                 foreach (var item in TempLoaders.Keys)
                 {
@@ -362,6 +519,8 @@ namespace TerraTechETCUtil
                         LoadedTileCoords.Remove(pos);
                 }
                 GetActiveTilePerimeterForRequestedLoaded();
+
+                SendNetworkUpdateIfNeeded();
             }
         }
 
@@ -413,25 +572,45 @@ namespace TerraTechETCUtil
             return true;
         }
 
+        private static void SendNetworkUpdateIfNeeded()
+        {
+            if (ManNetwork.IsHost && ManNetwork.IsNetworked)
+            {
+                if (TileStateDirty)
+                {
+                    TileStateDirty = false;
+                    netHook.TryBroadcast(new NetWTMessage(SetTiles));
+                }
+                if (FixedTileLoadersDirty)
+                {
+                    FixedTileLoadersDirty = false;
+                    netHook.TryBroadcast(new NetWTMessage(FixedTileLoaders));
+                }
+            }
+        }
         private static void GetActiveTilePerimeterForRequestedLoaded()
         {
             PerimeterTileSubLoaded.Clear();
             foreach (var item in LoadedTileCoords)
             {
-                TryAddTilePerimeterAtPosition(item.Key, ref PerimeterTileSubLoaded, WorldTile.State.Created);
-                //AddActiveTilePerimeterAroundPosition(item.Key, ref PerimeterTileSubLoaded);
+                //TryAddTilePerimeterAtPosition(item.Key, ref PerimeterTileSubLoaded, WorldTile.State.Created);
+                AddActiveTilePerimeterAroundPositionLazy(item.Key, ref PerimeterTileSubLoaded);
             }
             foreach (var item in LoadedTileCoords)
             {
                 PerimeterTileSubLoaded.Remove(item.Key);
             }
+            foreach (var item in PerimeterTileSubLoaded)
+            {
+                LoadedTileCoords.Add(item.Key, WorldTile.State.Created);
+            }
         }
         private static void AddTilePerimeterAroundPosition(IntVector2 posSpot, 
             ref Dictionary<IntVector2, WorldTile.State> perimeter, WorldTile.State state = WorldTile.State.Loaded)
         {
-            for (int i = -1; i < 1; i++)
+            for (int i = -1; i < 2; i++)
             {
-                for (int j = -1; j < 1; j++)
+                for (int j = -1; j < 2; j++)
                 {
                     if (i != 0 && j != 0)
                     {
@@ -442,9 +621,9 @@ namespace TerraTechETCUtil
         }
         private static void AddPopulatedTilePerimeterAroundPosition(IntVector2 posSpot, ref Dictionary<IntVector2, WorldTile.State> perimeter)
         {
-            for (int i = -1; i < 1; i++)
+            for (int i = -1; i < 2; i++)
             {
-                for (int j = -1; j < 1; j++)
+                for (int j = -1; j < 2; j++)
                 {
                     if (i != 0 && j != 0 && !perimeter.ContainsKey(posSpot))
                     {
@@ -457,9 +636,9 @@ namespace TerraTechETCUtil
         // cruddy search algor, we shall see...
         private static void AddActiveTilePerimeterAroundPosition(IntVector2 posSpot, ref Dictionary<IntVector2, WorldTile.State> perimeter)
         {
-            for (int i = -1; i < 1; i++)
+            for (int i = -1; i < 2; i++)
             {
-                for (int j = -1; j < 1; j++)
+                for (int j = -1; j < 2; j++)
                 {
                     if (i != 0 && j != 0 && !perimeter.ContainsKey(posSpot))
                     {
@@ -468,6 +647,13 @@ namespace TerraTechETCUtil
                     }
                 }
             }
+        }
+        // cruddy search algor, we shall see...
+        private static void AddActiveTilePerimeterAroundPositionLazy(IntVector2 posSpot, ref Dictionary<IntVector2, WorldTile.State> perimeter)
+        {
+            for (int i = -1; i < 2; i++)
+                for (int j = -1; j < 2; j++)
+                    TryAddTilePerimeterAtPosition(posSpot + new IntVector2(i, j), ref perimeter);
         }
         private static void TryAddTilePerimeterAtPosition(IntVector2 perimeterToAdd, 
             ref Dictionary<IntVector2, WorldTile.State> perimeter, WorldTile.State state = WorldTile.State.Loaded)
@@ -688,7 +874,7 @@ namespace TerraTechETCUtil
             {
                 try
                 {
-                    if (ManWorld.inst.TileManager.IsClearing || ManWorld.inst.TileManager.IsCleared)
+                    if (__instance.IsClearing || ManWorld.inst.CurrentBiomeMap == null)
                         return;
                     if (exisTiles == null)
                     {
@@ -717,40 +903,7 @@ namespace TerraTechETCUtil
                     //tileCoordsToCreate = 
 
                     Debug_TTExt.Assert(ManWorldTileExt.RequestedLoaded == null, "ManTileLoader - RequestedLoaded IS NULL");
-                    int requests = ManWorldTileExt.Perimeter.Count;
-                    for (int step = 0; step < requests; step++)
-                    {
-                        var item = ManWorldTileExt.Perimeter.ElementAt(step);
-                        if (item.Key != null)
-                        {
-                            Vector3 pos = ManWorld.inst.TileManager.CalcTileCentreScene(item.Key);
-                            if (pos.x > -maxDistFromOrigin && pos.x < maxDistFromOrigin &&
-                                pos.y > -maxDistFromOrigin && pos.y < maxDistFromOrigin &&
-                                pos.z > -maxDistFromOrigin && pos.z < maxDistFromOrigin)
-                            {
-                                if (exisTiles.TryGetValue(item.Key, out WorldTile WT))
-                                {
-                                    if (WT != null)
-                                    {
-                                        //DebugRandAddi.Log("ManTileLoader - Loading tile at " + WT.Coord);
-                                        if (WT.m_RequestState < WorldTile.State.Created)
-                                            WT.m_RequestState = WorldTile.State.Created;
-                                    }
-                                    else
-                                        Debug_TTExt.Assert("ManTileLoader(Perimeter) - Tile at " + item.Key + " is NULL");
-                                }
-                                else
-                                {
-                                    if (!tileCoordsToCreate.Contains(item.Key))
-                                    {
-                                        tileCoordsToCreate.Add(item.Key);
-                                        Debug_TTExt.Info("ManTileLoader(Perimeter) - Force-loading NEW Tile at " + item.Key);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    requests = ManWorldTileExt.RequestedLoaded.Count;
+                    int requests = ManWorldTileExt.RequestedLoaded.Count;
                     for (int step = 0; step < requests;)
                     {
                         var item = ManWorldTileExt.RequestedLoaded.ElementAt(step);
@@ -766,7 +919,10 @@ namespace TerraTechETCUtil
                                     if (WT != null)
                                     {
                                         //DebugRandAddi.Log("ManTileLoader - Loading tile at " + WT.Coord);
-                                        WT.m_RequestState = item.Value;
+                                        if (item.Value == WorldTile.State.Empty)
+                                            WT.m_RequestState = WorldTile.State.Empty;
+                                        else if (WT.m_RequestState < item.Value)
+                                            WT.m_RequestState = item.Value;
                                     }
                                     else
                                         Debug_TTExt.Assert("ManTileLoader - Tile at " + item.Key + " is NULL");

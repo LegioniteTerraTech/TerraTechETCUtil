@@ -592,7 +592,7 @@ namespace TerraTechETCUtil
                     {
                         for (int y = min.y - 1; y <= max.y; y++)
                         {
-                            ManWorldTileExt.HostReloadTile(new IntVector2(x, y), false);
+                            ManWorldTileExt.HostOnly_ReloadTile(new IntVector2(x, y), false);
                         }
                     }
                     if (TSP.name != name)

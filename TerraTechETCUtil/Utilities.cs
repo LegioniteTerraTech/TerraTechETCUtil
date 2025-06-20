@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using FMOD.Studio;
+
+
 #if !EDITOR
 using HarmonyLib;
 #endif
@@ -74,7 +78,6 @@ namespace TerraTechETCUtil
     /// </summary>
     public static class Utilities
     {
-
         public static ColorBytes ToRGBA255(this Color toNum)
         {
             return new ColorBytes(toNum);

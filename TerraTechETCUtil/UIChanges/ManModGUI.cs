@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace TerraTechETCUtil
@@ -239,6 +240,13 @@ namespace TerraTechETCUtil
         public static bool IsUIInteractionBlocked => ManPointer.inst.DraggingItem;
         private static Dictionary<ManHUD.HUDElementType, object> TempHidden = 
             new Dictionary<ManHUD.HUDElementType, object>();
+        /// <summary>
+        /// Reset the UI so it doesn't try to reopen menus
+        /// </summary>
+        public static void ClearTempHidden()
+        {
+            TempHidden.Clear();
+        }
         public static void HideGUI(ManHUD.HUDElementType type)
         {
             object context = null;
@@ -570,6 +578,9 @@ namespace TerraTechETCUtil
         }
 
 
+        public static void ShowErrorPopup(string Warning, bool IsSeriousError = false, Action OnFixRequested = null) =>
+            InvokeHelper.ShowErrorPopup(Warning, IsSeriousError, OnFixRequested);
+
 
         /// <summary>
         /// Position in percent of the max screen width and length
@@ -745,6 +756,8 @@ namespace TerraTechETCUtil
                 catch { }
             }
         }
+
+
     }
 
     public class GUIPopupDisplay : MonoBehaviour

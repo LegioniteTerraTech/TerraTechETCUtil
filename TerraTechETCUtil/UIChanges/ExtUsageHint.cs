@@ -17,13 +17,14 @@ namespace TerraTechETCUtil
             public readonly string stringID;
             public readonly float displayDuration;
             public readonly bool repeatable;
-            private string descCache;
+            internal LocExtStringMod descAuto;
             public string desc
             {
-                get => descCache;
-                set {
-                    descCache = value;
-                    UpdateHint(this);
+                get
+                {
+                    if (descAuto != null)
+                        return descAuto.ToString();
+                    return string.Empty;
                 }
             }
             public int assignedID { get; internal set; }
@@ -31,7 +32,16 @@ namespace TerraTechETCUtil
             {
                 modID = ModID;
                 stringID = StringID;
-                descCache = desc;
+                descAuto = new LocExtStringMod(desc);
+                displayDuration = duration;
+                repeatable = repeat;
+                RegisterHint(this);
+            }
+            public UsageHint(string ModID, string StringID, LocExtStringMod desc, float duration = defaultHintDisplayTime, bool repeat = false)
+            {
+                modID = ModID;
+                stringID = StringID;
+                descAuto = desc;
                 displayDuration = duration;
                 repeatable = repeat;
                 RegisterHint(this);
@@ -43,9 +53,8 @@ namespace TerraTechETCUtil
         }
         public string DirectoryInExtModSettings => "UsageHints";
 
-        internal static FieldInfo
-        defD = typeof(EnumString).GetField("m_EnumValueInt", BindingFlags.NonPublic | BindingFlags.Instance),
-        locFA = typeof(Localisation).GetField("m_HashLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+        internal static FieldInfo defD = typeof(EnumString).GetField("m_EnumValueInt", BindingFlags.NonPublic | BindingFlags.Instance);
+        //internal static FieldInfo locFA = typeof(Localisation).GetField("m_HashLookup", BindingFlags.NonPublic | BindingFlags.Instance);
 
         private static bool init = false;
         private static ExtUsageHint inst = new ExtUsageHint();
@@ -86,11 +95,8 @@ namespace TerraTechETCUtil
                 string subjectID = UH.stringID;
                 if (extHintsIDLookup.ContainsKey(subjectID))
                     throw new Exception("Hint of ID " + subjectID + " is already registered");
-                LocalisedString LS = new LocalisedString()
-                {
-                    m_Bank = subjectID,
-                    m_Id = prefix + subjectID,
-                };
+                LocalisedString LS;
+                LS = UH.descAuto.CreateNewLocalisedString();
                 EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
                 int intID = HintsSeenETCIndex;
                 HintsSeenETCIndex++;
@@ -103,11 +109,12 @@ namespace TerraTechETCUtil
                     m_HintId = ES,
                     m_UseDifferentHintMessageForPad = false
                 };
-                ManIngameWiki.InjectHint(UH.modID, "General", UH.desc);
+                ManIngameWiki.InjectHint(UH.modID, ManIngameWiki.LOC_General, UH.descAuto);
                 string HintDescription = UH.desc;
                 extHints.Add(HD);
                 extHintsIDLookup.Add(subjectID, intID);
                 extHintsIDLookupInv.Add(intID, subjectID);
+                /*
                 try
                 {
                     Dictionary<int, string> lingo = (Dictionary<int, string>)locFA.GetValue(Localisation.inst);
@@ -124,14 +131,15 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.RegisterHint TECHINCAL ERROR - loc fail \n" + e);
-                }
+                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.RegisterHint TECHNICAL ERROR - loc fail \n" + e);
+                }*/
             }
             catch (Exception e)
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.RegisterHint TECHINCAL ERROR - " + e);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.RegisterHint TECHNICAL ERROR - " + e);
             }
         }
+        /*
         internal static void UpdateHint(UsageHint UH)
         {
             try
@@ -171,14 +179,14 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR - loc fail \n" + e);
                 }
             }
             catch
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
             }
-        }
+        }*/
 
         public static void EditHint(string subjectName, int blockID, string HintDescription)
         {
@@ -189,13 +197,14 @@ namespace TerraTechETCUtil
                 EnumString ES;
                 LocalisedString LS = new LocalisedString()
                 {
-                    m_Bank = bank,
-                    m_Id = ManMods.inst.FindBlockName(blockID),//prefix + blockID.ToString();
+                    m_Bank = LocalisationExt.ModTag,
+                    m_Id = HintDescription,
                 };
                 if (extHintsIDLookup.TryGetValue(bank, out int val))
                 {
                     ES = new EnumString(typeof(GameHints.HintID), 1);
                     defD.SetValue(ES, val);
+                    extHints.Find(x => x.m_HintId.Value == val).m_HintMessage.m_Id = HintDescription;
                 }
                 else
                 {
@@ -215,6 +224,7 @@ namespace TerraTechETCUtil
                     extHintsIDLookup.Add(bank, intID);
                     extHintsIDLookupInv.Add(intID, bank);
                 }
+                /*
                 try
                 {
                     Dictionary<int, string> lingo = (Dictionary<int, string>)locFA.GetValue(Localisation.inst);
@@ -231,12 +241,12 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR - loc fail \n" + e);
-                }
+                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR - loc fail \n" + e);
+                }*/
             }
             catch
             {
-                BlockDebug.ThrowWarning("TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
             }
         }
 

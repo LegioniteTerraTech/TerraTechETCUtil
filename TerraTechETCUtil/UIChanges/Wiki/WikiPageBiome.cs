@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using UnityEngine;
 
@@ -8,12 +9,24 @@ namespace TerraTechETCUtil
 {
     public class WikiPageBiome : ManIngameWiki.WikiPage
     {
+        public static Func<Biome, string> GetBiomeData = null;
         public static Func<Biome, string> GetBiomeName = GetBiomeNameDefault;
         public static Func<Biome, string> GetBiomeModName = GetBiomeModNameDefault;
         public static Func<Biome, string> GetBiomeDescription = GetBiomeDescriptionDefault;
+        public static string GetBiomeNameDefault(Biome biomeInst)
+        {
+            //new LocExtString(LocalisationEnums.StringBanks., corpID)
+            return CleanupName(biomeInst.name.ToString());
+        }
+        public static string GetBiomeModNameDefault(Biome biomeInst)
+        {
+            return ManIngameWiki.VanillaGameName;
+        }
         public static string GetBiomeDescriptionDefault(Biome biomeInst)
         {
-            
+            //LocalisationEnums.GetLocalisedString()
+
+
             switch (biomeInst.BiomeType)
             {
                 case BiomeTypes.Grassland:
@@ -41,7 +54,7 @@ namespace TerraTechETCUtil
         internal BiomeDataInfo[] modules;
         public WikiPageBiome(Biome BiomeInst) :
             base(GetBiomeModName(BiomeInst), GetBiomeName(BiomeInst),
-            null, "Biomes", null)
+            null, ManIngameWiki.LOC_Biomes, null)
         {
             if (BiomeInst == null)
                 throw new NullReferenceException("BiomeInst");
@@ -66,7 +79,7 @@ namespace TerraTechETCUtil
                 Replace("Basic", string.Empty).Replace("_", string.Empty).SplitCamelCase();
         }
         public override void DisplaySidebar() => ButtonGUIDisp();
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -86,7 +99,7 @@ namespace TerraTechETCUtil
 
         }
         private static List<BiomeDataInfo> Combiler = new List<BiomeDataInfo>();
-        public override void DisplayGUI()
+        protected override void DisplayGUI()
         {
             if (modules == null)
             {
@@ -112,12 +125,12 @@ namespace TerraTechETCUtil
                             {
                                 var prefabBase = item2.prefabBase;
                                 var prefab = item2.prefab;
-                                string nameCached = item2.name;
+                                string nameCached = item2.title;
                                 if (prefabBase != null && prefab)
                                 {
                                     foreach (var item3 in prefabBase)
                                     {
-                                        if (item3.Key == biomeInst.name && !links.Exists(x => x.linked.name == nameCached))
+                                        if (item3.Key == biomeInst.name && !links.Exists(x => x.linked.title == nameCached))
                                             links.Add(new ManIngameWiki.WikiLink(item2));
                                     }
                                 }
@@ -150,16 +163,18 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
             if (desc != null)
                 GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
+            if (ManIngameWiki.ShowJSONExport && GetBiomeData != null && biomeInst != null)
+            {
+                if (AltUI.Button("ENTIRE CORP JSON to system clipboard", ManSFX.UISfxType.Craft))
+                {
+                    AutoDataExtractor.clipboard.Clear();
+                    AutoDataExtractor.clipboard.Append(GetBiomeData.Invoke(biomeInst));
+                    GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                }
+            }
         }
 
-        public static string GetBiomeNameDefault(Biome biomeInst)
-        {
-            return CleanupName(biomeInst.name.ToString());
-        }
-        public static string GetBiomeModNameDefault(Biome biomeInst)
-        {
-            return ManIngameWiki.VanillaGameName;
-        }
 
         internal class BiomeDataInfo : AutoDataExtractor
         {

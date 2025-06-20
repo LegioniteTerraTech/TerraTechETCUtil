@@ -10,7 +10,7 @@ namespace TerraTechETCUtil
 #if !EDITOR
     public class ManAudioExt : MonoBehaviour
     {
-        public static ManAudioExt inst;
+        private static ManAudioExt inst;
         public static float SFXVolume
         {
             get => _SFXVolume;
@@ -219,19 +219,30 @@ namespace TerraTechETCUtil
         private static Vector3 latentUpVec;
         private void OnUpdate()
         {
-            foreach (AudioInst inst in managed)
+            try
             {
-                inst.RemoteUpdate();
+                foreach (AudioInst inst in managed)
+                {
+                    inst.RemoteUpdate();
+                }
             }
-            FMOD.VECTOR vecP = latentPosVec.ToFMODVector();
-            FMOD.VECTOR vecD = default;
-            FMOD.VECTOR vecF = latentFwdVec.ToFMODVector();
-            FMOD.VECTOR vecU = latentUpVec.ToFMODVector();
-            sys.set3DListenerAttributes(0, ref vecP, ref vecD, ref vecF, ref vecU);
-            sys.update();
-            latentPosVec = Singleton.cameraTrans.position;
-            latentFwdVec = Singleton.cameraTrans.forward;
-            latentUpVec = Singleton.cameraTrans.up;
+            catch // IDK what the heck FMOD is doing but somehow it is tampering with ManAudioExt.managed.
+                  // We catch the dumb exception to silence it.
+            { }
+            try
+            {
+                FMOD.VECTOR vecP = latentPosVec.ToFMODVector();
+                FMOD.VECTOR vecD = default;
+                FMOD.VECTOR vecF = latentFwdVec.ToFMODVector();
+                FMOD.VECTOR vecU = latentUpVec.ToFMODVector();
+                sys.set3DListenerAttributes(0, ref vecP, ref vecD, ref vecF, ref vecU);
+                sys.update();
+                latentPosVec = Singleton.cameraTrans.position;
+                latentFwdVec = Singleton.cameraTrans.forward;
+                latentUpVec = Singleton.cameraTrans.up;
+            }
+            catch // extra for safety
+            { }
         }
 
 

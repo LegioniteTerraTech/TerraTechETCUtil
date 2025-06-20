@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using static LocalisationEnums;
 using static ModeAttract;
 
 namespace TerraTechETCUtil
@@ -45,6 +46,12 @@ namespace TerraTechETCUtil
             else
                 queuedCreate.Enqueue(add);
         }
+        private static LocExtStringMod abilitiesName = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Abilities" },
+            {Languages.Japanese, "アビリティー" }});
+        private static LocExtStringMod wikiNextPageName = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Next Page" },
+            {Languages.Japanese, "次のページ" }});
         internal static void TrySetup(Mode ignor)
         {
             try
@@ -58,7 +65,7 @@ namespace TerraTechETCUtil
                 ManGameMode.inst.ModeStartEvent.Subscribe(TrySetup);
                 ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(NotReady);
                 ManUpdate.inst.AddAction(ManUpdate.Type.Update, ManUpdate.Order.First, UpdateThis, 9001);
-                NextPageButton = new AbilityButton("Next Page",
+                NextPageButton = new AbilityButton(wikiNextPageName,
                     ResourcesHelper.GetTexture2DFromBaseGameAllFast("ArrowRight").ConvertToSprite(), NextPage, 0f);
                 NextPageButton.Hide();
                 ready = true;
@@ -110,7 +117,8 @@ namespace TerraTechETCUtil
                     var lockedText = trans.GetComponentInChildren<UILocalisedText>(true);
                     if (lockedText == null)
                         throw new NullReferenceException("ManAbilities.InitAbilityBar() - lockedText null");
-                    UnityEngine.Object.Destroy(lockedText);
+                    lockedText.m_String = abilitiesName.CreateNewLocalisedString();
+                    //UnityEngine.Object.Destroy(lockedText);
                     var speedText = trans.GetComponentInChildren<UISpeedo>(true);
                     if (speedText == null)
                         throw new NullReferenceException("ManAbilities.InitAbilityBar() - speedText null");
@@ -121,8 +129,7 @@ namespace TerraTechETCUtil
                         throw new NullReferenceException("ManAbilities.InitAbilityBar() - tooltip null or empty");
                     foreach (var tooltip in tooltips)
                     {
-                        ManToolbar.textSet.SetValue(tooltip, false);
-                        tooltip.SetText("Abilities");
+                        abilitiesName.SetTextAuto(tooltip);
                     }
 
                     var Texts = trans.GetComponentsInChildren<Text>(true);
@@ -130,8 +137,9 @@ namespace TerraTechETCUtil
                         throw new NullReferenceException("ManAbilities.InitAbilityBar() - Texts null or empty");
                     foreach (var TextCase in Texts)
                     {
-                        TextCase.text = "Abilities";
+                        TextCase.text = abilitiesName.GetEnglish();
                     }
+                    lockedText.UpdateText();
                     var toRem = trans.HeavyTransformSearch("Speedo_Text");
                     if (toRem == null)
                         throw new NullReferenceException("ManAbilities.InitAbilityBar() - Speedo_Text null");
@@ -263,9 +271,41 @@ namespace TerraTechETCUtil
             }
         }
 
+        internal static Toggle MakePrefabToggle(LocExtStringMod name, Sprite iconSprite, UnityAction<bool> callback)
+        {
+            var ob = ManToolbar.MakePrefabToggle(name, iconSprite, callback, inst.transform);
+            RectTransform RT = ob.GetComponent<RectTransform>();
+            RT.anchoredPosition = RT.anchoredPosition + new Vector2(0, 40);
+            foreach (var item in ob.GetComponentsInChildren<Image>(true))
+            {
+                item.fillMethod = Image.FillMethod.Radial360;
+                item.fillOrigin = (int)item.fillMethod;
+                item.fillClockwise = true;
+                item.fillCenter = false;
+                item.fillAmount = 1;
+            }
+            ob.gameObject.SetActive(false);
+            return ob;
+        }
         internal static Toggle MakePrefabToggle(string name, Sprite iconSprite, UnityAction<bool> callback)
         {
             var ob = ManToolbar.MakePrefabToggle(name, iconSprite, callback, inst.transform);
+            RectTransform RT = ob.GetComponent<RectTransform>();
+            RT.anchoredPosition = RT.anchoredPosition + new Vector2(0, 40);
+            foreach (var item in ob.GetComponentsInChildren<Image>(true))
+            {
+                item.fillMethod = Image.FillMethod.Radial360;
+                item.fillOrigin = (int)item.fillMethod;
+                item.fillClockwise = true;
+                item.fillCenter = false;
+                item.fillAmount = 1;
+            }
+            ob.gameObject.SetActive(false);
+            return ob;
+        }
+        internal static Button MakePrefabButton(LocExtStringMod name, Sprite iconSprite, UnityAction callback)
+        {
+            var ob = ManToolbar.MakePrefabButton(name, iconSprite, callback, inst.transform);
             RectTransform RT = ob.GetComponent<RectTransform>();
             RT.anchoredPosition = RT.anchoredPosition + new Vector2(0, 40);
             foreach (var item in ob.GetComponentsInChildren<Image>(true))

@@ -4,6 +4,7 @@ using System.Linq;
 using Snapshots;
 using System.Reflection;
 using HarmonyLib;
+using static LocalisationEnums;
 
 namespace TerraTechETCUtil
 {
@@ -114,11 +115,14 @@ namespace TerraTechETCUtil
         }
         internal static bool WarnInvalidTechData()
         {
+            var warnings = UIControl.m_Warnings;
             if (UIControl.m_Selected?.Value.m_Snapshot != null)
             {
-                if (UIControl.m_Selected.Value.m_ValidData.HasMissingBlocksPlace)
+                warnings.Clear();
+                TechDataAvailValidation TDAV = UIControl.m_Selected.Value.m_ValidData;
+                if (TDAV.HasMissingBlocksPlace)
                 {
-                    UIControl.m_Warnings.Add(new VMSnapshotPanel.WarningData
+                    warnings.Add(new VMSnapshotPanel.WarningData
                     {
                         m_WarningType = PlacementSelection.InvalidType.General,
                         m_Text = Localisation.inst.GetLocalisedString(
@@ -126,19 +130,26 @@ namespace TerraTechETCUtil
                             Array.Empty<Localisation.GlyphInfo>())
                     });
                 }
+                if (!TDAV.m_HasPlayerCab)
+                {
+                    warnings.Add(new VMSnapshotPanel.WarningData
+                    {
+                        m_WarningType = PlacementSelection.InvalidType.General,
+                        m_Text = Localisation.inst.GetLocalisedString(
+                            LocalisationEnums.StringBanks.TechPlacement, 15,
+                            Array.Empty<Localisation.GlyphInfo>())
+                    });
+                }
             }
             else
             {
-                UIControl.m_Warnings.Add(new VMSnapshotPanel.WarningData
-                {
-                    m_WarningType = PlacementSelection.InvalidType.General,
-                    m_Text = "Tech NULL",
-                });
+                warnings.Clear();
             }
             return false;
         }
         internal static bool WarnNoSpawnTechsInFolderMode()
         {
+            UIControl.m_Warnings.Clear();
             UIControl.m_Warnings.Add(new VMSnapshotPanel.WarningData
             {
                 m_WarningType = PlacementSelection.InvalidType.General,

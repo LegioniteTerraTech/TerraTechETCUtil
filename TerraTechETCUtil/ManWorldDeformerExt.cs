@@ -232,7 +232,7 @@ namespace TerraTechETCUtil
                 ManWorldTileExt.RushTileLoading();
             foreach (var item in terrainsByDeformed)
             {
-                ManWorldTileExt.HostReloadTile(item, false);
+                ManWorldTileExt.HostOnly_ReloadTile(item, false);
             }
             terrainsByDeformed.Clear();
             terrainsDeformed.Clear();
@@ -254,7 +254,7 @@ namespace TerraTechETCUtil
                 {
                     terrainsDeformed.Remove(item2.Key);
                     terrainsByDeformed.Remove(item2.Key);
-                    ManWorldTileExt.HostReloadTile(item2.Value.Position.TileCoord, false);
+                    ManWorldTileExt.HostOnly_ReloadTile(item2.Value.Position.TileCoord, false);
                 }
             }
         }

@@ -1,11 +1,16 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.IO;
+
 #if !EDITOR
 using HarmonyLib;
+using Newtonsoft.Json;
+
 #endif
 using UnityEngine;
 using UnityEngine.Networking;
+using static TerraTechETCUtil.ManWorldTileExt;
 
 namespace TerraTechETCUtil
 {
@@ -21,26 +26,35 @@ namespace TerraTechETCUtil
         public static int NetworkHooks => NetworkHooksStart + hooks.Count;
         public static Dictionary<int, NetworkHook> hooks = new Dictionary<int, NetworkHook>();
 
-        internal static bool Register(NetworkHook hook)
+        internal static int GetAssignVal(string ID)
         {
-            int ID = NetworkHooks;
-            if (!hooks.ContainsKey(ID))
+            int Value = ID.GetHashCode();
+            if (Value < NetworkHooksStart)
             {
-                hook.AssignedID = ID;
-                hooks.Add(ID, hook);
-                return true;
+                Value = Mathf.Abs(Value) % (int.MaxValue - NetworkHooksStart);
             }
-            return false;
+            return Value;
         }
-        internal static bool UnRegister(NetworkHook hook)
+        internal static void Enable(NetworkHook hook)
         {
-            throw new InvalidOperationException("Cannot unregister hooks!");
-            if (hooks.Remove(hook.AssignedID))
+            if (hooks.TryGetValue(hook.AssignedID, out NetworkHook hookGet))
             {
-
-                return true;
+                if (hookGet != hook)
+                {
+                    throw new InvalidOperationException("Cannot register hook of ID \"" + hook.StringID + "\" as the ID hash [" +
+                        hook.AssignedID + "] is already taken by  \"" + hookGet.StringID + "\" of ID  hash [" +
+                        hookGet.AssignedID + "]");
+                }
             }
-            return false;
+            else
+            {
+                hooks.Add(hook.AssignedID, hook);
+            }
+        }
+        internal static void Disable(NetworkHook hook)
+        {
+            //throw new InvalidOperationException("Cannot unregister hooks!");
+            hooks.Remove(hook.AssignedID);
         }
 
         internal static bool SendToClient(int connectionID, NetworkHook hook, MessageBase message)
@@ -113,26 +127,34 @@ namespace TerraTechETCUtil
     /// </summary>
     public abstract class NetworkHook
     {
-        public int AssignedID = -1;
-        public NetMessageType Type;
+        public readonly string StringID;
+        public readonly int AssignedID;
+        public readonly NetMessageType Type;
 
         public abstract string NameFull { get; }
+
+        public NetworkHook(string ID, NetMessageType type) 
+        {
+            StringID = ID;
+            AssignedID = ManModNetwork.GetAssignVal(StringID);
+            Enable();
+        }
 
         /// <summary>
         /// Must be called before game scene fully loads.  Do not unhook unless we are certain the hook is no longer needed!
         /// </summary>
         /// <returns>true if it worked, false if failed</returns>
-        public bool Register()
+        public void Enable()
         {
-            return ManModNetwork.Register(this);
+            ManModNetwork.Enable(this);
         }
         /// <summary>
         /// Must be called before game scene fully unloads.  Do not unhook unless we are certain the hook is no longer needed!
         /// </summary>
         /// <returns>true if it worked, false if failed</returns>
-        public bool UnRegister()
+        public void Disable()
         {
-            return ManModNetwork.UnRegister(this);
+            ManModNetwork.Disable(this);
         }
 
         public bool ClientSends()

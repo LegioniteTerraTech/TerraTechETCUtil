@@ -26,6 +26,14 @@ namespace TerraTechETCUtil
         public static Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>> remoteSFX = new Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>>();
         public static TechAudio.TechAudioEventSimple[] freeAudio = null;
 
+        /// <summary>
+        /// Not advised.  Allows playing of SFX BUT it's incorrectly tied to the position 
+        ///  of the first player Tech that was active the first time this function is called!!!
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="trans"></param>
+        /// <param name="module"></param>
+        [Obsolete]
         public static void RegisterFloatingSFX<T>(Transform trans, T module) 
             where T : TechAudio.IModuleAudioProvider
         {
@@ -36,6 +44,14 @@ namespace TerraTechETCUtil
                 remoteSFX.Add(trans, new HashSet<TechAudio.IModuleAudioProvider>() { module });
             module.OnAudioTickUpdate += OnModuleTickData;
         }
+        /// <summary>
+        /// Not advised.  Allows playing of SFX BUT it's incorrectly tied to the position 
+        ///  of the first player Tech that was active the first time this function is called!!!
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="trans"></param>
+        /// <param name="module"></param>
+        [Obsolete]
         public static void UnregisterFloatingSFX<T>(Transform trans, T module)
             where T : TechAudio.IModuleAudioProvider
         {
@@ -57,9 +73,12 @@ namespace TerraTechETCUtil
         private static void OnModuleTickData(TechAudio.AudioTickData tickData, FMODEvent.FMODParams additionalParam)
         {
             int sfxtypeIndex = tickData.SFXTypeIndex;
-            TechAudio.TechAudioEventSimple eventA = freeAudio[sfxtypeIndex];
-            if (eventA.m_Event.IsValid() && tickData.provider is ChildModule child && tickData.numTriggered > 0)
-                eventA.m_Event.PlayOneShot(child.transform, additionalParam);
+            if (freeAudio != null)
+            {
+                TechAudio.TechAudioEventSimple eventA = freeAudio[sfxtypeIndex];
+                if (eventA.m_Event.IsValid() && tickData.provider is ChildModule child && tickData.numTriggered > 0)
+                    eventA.m_Event.PlayOneShot(child.transform, additionalParam);
+            }
         }
 
         public static void TankPlayOneshot(Tank tank, TechAudio.SFXType SFX)

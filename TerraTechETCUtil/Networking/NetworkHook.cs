@@ -18,12 +18,12 @@ namespace TerraTechETCUtil
         /// MessageBase, IsServer
         /// </summary>
         protected Func<T, bool, bool> receiveAction;
-        public override string NameFull => typeof(T).ToString() +" [" + AssignedID + "]";
+        public override string NameFull => typeof(T).ToString() +" [" + StringID + "]";
 
-        public NetworkHook(Func<T, bool, bool> onReceive, NetMessageType type)
+        public NetworkHook(string ID, Func<T, bool, bool> onReceive, NetMessageType type)
+            : base(ID, type)
         {
             receiveAction = onReceive;
-            Type = type;
         }
         public override void OnToClientReceive_Internal(NetworkMessage netMsg)
         {
@@ -33,17 +33,17 @@ namespace TerraTechETCUtil
                 case NetMessageType.ToClientsOnly:
                     decoded = (T)Activator.CreateInstance(typeof(T));
                     decoded.Deserialize(netMsg.reader);
-                    Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(ToClientsOnly) - Client-side trigger for " + AssignedID + ", type " + Type);
+                    Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(ToClientsOnly) - Client-side trigger for " + StringID + ", type " + Type);
                     receiveAction.Invoke(decoded, false);
                     break;
                 case NetMessageType.ToServerOnly:
-                    throw new Exception("NetworkHook.OnClientReceive_Internal(ToServerOnly) - ServerOnly sent to client for " + AssignedID + ", type " + Type);
+                    throw new Exception("NetworkHook.OnClientReceive_Internal(ToServerOnly) - ServerOnly sent to client for " + StringID + ", type " + Type);
                 case NetMessageType.FromClientToServerThenClients:
                     try
                     {
                         decoded = (T)Activator.CreateInstance(typeof(T));
                         decoded.Deserialize(netMsg.reader);
-                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(FromClientToServerThenClients) - Client-side trigger for " + AssignedID + ", type " + Type);
+                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(FromClientToServerThenClients) - Client-side trigger for " + StringID + ", type " + Type);
                         receiveAction.Invoke(decoded, false);
                     }
                     catch (Exception e)
@@ -56,7 +56,7 @@ namespace TerraTechETCUtil
                     {
                         decoded = (T)Activator.CreateInstance(typeof(T));
                         decoded.Deserialize(netMsg.reader);
-                        Debug_TTExt.Log("NetworkHook.OnClientReceive_Internal(RequestServerFromClient) - Client-side trigger for " + AssignedID + ", type " + Type);
+                        Debug_TTExt.Log("NetworkHook.OnClientReceive_Internal(RequestServerFromClient) - Client-side trigger for " + StringID + ", type " + Type);
                         receiveAction.Invoke(decoded, false);
                     }
                     catch (Exception e)
@@ -74,11 +74,11 @@ namespace TerraTechETCUtil
             switch (Type)
             {
                 case NetMessageType.ToClientsOnly:
-                    throw new Exception("NetworkHook.OnClientReceive_Internal(ToClientsOnly) - ClientsOnly sent to server for " + AssignedID + ", type " + Type);
+                    throw new Exception("NetworkHook.OnClientReceive_Internal(ToClientsOnly) - ClientsOnly sent to server for " + StringID + ", type " + Type);
                 case NetMessageType.ToServerOnly:
                     decoded = (T)Activator.CreateInstance(typeof(T));
                     decoded.Deserialize(netMsg.reader);
-                    Debug_TTExt.Log("NetworkHook.OnClientReceive_Internal(ToServerOnly) - Server-side trigger for " + AssignedID + ", type " + Type);
+                    Debug_TTExt.Log("NetworkHook.OnClientReceive_Internal(ToServerOnly) - Server-side trigger for " + StringID + ", type " + Type);
                     receiveAction.Invoke(decoded, true);
                     break;
                 case NetMessageType.FromClientToServerThenClients:
@@ -86,7 +86,7 @@ namespace TerraTechETCUtil
                     {
                         decoded = (T)Activator.CreateInstance(typeof(T));
                         decoded.Deserialize(netMsg.reader);
-                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(FromClientToServerThenClients) - Server-side trigger for " + AssignedID + ", type " + Type);
+                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(FromClientToServerThenClients) - Server-side trigger for " + StringID + ", type " + Type);
                         if (receiveAction.Invoke(decoded, true))
                         {
                             try
@@ -109,7 +109,7 @@ namespace TerraTechETCUtil
                     {
                         decoded = (T)Activator.CreateInstance(typeof(T));
                         decoded.Deserialize(netMsg.reader);
-                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(RequestServerFromClient) - Server-side trigger for " + AssignedID + ", type " + Type);
+                        Debug_TTExt.Info("NetworkHook.OnClientReceive_Internal(RequestServerFromClient) - Server-side trigger for " + StringID + ", type " + Type);
                         if (receiveAction.Invoke(decoded, true))
                         {
                             try

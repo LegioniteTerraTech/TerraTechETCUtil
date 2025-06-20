@@ -16,10 +16,11 @@ namespace TerraTechETCUtil
 
         public static float UIAlpha = 0.725f;
         public static string UIAlphaText = "<color=#454545ff>";
-        public const string UIBlueText = "<color=#6bafe4ff>";
+        public const string UIBlueTextHUD = "<color=#6bafe4ff>";
+        public const string UIBlueTextMessage = "<color=#16aadeff>";
         public const string UIHighlightText = UIObjectiveMarkerText;//"<color=#16aadeff>";
         public const string UIObjectiveMarkerText = "<color=#ffff00ff>";
-        public const string UIObjectiveText = "<color=#2596beff>";
+        public const string UIObjectiveText = "<color=#e4ac41ff>";
         public const string UIEnemyText = "<color=#f23d3dff>";
         public const string UILackeyText = "<color=#308db5>";
         public const string UIWhisperText = "<color=#7d7d7d>";
@@ -41,9 +42,13 @@ namespace TerraTechETCUtil
         {
             return UIAlphaText + stringIn + "</color>";
         }
-        public static string BlueString(string stringIn)
+        public static string BlueStringHUD(string stringIn)
         {
-            return UIBlueText + stringIn + "</color>";
+            return UIBlueTextHUD + stringIn + "</color>";
+        }
+        public static string BlueStringMsg(string stringIn)
+        {
+            return UIBlueTextMessage + stringIn + "</color>";
         }
         public static string HighlightString(string stringIn)
         {
@@ -51,7 +56,7 @@ namespace TerraTechETCUtil
         }
         public static string ObjectiveString(string stringIn)
         {
-            return UIObjectiveMarkerText + stringIn + "</color>";
+            return UIObjectiveText + stringIn + "</color>";
         }
         public static string EnemyString(string stringIn)
         {
@@ -84,6 +89,7 @@ namespace TerraTechETCUtil
         public static Color ColorDefaultWhite = new Color(0.975f, 0.975f, 0.975f, 1);
         public static Color ColorDefaultBlue = new Color(0.4196f, 0.6863f, 0.8941f, 1);
         public static Color ColorDefaultRed = new Color(0.949f, 0.239f, 0.239f, 1);
+        public static Color ColorDefaultGold = new Color(0.894f, 0.675f, 0.255f, 1);
         public static Font ExoFont { get; private set; }
         public static Font ExoFontMediumItalic { get; private set; }
         public static Font ExoFontBold { get; private set; }
@@ -274,6 +280,11 @@ namespace TerraTechETCUtil
         private static GUIStyleState LabelRedStyle;
         public static GUIStyle LabelRedTitle;
         private static GUIStyleState LabelRedStyleTitle;
+
+        public static GUIStyle LabelGold;
+        private static GUIStyleState LabelGoldStyle;
+        public static GUIStyle LabelGoldTitle;
+        private static GUIStyleState LabelGoldStyleTitle;
         private static void MakeLabels()
         {
 
@@ -427,6 +438,42 @@ namespace TerraTechETCUtil
                 textColor = ColorDefaultRed,
             };
             LabelRedStyleTitle = styleStateBatch;
+            styleBatch.normal = styleStateBatch;
+            styleBatch.hover = styleStateBatch;
+            styleBatch.active = styleStateBatch;
+            styleBatch.focused = styleStateBatch;
+            styleBatch.onNormal = styleStateBatch;
+            styleBatch.onHover = styleStateBatch;
+            styleBatch.onActive = styleStateBatch;
+            styleBatch.onFocused = styleStateBatch;
+
+            // Setup Label Gold
+            styleBatch = new GUIStyle(TextBase);
+            LabelGold = styleBatch;
+            styleStateBatch = new GUIStyleState()
+            {
+                background = null,
+                textColor = ColorDefaultGold,
+            };
+            LabelGoldStyle = styleStateBatch;
+            styleBatch.normal = styleStateBatch;
+            styleBatch.hover = styleStateBatch;
+            styleBatch.active = styleStateBatch;
+            styleBatch.focused = styleStateBatch;
+            styleBatch.onNormal = styleStateBatch;
+            styleBatch.onHover = styleStateBatch;
+            styleBatch.onActive = styleStateBatch;
+            styleBatch.onFocused = styleStateBatch;
+
+            // Setup Label Gold Title
+            styleBatch = new GUIStyle(LabelBlackTitle);
+            LabelGoldTitle = styleBatch;
+            styleStateBatch = new GUIStyleState()
+            {
+                background = null,
+                textColor = ColorDefaultGold,
+            };
+            LabelGoldStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -816,6 +863,9 @@ namespace TerraTechETCUtil
 
 
         // -------------- Textfields --------------
+        /// <summary>
+        /// Panel_BLUE_BG
+        /// </summary>
         public static GUIStyle TextfieldBlue;
         private static Texture2D TextfieldUTexMain;
         private static GUIStyleState TextfieldUStyle;
@@ -830,6 +880,9 @@ namespace TerraTechETCUtil
         private static Texture2D TextfieldBTexMain;
         private static GUIStyleState TextfieldBStyle;
 
+        /// <summary>
+        /// STD_Text_Box_01
+        /// </summary>
         public static GUIStyle TextfieldBorderedBlue;
         private static Texture2D TextfieldBBTexMain;
         private static GUIStyleState TextfieldBBStyle;
@@ -2332,6 +2385,8 @@ namespace TerraTechETCUtil
                 tooltipWorld.Text = displayString;
             tooltipQueued = true;
         }
+
+        public static GUIToolTip Tooltip => tooltipOverMenu;
         private static GUIToolTip tooltipOverMenu = new GUIToolTip();
         private static GUIToolTipAuto tooltipWorld;
         private static bool tooltipQueued = false;

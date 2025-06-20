@@ -213,7 +213,8 @@ namespace TerraTechETCUtil
             public int Team;
             public string Desc;
         }
-        private static NetworkHook<NetBigMessage> netHook = new NetworkHook<NetBigMessage>(OnReceiveBigMessage, NetMessageType.FromClientToServerThenClients);
+        private static NetworkHook<NetBigMessage> netHook = new NetworkHook<NetBigMessage>(
+            "TerraTechETCUtil.NetBigMessage", OnReceiveBigMessage, NetMessageType.FromClientToServerThenClients);
 
         private static bool OnReceiveBigMessage(NetBigMessage command, bool isServer)
         {
@@ -237,7 +238,7 @@ namespace TerraTechETCUtil
 
         internal static void InsureNetHooks()
         {
-            netHook.Register();
+            netHook.Enable();
         }
 
 

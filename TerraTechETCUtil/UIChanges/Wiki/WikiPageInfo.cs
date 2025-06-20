@@ -12,6 +12,19 @@ namespace TerraTechETCUtil
     {
         public readonly string information;
         internal List<string> hints = new List<string>();
+
+        public WikiPageInfo(string modID, LocExtString hintTitle, Sprite icon, string Info, ManIngameWiki.WikiPageGroup group = null) :
+            base(modID, hintTitle, icon, group)
+        {
+            information = Info;
+        }
+        public WikiPageInfo(string modID, LocExtString hintTitle, Sprite icon, Action Info, ManIngameWiki.WikiPageGroup group = null) :
+            base(modID, hintTitle, icon, group)
+        {
+            information = "";
+            infoOverride = Info;
+        }
+
         public WikiPageInfo(string modID, string hintTitle, Sprite icon, string Info, ManIngameWiki.WikiPageGroup group = null) : 
             base(modID, hintTitle, icon, group)
         {
@@ -23,13 +36,15 @@ namespace TerraTechETCUtil
             information = "";
             infoOverride = Info;
         }
+
+
         public override void GetIcon() { }
         public override void DisplaySidebar() => ButtonGUIDisp();
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             return false;
         }
-        public override void DisplayGUI()
+        protected override void DisplayGUI()
         {
             GUILayout.Label(information, AltUI.LabelBlack);
         }

@@ -13,6 +13,12 @@ namespace TerraTechETCUtil
         public readonly UnityAction<bool> Callback;
         private UIHUDToggleButton togUI;
         public override bool PressedState() => toggle.isOn;
+        public AbilityToggle(LocExtStringMod name, Sprite iconSprite, UnityAction<bool> callback, float cooldown) :
+            base(name, iconSprite, cooldown)
+        {
+            Callback = callback;
+            ManAbilities.InitElement(this);
+        }
         public AbilityToggle(string name, Sprite iconSprite, UnityAction<bool> callback, float cooldown) :
             base(name, iconSprite, cooldown)
         {
@@ -34,7 +40,10 @@ namespace TerraTechETCUtil
         }
         internal override void Initiate()
         {
-            toggle = ManAbilities.MakePrefabToggle(Name, Sprite, TriggerThis);
+            if (NameLoc != null)
+                toggle = ManAbilities.MakePrefabToggle(NameLoc, Sprite, TriggerThis);
+            else
+                toggle = ManAbilities.MakePrefabToggle(NameMain, Sprite, TriggerThis);
             inst = toggle.gameObject;
             images = inst.GetComponentsInChildren<Image>(true);
             togUI = inst.GetComponentInChildren<UIHUDToggleButton>(true);

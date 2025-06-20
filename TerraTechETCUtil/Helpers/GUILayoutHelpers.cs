@@ -10,7 +10,7 @@ namespace TerraTechETCUtil
     {
         public interface SlowSortable 
         { 
-            string name { get; }
+            string displayName { get; }
         }
         private interface SlowSorter { }
         public class SlowSorter<T> : SlowSorter
@@ -105,7 +105,7 @@ namespace TerraTechETCUtil
                     if (item is UnityEngine.Object obj)
                         nameGet = obj.name;
                     else if (item is SlowSortable sortable)
-                        nameGet = sortable.name;
+                        nameGet = sortable.displayName;
                     else
                         throw new InvalidCastException("SlowSorter must have a type that is either UnityEngine.Object or SlowSortable");
                     if (Iterated.Add(item) && (selector == null || selector(item)))

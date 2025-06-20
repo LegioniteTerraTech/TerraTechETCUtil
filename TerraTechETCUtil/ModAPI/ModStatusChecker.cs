@@ -3,13 +3,14 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
+using System.Collections;
+using System.Runtime.Serialization;
+
+
 #if !EDITOR
-using ModManager;
 using Steamworks;
-using Payload.UI.Commands.Steam;
 #endif
 
 namespace TerraTechETCUtil
@@ -17,8 +18,9 @@ namespace TerraTechETCUtil
     public enum EModStatus : byte
     {
         ModManagerMissing,
-        Exception, 
-        TTExtUtilOutdated,
+        Exception,
+        TTETCUtilException,
+        TTETCUtilOutdated,
         GameOutdated,
         UpToDate,
         ModUpdating,
@@ -28,7 +30,6 @@ namespace TerraTechETCUtil
         MissingFromDisk,
         FailedToFetch,
     }
-
     public struct GameVersion
     {
         public bool Valid;
@@ -93,7 +94,9 @@ namespace TerraTechETCUtil
     public class ModStatus
     {
         public readonly string name;
+        public Assembly assembly { get; internal set; }
         public EModStatus status { get; internal set; }
+        public MethodBase site { get; internal set; }
         private string _exception = "NULL";
         public string exception {
             get => _exception;
@@ -146,6 +149,32 @@ namespace TerraTechETCUtil
         private static readonly FieldInfo SessionData = typeof(ManMods).GetField("m_CurrentSession", BindingFlags.Instance | BindingFlags.NonPublic);
 #endif
         private static readonly string DataDirectory = "ModKickStartHelper";
+
+        public static Dictionary<EModStatus, string[]> ModStatusLOC = new Dictionary<EModStatus, string[]>
+        {
+            { EModStatus.ModManagerMissing, new string[]{"Requires TTSMM & 0ModManager", 
+                "You will need to subscribe and download 0ModManager to get this mod to work properly." } },
+            { EModStatus.Exception, new string[]{"Mod Startup Crash",
+                "The mod (or one of it's dependancies) encountered an error on startup and has not applied itself to the game correctly.  You should disable or unsubscribe from the mod until it is fixed." } },
+            { EModStatus.TTETCUtilException, new string[]{"TerraTechETCUtil Startup Crash",
+                "The mod's backend encountered a serious error and failed to startup correctly. You should disable or unsubscribe from the mod until it is fixed." } },
+            { EModStatus.TTETCUtilOutdated, new string[]{"Outdated TerraTechETCUtil Version",
+                "The mod's backend is conflicting with backend of the same type, but different version.  There is a chance the mod may encounter serious errors!" }  },
+            { EModStatus.UpToDate, new string[]{"Working",
+                "The mod has started up properly with no issues." }  },
+            { EModStatus.ModUpdating, new string[]{"Mod is still updating",
+                "The mod is still being downloaded." }  },
+            { EModStatus.NeedsToBeUpdated, new string[]{"Mod is outdated",
+                "There is a new version of the mod on Steam Workshop.  Make sure to quit the game to update the mod.  If it fails to update, restart your computer." }  },
+            { EModStatus.ModIDMismatch, new string[]{"Mod ID does not match",
+                "A technical issue has occurred as the mod's" }  },
+            { EModStatus.MightBeOutOfDate, new string[]{"Mod might need update",
+                "The game was updated but the mod has not been updated yet.  There is a chance some things broke.  Proceed at your own risk!" }  },
+            { EModStatus.MissingFromDisk, new string[]{"Mod is not downloaded",
+                "The mod is not downloaded.  It will not be able to launch." }  },
+            { EModStatus.FailedToFetch, new string[]{"Mod is not present on Steam Workshop",
+                "The mod does not exist on the Steam Workshop." }  },
+        };
 
         private static Rect guiWindow = new Rect(20, 20, 800, 600);
         private static Vector2 guiSlider = Vector2.zero;
@@ -228,43 +257,72 @@ namespace TerraTechETCUtil
                 {
                     case EModStatus.FailedToFetch:
                     case EModStatus.ModManagerMissing:
-                        if (GUILayout.Button(item.Value.status.ToString(), AltUI.ButtonGrey))
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonGrey))
                         {
                             selected = item.Value;
                             context = item.Value.exception;
                         }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
                         break;
                     case EModStatus.MissingFromDisk:
                     case EModStatus.GameOutdated:
-                    case EModStatus.TTExtUtilOutdated:
-                    case EModStatus.Exception:
-                        if (GUILayout.Button(item.Value.status.ToString(), AltUI.ButtonRed))
+                    case EModStatus.TTETCUtilOutdated:
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonRed))
                         {
                             selected = item.Value;
                             context = item.Value.exception;
                         }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
+                        break;
+                    case EModStatus.Exception:
+                        if (TryGetSteamWorkshopID(item.Key, out ulong uID))
+                        {
+                            if (GUILayout.Button("Open Workshop [LINK]", AltUI.ButtonRed))
+                                ManSteamworks.inst.OpenOverlayURL("https://steamcommunity.com/sharedfiles/filedetails/?id=" + uID.ToString());
+                            AltUI.Tooltip.GUITooltip("Make sure this is the right mod!\nIf you would like to, you can let the mod maker know of your crash in the comments section.");
+                        }
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonRed))
+                        {
+                            selected = item.Value;
+                            context = item.Value.exception;
+                        }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
+                        break;
+                    case EModStatus.TTETCUtilException:
+                        if (GUILayout.Button("Open Workshop [LINK]", AltUI.ButtonRed))
+                            ManSteamworks.inst.OpenOverlayURL("https://steamcommunity.com/sharedfiles/filedetails/?id=2765334969");
+                        AltUI.Tooltip.GUITooltip("This will lead to the RandomAdditions workshop page, which handles TerraTechETCUtil error reports.");
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonRed))
+                        {
+                            selected = item.Value;
+                            context = item.Value.exception;
+                        }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
                         break;
                     case EModStatus.UpToDate:
-                        if (GUILayout.Button(item.Value.status.ToString(), AltUI.ButtonGreenActive))
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonGreenActive))
                         {
                             selected = item.Value;
                             context = item.Value.exception;
                         }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
                         break;
                     case EModStatus.MightBeOutOfDate:
-                        if (GUILayout.Button(item.Value.status.ToString(), AltUI.ButtonGreen))
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonGreen))
                         {
                             selected = item.Value;
                             context = item.Value.exception;
                         }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
                         break;
                     case EModStatus.NeedsToBeUpdated:
                     case EModStatus.ModUpdating:
-                        if (GUILayout.Button(item.Value.status.ToString(), AltUI.ButtonBlue))
+                        if (GUILayout.Button(ModStatusLOC[item.Value.status][0], AltUI.ButtonBlue))
                         {
                             selected = item.Value;
                             context = item.Value.exception;
                         }
+                        AltUI.Tooltip.GUITooltip(ModStatusLOC[item.Value.status][1]);
                         break;
                     default:
                         if (GUILayout.Button(item.Value.status.ToString(), AltUI.TextfieldBordered))
@@ -309,6 +367,13 @@ namespace TerraTechETCUtil
             instGUI.gameObject.SetActive(false);
         }
 
+        public static bool TryGetSteamWorkshopID(string ModStringID, out ulong uID)
+        {
+            ModSessionInfo data = (ModSessionInfo)SessionData.GetValue(ManMods.inst);
+            uID = 0;
+            return data != null && data.Mods.TryGetValue(ModStringID, out uID);
+        }
+
 
         public static bool Is0MMAvail => LookForMod("NLogManager");//LookForMod("0ModManager");
 
@@ -319,8 +384,17 @@ namespace TerraTechETCUtil
         private static bool failed = false;
         private static bool chainFailed = false;
         private static bool ETCUtilFailed = false;
+        /// <summary>
+        /// A non-repeating error has occurred in one of our mod boot attempts and this is bad
+        /// </summary>
         public static bool InitFailiure => failed;
+        /// <summary>
+        /// A repeating error has occurred in one of our mod boot attempts and this is REALLY bad
+        /// </summary>
         public static bool EpicFailiure => chainFailed;
+        /// <summary>
+        /// TerraTechETCUtil (this class' dll) failed to init entirely, which will probably bring down all mods that rely on it!!!
+        /// </summary>
         public static bool OutstandingFailiure => ETCUtilFailed;
         private static string context = "NULL";
         private static string errorReport = "Nothing here!?!?";
@@ -377,8 +451,16 @@ namespace TerraTechETCUtil
             context = Context;
             Debug_TTExt.Log(Context);
         }
+        /// <summary>
+        /// Inits a mod with enhanced error handling.
+        /// </summary>
+        /// <param name="ModID">The string ModID of a mod, which is given when making it in TerraTechModTool</param>
+        /// <param name="init">The function that starts up the mod.  Must be a function in the mod itself.</param>
+        /// <param name="onFail">Called if the function hit an exception</param>
+        /// <param name="doChainFail">Stop the next mods that are to be loaded using EncapsulateSafeInit()</param>
         public static void EncapsulateSafeInit(string ModID, Action init, Action onFail = null, bool doChainFail = false)
         {
+            Assembly CallerAssembly = null;
             try
             {
                 if (inst == null)
@@ -386,6 +468,7 @@ namespace TerraTechETCUtil
                     Debug_TTExt.Log("Current game version is " + SKU.DisplayVersion);
                     ResourcesHelper.CheckTTExtUtils();
                     inst = new ModStatusChecker();
+                    
                     if (inst.TryLoadFromDisk(ref inst))
                     {
                         Debug_TTExt.Log("ModStatusChecker.ShowSetting is " + inst.ShowSetting);
@@ -406,9 +489,11 @@ namespace TerraTechETCUtil
                     }
                     */
                 }
+                CallerAssembly = init.GetType().Assembly;
                 var status = CheckStatusOfMod(ModID);
                 if (!modStatuses.ContainsKey(ModID))
                     modStatuses.Add(ModID, status);
+                status.assembly = CallerAssembly;
                 if (!chainFailed)
                     init.Invoke();
                 switch (inst.ShowSetting)
@@ -423,7 +508,9 @@ namespace TerraTechETCUtil
                                     break;
                                 case EModStatus.Exception:
                                     break;
-                                case EModStatus.TTExtUtilOutdated:
+                                case EModStatus.TTETCUtilException:
+                                    break;
+                                case EModStatus.TTETCUtilOutdated:
                                     break;
                                 case EModStatus.GameOutdated:
                                     break;
@@ -450,9 +537,10 @@ namespace TerraTechETCUtil
                             case EModStatus.ModManagerMissing:
                                 ShowErrorLog(ModID + " - Mod needs 0ModManager to function.  Failed to boot correctly.");
                                 break;
+                            case EModStatus.TTETCUtilException:
                             case EModStatus.Exception:
                                 break;
-                            case EModStatus.TTExtUtilOutdated:
+                            case EModStatus.TTETCUtilOutdated:
                                 string lazyCombiner = "";
 
 #if !EDITOR
@@ -502,18 +590,53 @@ namespace TerraTechETCUtil
                 if (doChainFail)
                     chainFailed = true;
                 selected = modStatuses[ModID];
-                string failReport = "Initialization Failiure within " + ModID + ": " + e;
+                string failReport;
+                Assembly problemAssembly = e.TargetSite?.DeclaringType?.Assembly;
+                if (problemAssembly == Assembly.GetExecutingAssembly())
+                {
+                    modStatuses[ModID].status = EModStatus.TTETCUtilException;
+                    failReport = "Initialization Failiure within TerraTechETCUtil, invoked by " + ModID + ": " + e;
+                }
+                else if (problemAssembly == CallerAssembly)
+                {
+                    modStatuses[ModID].status = EModStatus.Exception;
+                    failReport = "Initialization Failiure within " + ModID + ": " + e;
+                }
+                else
+                {
+                    modStatuses[ModID].status = EModStatus.Exception;
+                    if (problemAssembly.FullName == "Assembly-CSharp")
+                        failReport = "Initialization Failiure within call to base game, invoked by " + ModID + ": " + e;
+                    else
+                    {
+                        failReport = null;
+                        foreach (var item in modStatuses)
+                        {
+                            if (item.Value.assembly == problemAssembly)
+                                failReport = "Initialization Failiure within mod dll " + item.Key + ", invoked by " + ModID + ": " + e;
+                        }
+                        if (failReport == null)
+                            failReport = "Initialization Failiure within dll " + problemAssembly.FullName + ", invoked by " + ModID + ": " + e;
+                    }
+                }
                 Debug_TTExt.Log(failReport);
-                if (onFail != null)
-                    onFail.Invoke();
+                try
+                {
+                    if (onFail != null)
+                        onFail.Invoke();
+                    modStatuses[ModID].exception = e.ToString();
+                }
+                catch (Exception e2)
+                {
+                    modStatuses[ModID].exception = e.ToString() + "\n\nFallback onFail Action failed to execute as well - " + e2.ToString();
+                }
                 if (IsRandomAdditionsAvail)
                 {
                     // Delay the crash and deny loading of our other mods for now at least
                     errorReport = failReport;
                     InvokeHelper.InvokeSingleRepeat(ThrowDelayedErrorForRandAdd, 1);
                 }
-                modStatuses[ModID].status = EModStatus.Exception;
-                modStatuses[ModID].exception = e.ToString();
+                modStatuses[ModID].site = e.TargetSite;
                 switch (inst.ShowSetting)
                 {
                     case 0:
@@ -647,7 +770,7 @@ namespace TerraTechETCUtil
                                     ResourcesHelper.GUIManaged.infoCache.TryGetValue(MC, out var val))
                                 {
                                     if (!val.synced)
-                                        return new ModStatus(name, EModStatus.TTExtUtilOutdated);
+                                        return new ModStatus(name, EModStatus.TTETCUtilOutdated);
                                     DateTime DT = Directory.GetLastWriteTime(directory.ToString());
                                     DateTime DTM = File.GetLastWriteTime(Assembly.GetAssembly(typeof(TankBlock)).Location);
                                     //Debug_TTExt.Log("Time is " + DT.ToString() + " vs " + DTM.ToString());

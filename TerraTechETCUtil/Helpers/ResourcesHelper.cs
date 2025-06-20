@@ -157,8 +157,8 @@ namespace TerraTechETCUtil
         private static Dictionary<string, ModContainer> modsDirect = null;
         private static bool startupHook = true;
         public static RelayEvent ModsPreLoadEvent = new RelayEvent();
-        public static EventNoParams BlocksPostChangeEvent = ManMods.inst.BlocksModifiedEvent;
-        public static EventNoParams ModsPostLoadEvent = ManMods.inst.ModSessionLoadCompleteEvent;
+        public static EventNoParams BlocksPostChangeEvent => ManMods.inst.BlocksModifiedEvent;
+        public static EventNoParams ModsPostLoadEvent => ManMods.inst.ModSessionLoadCompleteEvent;
         public static RelayEvent ModsUpdateEvent = new RelayEvent();
 
         private static void InitHooks()

@@ -9,19 +9,138 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static ManSplashScreen;
 
 namespace TerraTechETCUtil
 {
+
+    internal class ModuleInfo : AutoDataExtractorInst
+    {
+        private static HashSet<object> grabbed = new HashSet<object>();
+        private static List<ModuleInfo> cacher = new List<ModuleInfo>();
+        internal static ModuleInfo[] TryGetModules(GameObject toExplore, HashSet<Type> AllowedTypes)
+        {
+            try
+            {
+                foreach (var item in toExplore.GetComponents<MonoBehaviour>())
+                {
+                    Type typeCase = item.GetType();
+                    if (grabbed.Contains(item))
+                        continue;
+                    grabbed.Add(item);
+                    if (AllowedTypes.Contains(typeCase))
+                    {
+                        cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                    }
+                    else if (item is Module)
+                    {
+                        if (!ignoreModuleTypes.Contains(typeCase))
+                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                    }
+                    else if (item is ExtModule)
+                    {
+                        if (!ignoreModuleTypesExt.Contains(typeCase))
+                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                    }
+                }
+                return cacher.ToArray();
+            }
+            catch (Exception e)
+            {
+                throw new Exception("TryGetModules failed - ", e);
+            }
+            finally
+            {
+                cacher.Clear();
+                grabbed.Clear();
+            }
+        }
+        internal static ModuleInfo[] TryGetModulesBlacklisted(GameObject toExplore, HashSet<Type> BlockedTypes)
+        {
+            try
+            {
+                foreach (var item in toExplore.GetComponents<Component>())
+                {
+                    Type typeCase = item.GetType();
+                    if (grabbed.Contains(item))
+                        continue;
+                    grabbed.Add(item);
+                    if (item is Module)
+                    {
+                        if (!ignoreModuleTypes.Contains(typeCase))
+                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                    }
+                    else if (item is ExtModule)
+                    {
+                        if (!ignoreModuleTypesExt.Contains(typeCase))
+                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                    }
+                    else if (BlockedTypes.Contains(typeCase))
+                    {
+                    }
+                    else
+                        cacher.Add(new ModuleInfo(typeCase, item, grabbed));
+                }
+                return cacher.ToArray();
+            }
+            catch (Exception e)
+            {
+                throw new Exception("TryGetModules failed - ", e);
+            }
+            finally
+            {
+                cacher.Clear();
+                grabbed.Clear();
+            }
+        }
+
+        public ModuleInfo(Type grabbedType, Component prefab, HashSet<object> grabbedAlready) : base(
+            SpecialNames.TryGetValue(grabbedType.Name, out string altName) ? altName :
+            grabbedType.Name.Replace("Module", "").ToString().SplitCamelCase(),
+            grabbedType, prefab, grabbedAlready)
+        {
+        }
+
+
+        internal static HashSet<Type> AllowedTypesUIWiki = new HashSet<Type>() {
+                    typeof(TankBlock),
+                    typeof(ResourceDispenser),
+                    typeof(ResourcePickup),
+                    //
+                    typeof(Damageable),
+                    typeof(FireData),
+                    typeof(ModuleWing.Aerofoil),
+                    typeof(ManWheels.WheelParams),
+                    typeof(ManWheels.TireProperties),
+                    typeof(WeaponRound),
+                };
+
+        internal static HashSet<Type> BlockedTypesExporter = new HashSet<Type>() {
+                    typeof(Visible),
+                    typeof(TankBlock),
+                    typeof(Transform),
+                    typeof(ResourceDispenser),
+                    typeof(ResourcePickup),
+                    typeof(AutoSpriteRenderer),
+                    typeof(Animator),
+                    typeof(Animation),
+                    typeof(AnimEvent),
+                };
+    }
     public class AutoDataExtractorInst : AutoDataExtractor
     {
-        public readonly MonoBehaviour inst;
+        public readonly Component inst;
         private AutoDocumentator docs;
-        public AutoDataExtractorInst(string name, Type type, MonoBehaviour prefab, HashSet<object> grabbedAlready) : 
+        public AutoDataExtractorInst(string name, Type type, Component prefab, HashSet<object> grabbedAlready) : 
             base(name, type, prefab, grabbedAlready) 
         {
             inst = prefab;
         }
-        internal void GetJsonFormatted(MonoBehaviour inst, StringBuilder SB) => docs.StringBuild(inst, inst.transform, SB);
+        /// <summary>
+        /// Does NOT return end comma with newline!
+        /// </summary>
+        internal void GetJsonFormatted(Component inst, StringBuilder SB, SlashState slash, int tabs = 0) => 
+            docs.StringBuild(inst, inst.transform, SB, slash, tabs);
 
         protected override void Explorer_InternalRecursePost(Type type, FieldInfo[] FIs)
         {
@@ -29,11 +148,31 @@ namespace TerraTechETCUtil
         }
         protected override void EndDetails()
         {
-            if (inst != null && AltUI.Button("JSON to system clipboard", ManSFX.UISfxType.Craft))
+            if (inst == null)
+                return;
+            if (ManIngameWiki.ShowJSONExport)
             {
-                GetJsonFormatted(inst, clipboard);
-                GUIUtility.systemCopyBuffer = clipboard.ToString();
-                ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Copy to system clipboard: ", AltUI.TextfieldBlue);
+                if (AltUI.Button("Entire JSON", ManSFX.UISfxType.Craft))
+                {
+                    clipboard.Clear();
+                    GetJsonFormatted(inst, clipboard, SlashState.None);
+                    GUIUtility.systemCopyBuffer = clipboard.ToString();
+                    clipboard.Clear();
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                }
+                if (AltUI.Button("Reference", ManSFX.UISfxType.Craft))
+                {
+                    clipboard.Clear();
+                    clipboard.Append("\"Reference|" + AutoDocUIElem.TryGetFoundationRefName(inst.transform) +
+                        AutoDocUIElem.RecurseHierachy(inst.transform) + "." + inst.GetType().Name + "\" : ");
+                    GUIUtility.systemCopyBuffer = clipboard.ToString();
+                    clipboard.Clear();
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
             }
         }
     }
@@ -136,7 +275,7 @@ namespace TerraTechETCUtil
                     typeof(ModuleHUDContextControlField),
                     typeof(ModulePlacementZoneEffect),
                 };
-        internal static List<Type> ignoreTypesExt = new List<Type>();
+        internal static List<Type> ignoreModuleTypesExt = new List<Type>();
 
 
         private static HashSet<object> checkedAlready = new HashSet<object>();
@@ -160,7 +299,9 @@ namespace TerraTechETCUtil
             foreach (var item in FIs)
             {
                 object itemGet;
-                if (item.IsStatic || item.Name.Contains("k__") || ignoreNames.Contains(item.Name)) //|| !item.GetCustomAttributes<SerializeField>().Any())
+                if (!AutoDocumentator.LogStaticsAndBlocked && (item.IsStatic || item.Name.Contains("k__") || ignoreFieldTypes.Contains(item.FieldType) ||
+                    (item.FieldType.IsGenericType && ignoreFieldTypes.Contains(item.FieldType.GetGenericTypeDefinition())) ||
+                    ignoreFieldNames.Contains(item.Name))) //|| !item.GetCustomAttributes<SerializeField>().Any())
                 {
                     continue;
                 }
@@ -178,7 +319,7 @@ namespace TerraTechETCUtil
                     else
                         infos.Add(item.Name.Replace("m_", "").SplitCamelCase(), itemGet);
                 }
-                else if (AllowedTypes.Contains(item.FieldType))
+                else if (ModuleInfo.AllowedTypesUIWiki.Contains(item.FieldType))
                 {
                     itemGet = item.GetValue(toExplore);
                     if (checkedAlready.Contains(itemGet))
@@ -353,18 +494,6 @@ namespace TerraTechETCUtil
         }
         protected virtual void EndDetails() { }
 
-
-        internal static HashSet<Type> AllowedTypes = new HashSet<Type>() {
-                    typeof(TankBlock),
-                    typeof(ResourceDispenser),
-                    typeof(ResourcePickup),
-                    typeof(Damageable),
-                    typeof(FireData),
-                    typeof(ModuleWing.Aerofoil),
-                    typeof(ManWheels.WheelParams),
-                    typeof(ManWheels.TireProperties),
-                    typeof(WeaponRound),
-                };
         internal static Dictionary<string, string> SpecialNames = new Dictionary<string, string>()
                 {
                     { "TankBlock", "General"},
@@ -461,44 +590,44 @@ namespace TerraTechETCUtil
         {
             try
             {
-                return AltUI.BlueString(((float)valIn).ToString("F2") + distUnit);
+                return AltUI.BlueStringHUD(((float)valIn).ToString("F2") + distUnit);
             }
             catch (Exception)
             {
-                return AltUI.BlueString("Error");
+                return AltUI.BlueStringHUD("Error");
             }
         }
         private static object DisplaykW(object valIn)
         {
             try
             {
-                return AltUI.BlueString(((float)valIn).ToString("F2") + powerUnit);
+                return AltUI.BlueStringHUD(((float)valIn).ToString("F2") + powerUnit);
             }
             catch (Exception)
             {
-                return AltUI.BlueString("Error");
+                return AltUI.BlueStringHUD("Error");
             }
         }
         private static object DisplayNewtons(object valIn)
         {
             try
             {
-                return AltUI.BlueString(((float)valIn).ToString("F2") + thrustUnit);
+                return AltUI.BlueStringHUD(((float)valIn).ToString("F2") + thrustUnit);
             }
             catch (Exception)
             {
-                return AltUI.BlueString("Error");
+                return AltUI.BlueStringHUD("Error");
             }
         }
         private static object DisplayWeight(object valIn)
         {
             try
             {
-                return AltUI.BlueString(((float)valIn).ToString("F2") + weightUnit);
+                return AltUI.BlueStringHUD(((float)valIn).ToString("F2") + weightUnit);
             }
             catch (Exception)
             {
-                return AltUI.BlueString("Error");
+                return AltUI.BlueStringHUD("Error");
             }
         }
 
@@ -585,7 +714,7 @@ namespace TerraTechETCUtil
                                 }
                                 break;
                             case RecipeTable.Recipe.OutputType.Energy:
-                                doDisp.Add(input + " => " + AltUI.BlueString(item2.m_EnergyOutput +
+                                doDisp.Add(input + " => " + AltUI.BlueStringHUD(item2.m_EnergyOutput +
                                     (item2.m_EnergyType == TechEnergy.EnergyType.Electric ? " kW" : " L")));
                                 break;
                             case RecipeTable.Recipe.OutputType.Money:
@@ -636,7 +765,7 @@ namespace TerraTechETCUtil
                     switch (step)
                     {
                         case 0://ModuleRadar.RadarScanType.Techs:
-                            doDisp.Add(AltUI.BlueString("Techs") + " => " + AltUI.EnemyString("N/A"));
+                            doDisp.Add(AltUI.BlueStringMsg("Techs") + " => " + AltUI.EnemyString("N/A"));
                             break;
                         case 1://ModuleRadar.RadarScanType.Resources:
                             doDisp.Add(AltUI.SideCharacterString("Resources") + " => " + AltUI.EnemyString("N/A"));
@@ -651,7 +780,7 @@ namespace TerraTechETCUtil
                     switch (step)
                     {
                         case 0://ModuleRadar.RadarScanType.Techs:
-                            doDisp.Add(AltUI.BlueString("Techs") + " => " + range + distUnit);
+                            doDisp.Add(AltUI.BlueStringMsg("Techs") + " => " + range + distUnit);
                             break;
                         case 1://ModuleRadar.RadarScanType.Resources:
                             doDisp.Add(AltUI.SideCharacterString("Resources") + " => " + range + distUnit);
@@ -741,7 +870,7 @@ namespace TerraTechETCUtil
                     { "m_DurationMultiplier", new KeyValuePair<string, Func<object, object>>("Effective Speed", DisplayPercentInv)},
                     { "m_EnergyMultiplier", new KeyValuePair<string, Func<object, object>>("Power Efficency", DisplayPercentInv)},
                 };
-        internal static HashSet<Type> ignoreTypes = new HashSet<Type>() {
+        internal static HashSet<Type> ignoreModuleTypes = new HashSet<Type>() {
                     typeof(ModuleBlockAttributes),
                     typeof(ModuleAnimator),
                     typeof(ModuleAntenna),
@@ -756,7 +885,31 @@ namespace TerraTechETCUtil
                     typeof(ModulePlatformRestrictions),
                 };
 
-        internal static HashSet<string> ignoreNames = new HashSet<string>() {
+        internal static HashSet<Type> ignoreFieldTypes = new HashSet<Type>() {
+                    typeof(EventNoParams),
+                    typeof(Event<>),
+                    typeof(Event<,>),
+                    typeof(Event<,,>),
+                    typeof(Event<,,,>),
+                    typeof(Action),
+                    typeof(Action<>),
+                    typeof(Action<,>),
+                    typeof(Action<,,>),
+                    typeof(Action<,,,>),
+                    typeof(Action<,,,,>),
+                    typeof(Action<,,,,,>),
+                    typeof(Action<,,,,,,>),
+                    typeof(Action<,,,,,,,>),
+                    typeof(Func<>),
+                    typeof(Func<,>),
+                    typeof(Func<,,>),
+                    typeof(Func<,,,>),
+                    typeof(Func<,,,,>),
+                    typeof(Func<,,,,,>),
+                    typeof(Func<,,,,,,>),
+                    typeof(Func<,,,,,,,>),
+        };
+        internal static HashSet<string> ignoreFieldNames = new HashSet<string>() {
                     "m_Tier",
 
                     "m_Priority",

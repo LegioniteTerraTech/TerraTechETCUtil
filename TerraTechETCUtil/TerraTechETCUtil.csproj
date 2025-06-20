@@ -203,6 +203,10 @@
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.UIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!--> zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz </!-->
     <!--> THE MATTERS BELOW ARE OFFICIAL </!-->
     <!--> zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz </!-->
@@ -256,6 +260,7 @@
     <Compile Include="Debug_TTExt.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="UIChanges\Wiki\ExtendedWiki.cs" />
     <Compile Include="UIChanges\GUIButtonMadness.cs" />
     <Compile Include="UIChanges\GUIModModal.cs" />
     <Compile Include="UIChanges\PlaceholderRadialMenu.cs" />
@@ -281,7 +286,7 @@
     <Compile Include="ModAPI\ModStatusChecker.cs" />
     <Compile Include="Audio\SFXHelpers.cs" />
     <Compile Include="Audio\ManAudioExt.cs" />
-    <Compile Include="AutoDocumentator.cs" />
+    <Compile Include="Documentation\AutoDocumentator.cs" />
     <Compile Include="Networking\ManModNetwork.cs" />
     <Compile Include="Networking\NetHookExt.cs" />
     <Compile Include="Networking\NetworkHook.cs" />
@@ -289,7 +294,6 @@
     <Compile Include="SpecialAttract.cs" />
     <Compile Include="TerrainOperations.cs" />
     <Compile Include="UIChanges\AltUI.cs" />
-    <Compile Include="ConfigConnect.cs" />
     <Compile Include="UIChanges\ExtUsageHint.cs" />
     <Compile Include="ModAPI\IChildModuleWeapon.cs" />
     <Compile Include="ModAPI\ChildProjectile.cs" />
@@ -302,14 +306,13 @@
     <Compile Include="UIChanges\ManToolbar.cs" />
     <Compile Include="UIChanges\Wiki\ManIngameWiki.cs" />
     <Compile Include="UIChanges\LoadingHintsExt.cs" />
-    <Compile Include="UIChanges\LocalisationExt.cs" />
     <Compile Include="UIChanges\ManModGUI.cs" />
     <Compile Include="MassPatcher.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Helpers\SpawnHelper.cs" />
     <Compile Include="UIChanges\UIHelpersExt.cs" />
     <Compile Include="UIChanges\Wiki\UIHUDWiki.cs" />
-    <Compile Include="UIChanges\Wiki\AutoDataExtractor.cs" />
+    <Compile Include="Documentation\AutoDataExtractor.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageInfo.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageHints.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageBlock.cs" />
@@ -322,6 +325,12 @@
     <Compile Include="ManWorldDeformerExt.cs" />
     <Compile Include="WorldVerticalExtender.cs" />
     <Compile Include="ManWorldGeneratorExt.cs" />
+    <Compile Include="Localisation\LocalisationExt.cs" />
+    <Compile Include="Localisation\LocExtStringFunc.cs" />
+    <Compile Include="Localisation\LocExtStringMod.cs" />
+    <Compile Include="Localisation\LocExtStringNonReg.cs" />
+    <Compile Include="Localisation\LocExtStringVanilla.cs" />
+    <Compile Include="Localisation\LocExtStringVanillaText.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

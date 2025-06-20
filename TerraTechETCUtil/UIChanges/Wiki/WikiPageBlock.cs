@@ -15,6 +15,7 @@ namespace TerraTechETCUtil
         public int blockID;
         public string desc = "unset";
         public TankBlock inst;
+        public bool publicVisible { get; private set; } = false;
         internal ModuleInfo mainInfo;
         internal ModuleInfo damage;
         internal ModuleInfo damageable;
@@ -27,8 +28,9 @@ namespace TerraTechETCUtil
             return sprite;
         }
         public WikiPageBlock(int BlockID) :
-            base(GetBlockModName(BlockID), StringLookup.GetItemName(ObjectTypes.Block, BlockID),
-            GetSprite(BlockID), "Blocks", ManIngameWiki.BlocksSprite)
+            base(GetBlockModName(BlockID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, BlockID), 
+                () => { return StringLookup.GetItemName(ObjectTypes.Block, BlockID); }),
+            GetSprite(BlockID), ManIngameWiki.LOC_Blocks, ManIngameWiki.BlocksSprite)
         {
             blockID = BlockID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Block, BlockID);
@@ -41,9 +43,11 @@ namespace TerraTechETCUtil
                 IconsPending.Add(this);
                 */
             }
+            publicVisible = StringLookup.GetItemName(ObjectTypes.Block, BlockID) != StringLookup.GetItemName(ObjectTypes.Block, -1);
         }
         public WikiPageBlock(int BlockID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetBlockModName(BlockID), StringLookup.GetItemName(ObjectTypes.Block, BlockID),
+            base(GetBlockModName(BlockID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, BlockID),
+                () => { return StringLookup.GetItemName(ObjectTypes.Block, BlockID); }),
             GetSprite(BlockID), group)
         {
             blockID = BlockID;
@@ -57,6 +61,8 @@ namespace TerraTechETCUtil
                 IconsPending.Add(this);
                 */
             }
+            // Catch "This Block No Longer Exists"
+            publicVisible = StringLookup.GetItemName(ObjectTypes.Block, BlockID) != StringLookup.GetItemName(ObjectTypes.Block, -1);
         }
         public override void GetIcon()
         {
@@ -74,13 +80,17 @@ namespace TerraTechETCUtil
         public static bool ValidBlockSearchQuery(ManIngameWiki.WikiPage page)
         {
             if (page is WikiPageBlock WPB)
-                return ManSpawn.inst.IsBlockAllowedInCurrentGameMode((BlockTypes)WPB.blockID) &&
-                    ManGameMode.inst.CheckBlockAllowed((BlockTypes)WPB.blockID);
+            {
+                BlockTypes BT = (BlockTypes)WPB.blockID;
+                return WPB.publicVisible && ManSpawn.inst.IsBlockAllowedInCurrentGameMode(BT) &&
+                    ManGameMode.inst.CheckBlockAllowed(BT) &&
+                    !ManSpawn.inst.IsBlockUsageRestrictedInGameMode(BT);
+            }
             return true;
         }
 
         public override void DisplaySidebar() => ButtonGUIDispLateIcon();
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -109,7 +119,7 @@ namespace TerraTechETCUtil
             {
                 try
                 {
-                    var modulesC = ModuleInfo.TryGetModules(inst);
+                    var modulesC = ModuleInfo.TryGetModules(inst.gameObject, ModuleInfo.AllowedTypesUIWiki);
                     foreach (var item in modulesC)
                     {
                         if (item.name == "General")
@@ -160,13 +170,67 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public override void DisplayGUI()
+        private static bool AttributesShown = false;
+        protected override void DisplayGUI()
         {
             if (modules == null)
                 OnFirstInitGUI();
             GUILayout.BeginHorizontal();
             AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
+
+            GUILayout.BeginVertical(AltUI.BoxBlack);
+            ManIngameWiki.WikiLink link = new ManIngameWiki.WikiLink(ManIngameWiki.GetCorpPage(ManSpawn.inst.GetCorporation((BlockTypes)blockID)));
+            if (link.OnGUILarge(AltUI.ButtonBlue, AltUI.LabelWhite))
+                link.linked.GoHere();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockGradeTitle), AltUI.LabelWhiteTitle);
+            GUILayout.Label(": ", AltUI.LabelWhiteTitle);
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(StringLookup.GetBlockTierName((BlockTypes)blockID, false), AltUI.LabelGoldTitle);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockCategoryTitle), AltUI.LabelWhite);
+            GUILayout.Label(": ", AltUI.LabelWhite);
+            GUILayout.FlexibleSpace();
+            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockCatIcon(ManSpawn.inst.GetCategory((BlockTypes)blockID)),
+                StringLookup.GetBlockCategoryName(ManSpawn.inst.GetCategory((BlockTypes)blockID))).
+                OnGUILarge(AltUI.TextfieldBorderedBlue, AltUI.LabelWhite);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockRarityTitle), AltUI.LabelWhite);
+            GUILayout.Label(": ", AltUI.LabelWhite);
+            GUILayout.FlexibleSpace();
+            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockRarityIcon(ManSpawn.inst.GetRarity((BlockTypes)blockID)), 
+                StringLookup.GetBlockRarityName(ManSpawn.inst.GetRarity((BlockTypes)blockID))).
+                OnGUILarge(AltUI.TextfieldBorderedBlue, AltUI.LabelWhite);
+            GUILayout.EndHorizontal();
+            var BA = ManSpawn.inst.GetBlockAttributes((BlockTypes)blockID);
+            if (BA != null && BA.Any())
+            {
+                if (AttributesShown)
+                {
+                    GUILayout.BeginVertical(AltUI.BoxBlack);
+                    if (GUILayout.Button("Attributes: Shown"))
+                        AttributesShown = !AttributesShown;
+                    foreach (var item in BA)
+                    {
+                        new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockAttributeIcon(item), StringLookup.GetBlockAttribute(item)).
+                            OnGUILarge(AltUI.TextfieldBorderedBlue, AltUI.LabelWhite);
+                    }
+                    GUILayout.EndVertical();
+                }
+                else
+                {
+                    if (GUILayout.Button("Attributes: Hidden"))
+                        AttributesShown = !AttributesShown;
+                }
+            }
+            GUILayout.EndVertical();
+
             if (mainInfo != null)
                 mainInfo.DisplayGUI();
             if (damage != null)
@@ -197,6 +261,17 @@ namespace TerraTechETCUtil
             else
                 GUILayout.Label("Modules: None", AltUI.LabelBlackTitle);
             GUILayout.EndVertical();
+            if (ManIngameWiki.ShowJSONExport)
+            {
+                if (AltUI.Button("ENTIRE BLOCK JSON to system clipboard", ManSFX.UISfxType.Craft))
+                {
+                    TankBlock TB = ManSpawn.inst.GetBlockPrefab((BlockTypes)blockID);
+                    AutoDataExtractor.clipboard.Clear();
+                    GameObjectDocumentator.GetStrings(TB.gameObject, AutoDataExtractor.clipboard, 0, SlashState.None);
+                    GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                }
+            }
         }
 
         internal static string GetBlockModName(int blockType)
@@ -212,54 +287,5 @@ namespace TerraTechETCUtil
         }
 
 
-        internal class ModuleInfo : AutoDataExtractorInst
-        {
-            private static HashSet<object> grabbed = new HashSet<object>();
-            private static List<ModuleInfo> cacher = new List<ModuleInfo>();
-            internal static ModuleInfo[] TryGetModules(TankBlock toExplore)
-            {
-                try
-                {
-                    foreach (var item in toExplore.GetComponents<MonoBehaviour>())
-                    {
-                        Type typeCase = item.GetType();
-                        if (grabbed.Contains(item))
-                            continue;
-                        grabbed.Add(item);
-                        if (AllowedTypes.Contains(typeCase))
-                        {
-                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                        }
-                        else if (item is Module)
-                        {
-                            if (!ignoreTypes.Contains(typeCase))
-                                cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                        }
-                        else if (item is ExtModule)
-                        {
-                            if (!ignoreTypesExt.Contains(typeCase))
-                                cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                        }
-                    }
-                    return cacher.ToArray();
-                }
-                catch (Exception e)
-                {
-                    throw new Exception("TryGetModules failed - ", e);
-                }
-                finally
-                {
-                    cacher.Clear();
-                    grabbed.Clear();
-                }
-            }
-
-            public ModuleInfo(Type grabbedType, MonoBehaviour prefab, HashSet<object> grabbedAlready) : base (
-                SpecialNames.TryGetValue(grabbedType.Name, out string altName) ? altName : 
-                grabbedType.Name.Replace("Module", "").ToString().SplitCamelCase(), 
-                grabbedType, prefab, grabbedAlready)
-            {
-            }
-        }
     }
 }

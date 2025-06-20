@@ -1002,7 +1002,7 @@ namespace TerraTechETCUtil
                             }
 
                             if (Page != null)
-                                Page.DisplayGUI();
+                                Page.ExternalDisplayGUI();
 
                         }
                         else if (biome != null)
@@ -1015,7 +1015,7 @@ namespace TerraTechETCUtil
                             GUILayout.EndHorizontal();
 
                             if (Page != null)
-                                Page.DisplayGUI();
+                                Page.ExternalDisplayGUI();
                             if (GUILayout.Button("Open In Wiki", AltUI.ButtonOrangeLarge))
                             {
                                 Page.GoHere();

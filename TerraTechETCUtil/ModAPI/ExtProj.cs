@@ -139,7 +139,7 @@ namespace TerraTechETCUtil
                     var proj = PB.GetComponent<Projectile>();
                     if (!proj)
                     {
-                        BlockDebug.ThrowWarning("ProjBase was called in a non-projectile. This module should not be called in any JSON.");
+                        BlockDebug.ThrowWarning(true, "ProjBase was called in a non-projectile. This module should not be called in any JSON.");
                     }
                     foreach (var item in projTemp)
                     {

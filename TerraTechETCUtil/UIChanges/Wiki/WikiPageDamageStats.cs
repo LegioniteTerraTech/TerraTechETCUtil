@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using static LocalisationEnums;
 
 namespace TerraTechETCUtil
 {
@@ -58,28 +59,43 @@ namespace TerraTechETCUtil
         }
 
 
-        internal WikiPageDamageStats(string modID, string hintTitle, Sprite icon, ManIngameWiki.WikiPageGroup group = null) :
+        internal WikiPageDamageStats(string modID, LocExtString hintTitle, Sprite icon, ManIngameWiki.WikiPageGroup group = null) :
             base(modID, hintTitle, icon, group)
         { }
 
         public override void GetIcon() { }
         public override void DisplaySidebar() => ButtonGUIDisp();
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             return false;
         }
         private const int heightTable = 60;
-        public override void DisplayGUI()
+        public static LocExtStringMod LOC_DamageDesc = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Some blocks have resistances against certain attacks.\nThis is critical in the outcome of a battle!" },
+            {Languages.Japanese, "一部のブロックは特定の攻撃に対して耐性を持っています。\nこれは戦闘において重要です！" }});
+        public static LocExtStringMod LOC_DamageNorm = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Normal" },
+            {Languages.Japanese, "通常ダメージ" }});
+        public static LocExtStringMod LOC_DamageNone = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Ineffective" },
+            {Languages.Japanese, "損傷なし" }});
+        public static LocExtStringMod LOC_DamageWeak = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Weak" },
+            {Languages.Japanese, "ダメージが低い" }});
+        public static LocExtStringMod LOC_DamageStrong = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Strong" },
+            {Languages.Japanese, "高ダメージ" }});
+        protected override void DisplayGUI()
         {
             InsureDamageLookup();
-            GUILayout.Label("Some blocks have resistances against certain attacks.\nThis is critical in the outcome of a battle!");
+            GUILayout.Label(LOC_DamageDesc.ToString());
             GUILayout.BeginVertical(AltUI.TextfieldBorderedBlue);
             GUILayout.BeginHorizontal(AltUI.TextfieldBlackHuge, GUILayout.Height(heightTable));
             AltUI.Sprite(ManUI.inst.GetBlockCatIcon(BlockCategories.Weapons), GUILayout.Width(heightTable));
             for (int step = 0; step < Damages; step++)
             {
                 AltUI.Sprite(ManUI.inst.GetDamageTypeIcon((ManDamage.DamageType)step));
-                ManIngameWiki.Tooltip.GUITooltip(Localisation.inst.GetLocalisedString(
+                AltUI.Tooltip.GUITooltip(Localisation.inst.GetLocalisedString(
                     (LocalisationEnums.DamageTypeNames)step));
             }
             GUILayout.EndHorizontal();
@@ -87,7 +103,7 @@ namespace TerraTechETCUtil
             {
                 GUILayout.BeginHorizontal(AltUI.TextfieldBlackHuge, GUILayout.Height(heightTable));
                 AltUI.Sprite(ManUI.inst.GetDamageableTypeIcon((ManDamage.DamageableType)y), GUILayout.Width(heightTable));
-                ManIngameWiki.Tooltip.GUITooltip(Localisation.inst.GetLocalisedString(
+                AltUI.Tooltip.GUITooltip(Localisation.inst.GetLocalisedString(
                     (LocalisationEnums.DamageableTypeNames)y));
                 for (int x = 0; x < Damages; x++)
                 {
@@ -95,22 +111,22 @@ namespace TerraTechETCUtil
                     if (val == 1)
                     {
                         GUILayout.Label(val.ToString("0.00"), AltUI.ButtonBlue, GUILayout.ExpandHeight(true));
-                        ManIngameWiki.Tooltip.GUITooltip("Normal");
+                        AltUI.Tooltip.GUITooltip(LOC_DamageNorm.ToString());
                     }
                     else if (val == 0)
                     {
                         GUILayout.Label("0.00", AltUI.ButtonGrey, GUILayout.ExpandHeight(true));
-                        ManIngameWiki.Tooltip.GUITooltip("Ineffective");
+                        AltUI.Tooltip.GUITooltip(LOC_DamageNone.ToString());
                     }
                     else if (val < 1)
                     {
                         GUILayout.Label(val.ToString("0.00"), AltUI.ButtonRed, GUILayout.ExpandHeight(true));
-                        ManIngameWiki.Tooltip.GUITooltip("Weak");
+                        AltUI.Tooltip.GUITooltip(LOC_DamageWeak.ToString());
                     }
                     else
                     {
                         GUILayout.Label(val.ToString("0.00"), AltUI.ButtonGreen, GUILayout.ExpandHeight(true));
-                        ManIngameWiki.Tooltip.GUITooltip("Strong");
+                        AltUI.Tooltip.GUITooltip(LOC_DamageStrong.ToString());
                     }
                 }
                 GUILayout.EndHorizontal();
@@ -120,7 +136,7 @@ namespace TerraTechETCUtil
                 GUILayout.BeginHorizontal(AltUI.TextfieldBlackHuge, GUILayout.Height(heightTable));
                 AltUI.Sprite(ManUI.inst.GetDamageableTypeIcon(item.Value.icon),
                     GUILayout.Width(heightTable));
-                ManIngameWiki.Tooltip.GUITooltip(item.Key);
+                AltUI.Tooltip.GUITooltip(item.Key);
                 AltUI.AttachModWrenchIcon();
                 for (int x = 0; x < Damages; x++)
                 {
@@ -137,29 +153,29 @@ namespace TerraTechETCUtil
                             GUILayout.Label(multi.ToString("0.00") + "*", AltUI.ButtonRed, GUILayout.ExpandHeight(true));
                         else
                             GUILayout.Label(multi.ToString("0.00") + "*", AltUI.ButtonGreen, GUILayout.ExpandHeight(true));
-                        ManIngameWiki.Tooltip.GUITooltip(tooltip);
+                        AltUI.Tooltip.GUITooltip(tooltip);
                     }
                     else
                     {
                         if (multi == 1)
                         {
                             GUILayout.Label(multi.ToString("0.00"), AltUI.ButtonBlue, GUILayout.ExpandHeight(true));
-                            ManIngameWiki.Tooltip.GUITooltip("Normal");
+                            AltUI.Tooltip.GUITooltip(LOC_DamageNorm.ToString());
                         }
                         else if (multi == 0)
                         {
                             GUILayout.Label("0.00", AltUI.ButtonGrey, GUILayout.ExpandHeight(true));
-                            ManIngameWiki.Tooltip.GUITooltip("Ineffective");
+                            AltUI.Tooltip.GUITooltip(LOC_DamageNone.ToString());
                         }
                         else if (multi < 1)
                         {
                             GUILayout.Label(multi.ToString("0.00"), AltUI.ButtonRed, GUILayout.ExpandHeight(true));
-                            ManIngameWiki.Tooltip.GUITooltip("Weak");
+                            AltUI.Tooltip.GUITooltip(LOC_DamageWeak.ToString());
                         }
                         else
                         {
                             GUILayout.Label(multi.ToString("0.00"), AltUI.ButtonGreen, GUILayout.ExpandHeight(true));
-                            ManIngameWiki.Tooltip.GUITooltip("Strong");
+                            AltUI.Tooltip.GUITooltip(LOC_DamageStrong.ToString());
                         }
                     }
                 }

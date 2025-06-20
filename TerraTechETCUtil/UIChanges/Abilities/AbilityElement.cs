@@ -12,16 +12,24 @@ namespace TerraTechETCUtil
 {
     public abstract class AbilityElement
     {
-        public readonly string Name;
+        public string Name => NameLoc == null ? NameMain : NameLoc.ToString();
+        public readonly string NameMain;
+        public readonly LocExtStringMod NameLoc;
         public readonly Sprite Sprite;
         protected GameObject inst;
         protected float Cooldown = 0;
         private float cooldownCur = 0;
         protected Image[] images;
         public abstract bool PressedState();
+        public AbilityElement(LocExtStringMod name, Sprite iconSprite, float cooldown)
+        {
+            NameLoc = name;
+            Sprite = iconSprite;
+            Cooldown = cooldown;
+        }
         public AbilityElement(string name, Sprite iconSprite, float cooldown)
         {
-            Name = name;
+            NameMain = name;
             Sprite = iconSprite;
             Cooldown = cooldown;
         }

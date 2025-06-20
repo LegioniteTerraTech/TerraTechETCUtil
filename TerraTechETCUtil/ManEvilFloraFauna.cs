@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// WIP, INCOMPLETE
 /// Controls all that lives, breathes and is ANGRY non-Tech
 /// </summary>
 public class ManEvilFloraFauna

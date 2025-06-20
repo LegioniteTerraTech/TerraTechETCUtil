@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static LocalisationEnums;
 
 namespace TerraTechETCUtil
 {
     public class WikiPageScenery : ManIngameWiki.WikiPage
     {
+        public static Func<ResourceDispenser, string> GetSceneryData = null;
         public static Func<int, string> GetSceneryModName = GetSceneryModNameDefault;
         public int sceneryID;
         public Dictionary<string, List<TerrainObject>> prefabBase => 
@@ -19,23 +21,29 @@ namespace TerraTechETCUtil
         internal SceneryDataInfo damageable;
         internal SceneryDataInfo[] modules;
         public WikiPageScenery(int SceneryID) :
-            base(GetSceneryModName(SceneryID), StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
-            null, "Resources", ManIngameWiki.ScenerySprite)
+            base(GetSceneryModName(SceneryID), new LocExtStringVanilla(StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
+                LocalisationEnums.StringBanks.SceneryName, SceneryID),
+            null, ManIngameWiki.LOC_Scenery, ManIngameWiki.ScenerySprite)
         {
             sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
 
         public WikiPageScenery(int SceneryID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetSceneryModName(SceneryID), StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
+            base(GetSceneryModName(SceneryID), new LocExtStringVanilla(StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
+                LocalisationEnums.StringBanks.SceneryName, SceneryID),
             null, group)
         {
             sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
         public override void DisplaySidebar() => ButtonGUIDispLateIcon();
+        private bool TriedGetIcon = false;
         public override void GetIcon()
         {
+            if (TriedGetIcon)
+                return;
+            TriedGetIcon = true;
             if (prefabMain == null)
             {
                 icon = UIHelpersExt.NullSprite;
@@ -75,7 +83,7 @@ namespace TerraTechETCUtil
                         });
                     }
                     else
-                        Debug_TTExt.Log("Missing prefab for " + name);
+                        Debug_TTExt.Log("Missing prefab for " + title);
                 }
                 catch (Exception e)
                 {
@@ -84,7 +92,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public override bool ReleaseAsMuchAsPossible()
+        public override bool OnWikiClosed()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -102,11 +110,11 @@ namespace TerraTechETCUtil
         private static List<SceneryDataInfo> Combiler = new List<SceneryDataInfo>();
         public override void OnBeforeDisplay()
         {
-            GetIcon();
+            //GetIcon();
             if (icon == null)
                 GetIcon();
         }
-        public override void DisplayGUI()
+        protected override void DisplayGUI()
         {
             if (modules == null)
             {
@@ -193,6 +201,29 @@ namespace TerraTechETCUtil
             else
                 GUILayout.Label("Modules: None", AltUI.LabelBlackTitle);
             GUILayout.EndVertical();
+
+            if (ManIngameWiki.ShowJSONExport && prefab != null)
+            {
+                if (AltUI.Button("ENTIRE SCENERY JSON to system clipboard", ManSFX.UISfxType.Craft))
+                {
+                    if (GetSceneryData == null)
+                    {
+                        AutoDataExtractor.clipboard.Clear();
+                        GameObjectDocumentator.GetStrings(prefab.gameObject, AutoDataExtractor.clipboard, 0, SlashState.None);
+                        GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
+                        ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                    }
+                    else
+                    {
+                        AutoDataExtractor.clipboard.Clear();
+                        AutoDataExtractor.clipboard.Append(GetSceneryData.Invoke(prefab));
+                        GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
+                        ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
+                    }
+                }
+                if (GetSceneryData == null)
+                    AltUI.Tooltip.GUITooltip("This might not work properly (WIP)");
+            }
         }
 
         public static string GetSceneryModNameDefault(int chunkType)
@@ -214,18 +245,18 @@ namespace TerraTechETCUtil
                         if (grabbed.Contains(item))
                             continue;
                         grabbed.Add(item);
-                        if (AllowedTypes.Contains(typeCase))
+                        if (ModuleInfo.AllowedTypesUIWiki.Contains(typeCase))
                         {
                             cacher.Add(new SceneryDataInfo(typeCase, item, grabbed));
                         }
                         else if (item is Module)
                         {
-                            if (!ignoreTypes.Contains(typeCase))
+                            if (!ignoreModuleTypes.Contains(typeCase))
                                 cacher.Add(new SceneryDataInfo(typeCase, item, grabbed));
                         }
                         else if (item is ExtModule)
                         {
-                            if (!ignoreTypesExt.Contains(typeCase))
+                            if (!ignoreModuleTypesExt.Contains(typeCase))
                                 cacher.Add(new SceneryDataInfo(typeCase, item, grabbed));
                         }
                     }
