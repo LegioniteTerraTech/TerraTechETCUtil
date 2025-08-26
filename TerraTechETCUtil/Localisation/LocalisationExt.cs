@@ -39,6 +39,7 @@ namespace TerraTechETCUtil
         {
             if (Init)
                 return;
+            LegModExt.InsurePatches();
             try
             {
                 if (!LOCLang.ContainsKey(Localisation.inst.CurrentLanguage))

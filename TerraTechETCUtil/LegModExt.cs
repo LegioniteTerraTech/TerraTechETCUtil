@@ -136,6 +136,11 @@ namespace TerraTechETCUtil
             UIHelpersExt.BigF5broningBanner("Ability - Test", false);
             ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Craft);
         }
+        private static void TryInitEnclosedLegModExtOptions()
+        {
+            LegModExtOptions.InitOptionsAndConfig();
+            Debug_TTExt.Info("TerraTechETCUtil: Found NativeOptions & ConfigHelper");
+        }
 
         public static void InsurePatches()
         {
@@ -170,8 +175,7 @@ namespace TerraTechETCUtil
                 }
                 try
                 {
-                    LegModExtOptions.InitOptionsAndConfig();
-                    Debug_TTExt.Info("TerraTechETCUtil: Found NativeOptions & ConfigHelper");
+                    TryInitEnclosedLegModExtOptions();
                 }
                 catch (Exception e)
                 {
@@ -541,11 +545,20 @@ namespace TerraTechETCUtil
                 {
                     if (item.opcode == OpCodes.Ldc_R4)
                     {
-                        if (item.operand is float floatC && floatC == 250f)
+                        if (item.operand is float floatC)
                         {
-                            Ldc_R4Count++;
-                            Debug_TTExt.Log("Adjusted ground raycasting(" + Ldc_R4Count + ")");
-                            item.operand = 550f;
+                            if (floatC == 250f)
+                            {
+                                Ldc_R4Count++;
+                                Debug_TTExt.Log("Adjusted ground raycasting(" + Ldc_R4Count + ")");
+                                item.operand = 550f;
+                            }
+                            else if (floatC == 251f)
+                            {
+                                Ldc_R4Count++;
+                                Debug_TTExt.Log("Adjusted ground raycasting(" + Ldc_R4Count + ")");
+                                item.operand = 551f;
+                            }
                         }
                     }
                     yield return item;

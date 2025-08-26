@@ -30,8 +30,15 @@ namespace TerraTechETCUtil
         }
         private void OnLOCChange(Languages newLang)
         {
-            data = Localisation.inst.GetLocalisedString(IDCategory, IDIndex, LocalisationExt.emptyGlyphs);
-            //LocalisationExt.TryGetFrom(IDCategory, IDIndex, ref data);
+            try
+            {
+                data = Localisation.inst.GetLocalisedString(IDCategory, IDIndex, LocalisationExt.emptyGlyphs);
+                //LocalisationExt.TryGetFrom(IDCategory, IDIndex, ref data);
+            }
+            catch
+            {
+                data = GetEnglish();
+            }
         }
         public override string ToString() => data;
         public override string GetEnglish() => English;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FMOD.Studio;
 using UnityEngine;
 using static LocalisationEnums;
 
@@ -51,8 +52,15 @@ namespace TerraTechETCUtil
 
         private void OnLOCChange(Languages newLang)
         {
-            data = Localisation.inst.GetLocalisedString(IDCategory, IDIndex, LocalisationExt.emptyGlyphs);
-            //LocalisationExt.TryGetFrom(IDCategory, IDIndex, ref data);
+            try
+            {
+                data = Localisation.inst.GetLocalisedString(IDCategory, IDIndex, LocalisationExt.emptyGlyphs);
+                //LocalisationExt.TryGetFrom(IDCategory, IDIndex, ref data);
+            }
+            catch
+            {
+                data = GetEnglish();
+            }
         }
         public override string ToString() => data;
         /// <summary>
