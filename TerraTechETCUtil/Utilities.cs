@@ -35,24 +35,24 @@ namespace TerraTechETCUtil
         }
         public ColorBytes(Color color)
         {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.r * byte.MaxValue));
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.g * byte.MaxValue));
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.b * byte.MaxValue));
-            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.a * byte.MaxValue));
+            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.r) * byte.MaxValue);
+            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.g) * byte.MaxValue);
+            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.b) * byte.MaxValue);
+            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.a) * byte.MaxValue);
         }
         public ColorBytes(float R, float G, float B)
         {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R * byte.MaxValue));
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G * byte.MaxValue));
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B * byte.MaxValue));
+            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
+            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G) * byte.MaxValue);
+            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
             a = byte.MaxValue;
         }
         public ColorBytes(float R, float G, float B, float A)
         {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R * byte.MaxValue));
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G * byte.MaxValue));
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B * byte.MaxValue));
-            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(A * byte.MaxValue));
+            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
+            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G) * byte.MaxValue);
+            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
+            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(A) * byte.MaxValue);
         }
         public Color ToRGBAFloat()
         {
@@ -69,7 +69,7 @@ namespace TerraTechETCUtil
         }
         public string ColorString(string ToColor)
         {
-            return "<color=" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2") + ">" + ToColor + "</color>";
+            return "<color=#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2") + ">" + ToColor + "</color>";
         }
     }
 

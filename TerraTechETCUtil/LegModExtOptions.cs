@@ -9,28 +9,32 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-    internal class LegModExtOptions
+    public class LegModExtOptions
     {
-        public static ModConfig config;
+        internal static ModConfig config;
+        private static bool init = false;
 
-        public static OptionKey WikiSettings;
-        public static OptionToggle WikiHideFull;
+        internal static OptionKey WikiSettings;
+        internal static OptionToggle WikiHideFull;
         public static int wikiBind = (int)ManIngameWiki.WikiButtonKeybind;
 
-        public static OptionKey Ability1;
-        public static OptionKey Ability2;
-        public static OptionKey Ability3;
-        public static OptionKey Ability4;
-        public static OptionKey AbilityPage;
+        internal static OptionKey Ability1;
+        internal static OptionKey Ability2;
+        internal static OptionKey Ability3;
+        internal static OptionKey Ability4;
+        internal static OptionKey AbilityPage;
         public static int abil1 = (int)ManAbilities.ability1;
         public static int abil2 = (int)ManAbilities.ability2;
         public static int abil3 = (int)ManAbilities.ability3;
         public static int abil4 = (int)ManAbilities.ability4;
         public static int abilPage = (int)ManAbilities.AbilityTogglePage;
-        public static void InitOptionsAndConfig()
+        internal static void InitOptionsAndConfig()
         {
             try
             {
+                if (init || WikiHideFull != null)
+                    return;
+                init = true;
                 string modID = LegModExt.modID;
                 ModConfig thisModConfig = new ModConfig(modID);
                 thisModConfig.ReadConfigJsonFile();
@@ -97,6 +101,7 @@ namespace TerraTechETCUtil
 
                 NativeOptionsMod.onOptionsSaved.AddListener(() => { thisModConfig.WriteConfigJsonFile(); });
                 config = thisModConfig;
+                Debug_TTExt.Log("TerraTechETCUtil: Init LegModExtOptions");
             }
             catch (Exception e) { }
         }

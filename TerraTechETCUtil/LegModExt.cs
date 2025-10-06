@@ -13,7 +13,7 @@ using HarmonyLib;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
-    public static class LegModExt
+    public class LegModExt
     {
         internal static string modID = "TerraTechModExt";
         internal static Harmony harmonyInstance = new Harmony("legionite." + modID.ToLower());
@@ -146,6 +146,7 @@ namespace TerraTechETCUtil
         {
             if (patched)
                 return;
+            patched = true;
             try
             {
                 //InvokeHelper.Invoke(ExtractOnce, 3f);
@@ -187,7 +188,6 @@ namespace TerraTechETCUtil
                 ResourcesHelper.ModsPreLoadEvent.Subscribe(WikiPageDamageStats.ResetAllCustomDamageables);
 
                 ResourcesHelper.ModsPostLoadEvent.Subscribe(ManIngameWiki.InitWiki);
-                patched = true;
             }
             catch (Exception e)
             {
