@@ -8,14 +8,31 @@ using static LocalisationEnums;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// <inheritdoc/>
+    /// <para>Class to convert vanilla <see cref="LocalisedString"/>s to the mod <see cref="LocExtString"/> format</para>
+    /// <para>For entries that are looked up using <see cref="Localisation.GetLocalisedString(string, string, Localisation.GlyphInfo[])"/></para>
+    /// <para>For other cases, see <see cref="LocExtStringVanilla"/></para>
+    /// </summary>
     public class LocExtStringVanillaText : LocExtString, ILocExtStringLSAble
     {
         private string data;
+        /// <summary>
+        /// English fallback
+        /// </summary>
         public readonly string English;
+        /// <summary>
+        /// Lookup category string ID
+        /// </summary>
         public readonly string Bank;
+        /// <summary>
+        /// The auto-assigned ID Index for <see cref="LocalisationExt"/> to access this
+        /// </summary>
         public readonly string ID;
         /// <summary>
-        /// ONLY FOR VANILLA ENTRY REFERENCING
+        /// Creates a <see cref="LocExtStringVanillaText"/> for displaying vanilla localized text on modded UI interfaces.
+        /// <para>Registered automatically</para>
+        /// <para><b>ONLY FOR VANILLA ENTRY REFERENCING</b></para>
         /// </summary>
         /// <param name="englishFallback"></param>
         /// <param name="bank"></param>
@@ -29,6 +46,12 @@ namespace TerraTechETCUtil
             ID = stringID;
             OnLOCChange(Localisation.inst.CurrentLanguage);
         }
+        /// <summary>
+        /// Creates a <see cref="LocExtStringVanillaText"/> for displaying vanilla localized text on modded UI interfaces.
+        /// <para>Registered automatically</para>
+        /// </summary>
+        /// <param name="englishFallback"></param>
+        /// <param name="LS"></param>
         public LocExtStringVanillaText(string englishFallback, LocalisedString LS)
         {
             LocalisationExt.InsureInit();
@@ -38,6 +61,11 @@ namespace TerraTechETCUtil
             ID = LS.m_Id;
             OnLOCChange(Localisation.inst.CurrentLanguage);
         }
+        /// <summary>
+        /// Creates a <see cref="LocExtStringVanillaText"/> for displaying vanilla localized text on modded UI interfaces.
+        /// <para>Registered automatically</para>
+        /// </summary>
+        /// <param name="LS"></param>
         public LocExtStringVanillaText(LocalisedString LS)
         {
             LocalisationExt.InsureInit();
@@ -61,10 +89,13 @@ namespace TerraTechETCUtil
                 data = GetEnglish();
             }
         }
+        /// <inheritdoc/>
         public override string ToString() => data;
+        /// <inheritdoc/>
         public override string GetEnglish() => English;
         /// <summary>
-        /// LOSSY - m_InlineGlyphs was not transferred!!!
+        /// Convert this to a <see cref="LocalisedString"/>
+        /// <para>LOSSY - m_InlineGlyphs is not transferred!!!</para>
         /// </summary>
         /// <param name="guiExpanded"></param>
         /// <returns></returns>
@@ -79,10 +110,10 @@ namespace TerraTechETCUtil
             };
         }
         /// <summary>
-        /// LOSSY - m_InlineGlyphs was not transferred!!!
+        /// Set this to the contents of the given <see cref="LocalisedString"/>
+        /// <para>LOSSY - m_InlineGlyphs is not transferred!!!</para>
         /// </summary>
-        /// <param name="guiExpanded"></param>
-        /// <returns></returns>
+        /// <param name="inst"></param>
         public void SetLocalisedString(LocalisedString inst)
         {
             inst.m_Bank = Bank;
@@ -90,10 +121,10 @@ namespace TerraTechETCUtil
             inst.m_InlineGlyphs = LocalisationExt.emptyGlyphs;
         }
         /// <summary>
-        /// LOSSY - m_InlineGlyphs was not transferred!!!
+        /// Set this to the contents of the given <see cref="TooltipComponent"/>
+        /// <para>LOSSY - m_InlineGlyphs is not transferred!!!</para>
         /// </summary>
-        /// <param name="guiExpanded"></param>
-        /// <returns></returns>
+        /// <param name="TC"></param>
         public void SetTextAuto(TooltipComponent TC)
         {
             LocalisationExt.textSet.SetValue(TC, true);

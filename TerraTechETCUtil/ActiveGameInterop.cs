@@ -12,12 +12,16 @@ using System.Collections;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Allows TerraTech to interact with the TerraTech Mod Utility in UnityEditor.
+    /// <para>This is all done on the same computer. There is no networking involved.</para>
+    /// </summary>
     public class ActiveGameInterop
     {
         /// <summary>
         /// The side this is working on
         /// </summary>
-        public static DataSenderTransmit OurSender { get; } = Application.isPlayer? DataSenderTransmit.Game : DataSenderTransmit.Editor;
+        public static DataSenderTransmit OurSender { get; } = (!Application.isEditor)? DataSenderTransmit.Game : DataSenderTransmit.Editor;
 
         static ActiveGameInterop()
         {
@@ -132,20 +136,47 @@ namespace TerraTechETCUtil
 #endif
         }
 
+        /// <summary>
+        /// Both sides are connected
+        /// </summary>
         public static bool IsReady { get; private set; } = false;
+        /// <summary>
+        /// Debug logging for <see cref="ActiveGameInterop"/>
+        /// </summary>
         public static string _debug = "Disabled";
+        /// <summary>
+        /// What to do when a string is recieved
+        /// </summary>
         public static Action<string> OnStringRecieved;
+        /// <summary>
+        /// Actions based on received strings
+        /// </summary>
         public static Dictionary<string, Action<string>> OnRecieve = new Dictionary<string, Action<string>>();
+        /// <summary>
+        /// The GameObject that was just transmitted over
+        /// </summary>
         public static GameObject RecentGO = null;
 
-        private static bool SendingNow = false;
+        /// <summary>
+        /// This is transmitting to the other side
+        /// </summary>
+        public static bool SendingNow { get; private set; } = false;
 #if !EDITOR
+        /// <summary>
+        /// The Tech that was just transmitted over
+        /// </summary>
         public static Tank RecentTech = null;
+        /// <summary>
+        /// Transmit a list of blocks between <see cref="TerraTechETCUtil"/> installs in game and editor
+        /// </summary>
         public static void TransmitAllBlocks(List<TankBlock> blocks)
         {
             foreach (var item in blocks)
                 TransmitBlock(item);
         }
+        /// <summary>
+        /// Transmit a block between <see cref="TerraTechETCUtil"/> installs in game and editor
+        /// </summary>
         public static void TransmitBlock(TankBlock block)
         {
             _debug = "Block " + block.name + " transmit started";
@@ -163,11 +194,17 @@ namespace TerraTechETCUtil
         }
 #endif
 
+        /// <summary>
+        /// Send data between game and editor
+        /// </summary>
         public static void TryTransmit(string type)
         {
             SendingNow = true;
             Queued.Enqueue(new QueuedRequest(type, type.ToString(), RunTransmit));
         }
+        /// <summary>
+        /// Send data between game and editor
+        /// </summary>
         public static void TryTransmit(GameObject GO)
         {
             _debug = "GO transmit started";
@@ -183,17 +220,26 @@ namespace TerraTechETCUtil
                 _debug = "GO transmit failed - " + e;
             }
         }
+        /// <summary>
+        /// Send data between game and editor
+        /// </summary>
         public static void TryTransmitTest(string dataString)
         {
             SendingNow = true;
             Queued.Enqueue(new QueuedRequest(DataTypeTransmit.String.ToString(),
                 dataString, RunTransmit));
         }
+        /// <summary>
+        /// Send data between game and editor
+        /// </summary>
         public static void TryTransmit(string type, string classDataJson)
         {
             SendingNow = true;
             Queued.Enqueue(new QueuedRequest(type, classDataJson, RunTransmit));
         }
+        /// <summary>
+        /// Send data between game and editor
+        /// </summary>
         public static void TryTransmit<T>(string type, T classInst)
         {
             SendingNow = true;
@@ -203,11 +249,19 @@ namespace TerraTechETCUtil
 
 
         // Below this point - EDIT AT YOUR OWN RISK
+        /// <summary>
+        /// The memory sender ID
+        /// </summary>
         public const string Name = "TerraTech_Editor_Interop";
         private const int MaxCharLim = 65536;//16384;//2048;
         private const int MemNeeded = 5 + (MaxCharLim * 2);
-
+        /// <summary>
+        /// The MemoryMappedFile to transceve data exists
+        /// </summary>
         public static bool inst = false;
+        /// <summary>
+        /// Our side isn't sending anything and is ready to receive incoming data
+        /// </summary>
         public static bool IsReceiving => !Queued.Any();
         private static MemoryMappedFile Main;
         private static MemoryMappedViewAccessor Access;
@@ -225,27 +279,56 @@ namespace TerraTechETCUtil
             public string Data;
         }
 
+        /// <summary>
+        /// Sent information source
+        /// </summary>
         public enum DataSenderTransmit : byte
         {
+            /// <summary>
+            /// this is bad it should not be None!
+            /// </summary>
             None,
+            /// <summary>
+            /// from the editor
+            /// </summary>
             Editor,
+            /// <summary>
+            /// from the game
+            /// </summary>
             Game,
         }
+        /// <summary>
+        /// The data we are transmitting
+        /// </summary>
         public enum DataTypeTransmit : short
         {
+            /// <summary> this is bad it should not be None! </summary>
             None,
+            /// <summary> self-explanitory </summary>
             StartupOneSide,
+            /// <summary> self-explanitory </summary>
             StartupOtherSide,
+            /// <summary> self-explanitory </summary>
             StartupFinalizer,
+            /// <summary> self-explanitory </summary>
             String,
+            /// <summary> self-explanitory </summary>
             Disconnect,
+            /// <summary> self-explanitory </summary>
             Shutdown,
+            /// <summary> self-explanitory </summary>
             SendGameObject,
+            /// <summary> self-explanitory </summary>
             SpawnRawTechTemplate,
+            /// <summary> self-explanitory </summary>
             RebuildBlock,
         }
 
         private static bool SubToQuit = false;
+        /// <summary>
+        /// See if the link exists yet
+        /// </summary>
+        /// <returns></returns>
         public static bool CheckIfInteropActiveGameOnly()
         {
             try
@@ -259,6 +342,9 @@ namespace TerraTechETCUtil
             catch { }
             return false;
         }
+        /// <summary>
+        /// Initiate <see cref="ActiveGameInterop"/>
+        /// </summary>
         public static void Init()
         {
             if (inst)
@@ -292,11 +378,17 @@ namespace TerraTechETCUtil
             CheckIfReady();
         }
 
+        /// <summary>
+        /// Ping-check to see if both game and edio
+        /// </summary>
         public static void CheckIfReady()
         {
             TryTransmit(DataTypeTransmit.StartupOneSide.ToString(), "Marco");
         }
 
+        /// <summary>
+        /// Stop managing both sides of <see cref="ActiveGameInterop"/>
+        /// </summary>
         public static void DeInitBothEnds()
         {
             if (!inst)
@@ -304,6 +396,9 @@ namespace TerraTechETCUtil
             TryTransmit(DataTypeTransmit.Shutdown.ToString());
             DeInitJustThisSide();
         }
+        /// <summary>
+        /// Stop managing this side of <see cref="ActiveGameInterop"/>
+        /// </summary>
         public static void DeInitJustThisSide()
         {
             if (!inst)
@@ -329,6 +424,9 @@ namespace TerraTechETCUtil
 
         private static int counter = 0;
         private static int counterEnd = Application.isEditor ? 0 : 80;
+        /// <summary>
+        /// External call to update <see cref="ActiveGameInterop"/> slowly over time
+        /// </summary>
         public static void Update_Static()
         {
             if (counter > counterEnd)
@@ -338,6 +436,9 @@ namespace TerraTechETCUtil
             else
                 counter++;
         }
+        /// <summary>
+        /// External call to update <see cref="ActiveGameInterop"/> immedeately
+        /// </summary>
         public static void UpdateNow()
         {
             if (!Queued.Any())
@@ -391,6 +492,9 @@ namespace TerraTechETCUtil
             */
         }
         private static StringBuilder charCombiner = new StringBuilder();
+        /// <summary>
+        /// Handle recieving of information from the other side
+        /// </summary>
         public static bool Observe()
         {
             try

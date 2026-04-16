@@ -8,6 +8,9 @@ using UnityEngine;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Handles mod-side spawning of game objects
+    /// </summary>
     public class SpawnHelper : MonoBehaviour
     {
         private MethodInfo death = typeof(ResourceDispenser).GetMethod("PlayDeathAnimation", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -17,13 +20,26 @@ namespace TerraTechETCUtil
 
 
         private static SpawnHelper inst;
+        /// <summary>
+        /// Lookup for biomes based on their names
+        /// </summary>
         public static Dictionary<string, Biome> BiomesByName = new Dictionary<string, Biome>();
+        /// <summary>
+        /// Lookup for biomes based on their <see cref="BiomeTypes"/>.  
+        /// Not advised as <see cref="BiomeTypes"/> appears obsolete.
+        /// <para>Use <see cref="BiomesByName"/> instead.</para>
+        /// </summary>
         public static Dictionary<BiomeTypes, Biome> FirstBiomesByType = new Dictionary<BiomeTypes, Biome>();
 
         private Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>> objs = new Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>>();
         private Dictionary<string, TerrainObject> objsNonRes = new Dictionary<string, TerrainObject>();
 
         private static HashSet<int> captured = new HashSet<int>();
+        /// <summary>
+        /// Iterate <see cref="SceneryTypes"/> based on their ingredient <see cref="ChunkTypes"/>
+        /// </summary>
+        /// <param name="type">To filter by</param>
+        /// <returns>Iterator for <see cref="SceneryTypes"/></returns>
         public static IEnumerable<SceneryTypes> IterateSceneryTypesByIngredient(ChunkTypes type)
         {
             GrabInitList();
@@ -45,12 +61,22 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Find the <see cref="TerrainObject"/> based on the given <see cref="SceneryTypes"/>.
+        /// </summary>
+        /// <param name="type">To filter by</param>
+        /// <returns>Lookup of <see cref="SceneryTypes"/> and variants of them based on naming</returns>
         public static Dictionary<string, List<TerrainObject>> GetSceneryByType(SceneryTypes type)
         {
             GrabInitList();
             inst.objs.TryGetValue(type, out var outcome);
             return outcome;
         }
+        /// <summary>
+        /// Iterate all <see cref="TerrainObject"/>s based on <see cref="Biome"/> type name
+        /// </summary>
+        /// <param name="type">The name of the <see cref="Biome"/> to search</param>
+        /// <returns>Iterator for <see cref="TerrainObject"/>s found</returns>
         public static IEnumerable<TerrainObject> IterateSceneryByBiome(string type)
         {
             GrabInitList();
@@ -63,6 +89,10 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Iterate all <see cref="TerrainObject"/>s in the game
+        /// </summary>
+        /// <returns>Iterator of all scenery</returns>
         public static IEnumerable<Dictionary<string, List<TerrainObject>>> IterateSceneryTypes()
         {
             GrabInitList();
@@ -72,6 +102,11 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Find <see cref="Biome"/> by name
+        /// </summary>
+        /// <param name="name">The data name of the biome</param>
+        /// <returns>The <see cref="BiomeTypes"/> of the biome</returns>
         public static BiomeTypes GetBiomeFromName(string name)
         {
             if (name.Contains("SaltFlats") || name.Contains("Flats"))
@@ -86,7 +121,15 @@ namespace TerraTechETCUtil
                 return BiomeTypes.Ice;
             return BiomeTypes.Grassland;
         }
+        /// <summary>
+        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
         public static void RefetchResources(BiomeMap ToMap = null) => inst.RefreshResources(ToMap);
+        /// <summary>
+        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
         public void RefreshBiomeResources(BiomeMap ToMap = null)
         {
             //Debug_TTExt.Log("RefreshBiomeResources attempt");
@@ -148,7 +191,7 @@ namespace TerraTechETCUtil
                                 if (scenery == null)
                                     break;
                                 SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
-                               /// Debug_TTExt.Log("2- " + item.name + " | " + BT + " | " + ST);
+                                // Debug_TTExt.Log("2- " + item.name + " | " + BT + " | " + ST);
                                 List<TerrainObject> objRand;
                                 Dictionary<string, List<TerrainObject>> objBiome;
                                 if (objs.TryGetValue(ST, out objBiome))
@@ -256,6 +299,10 @@ namespace TerraTechETCUtil
             if (!objs.Any())
                 Debug_TTExt.Log("RefreshBiomeResources NOTHING");
         }
+        /// <summary>
+        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
         public void RefreshResources(BiomeMap ToMap = null)
         {
             try
@@ -344,6 +391,10 @@ namespace TerraTechETCUtil
             RefreshResources();
         }
 
+        /// <summary>
+        /// Index all entries to be used in <see cref="SpawnHelper"/>
+        /// </summary>
+        /// <param name="forceReInit"></param>
         public static void GrabInitList(bool forceReInit = false)
         {
             if (inst != null && !forceReInit)
@@ -351,6 +402,10 @@ namespace TerraTechETCUtil
             inst = new SpawnHelper();
         }
 
+        /// <summary>
+        /// Logs all indexed <see cref="TerrainObject"/>s in <see cref="SpawnHelper"/>
+        /// </summary>
+        /// <param name="SB">The <see cref="StringBuilder"/> to write it all to</param>
         public static void PrintAllRegisteredResourceNodes(StringBuilder SB)
         {
             GrabInitList();
@@ -369,6 +424,10 @@ namespace TerraTechETCUtil
             }
             SB.AppendLine("END");
         }
+        /// <summary>
+        /// Logs all indexed <b>non-</b><see cref="TerrainObject"/>s in <see cref="SpawnHelper"/>
+        /// </summary>
+        /// <param name="SB">The <see cref="StringBuilder"/> to write it all to</param>
         public static void PrintAllRegisteredNonResourceObjects(StringBuilder SB)
         {
             GrabInitList();
@@ -381,6 +440,11 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary>
+        /// Find a prefab using given data
+        /// </summary>
+        /// <param name="Name">The <see cref="UnityEngine.Object.name"/> to search by</param>
+        /// <returns>Found object, otherwise null</returns>
         public static TerrainObject GetNonResourcePrefab(string Name)
         {
             GrabInitList();
@@ -395,6 +459,13 @@ namespace TerraTechETCUtil
             throw new NullReferenceException("GetNonResourcePrefab entry for " + Name + " has no match!");
         }
 
+        /// <summary>
+        /// Find a prefab using given data
+        /// </summary>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by. 
+        /// <see cref="SceneryTypes"/> are partially obsolete, vague and not recommended</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by. </param>
+        /// <returns>Found object, otherwise null</returns>
         public static TerrainObject GetResourceNodePrefab(SceneryTypes type, string biomeName)
         {
             GrabInitList();
@@ -421,6 +492,11 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("GetResourceNodePrefab entry for " + type.ToString() + " | " + biomeName + " has NO entries!");
             }
         }
+        /// <summary>
+        /// Find a prefab using given data
+        /// </summary>
+        /// <param name="name">The <see cref="UnityEngine.Object.name"/> to search by</param>
+        /// <returns>Found object, otherwise null</returns>
         public static TerrainObject GetResourceNodePrefab(string name)
         {
             if (name.NullOrEmpty())
@@ -428,7 +504,6 @@ namespace TerraTechETCUtil
             GrabInitList();
             try
             {
-                TerrainObject TO = null;
                 foreach (var item in inst.objs)
                 {
                     foreach (var item2 in item.Value)
@@ -450,6 +525,12 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("GetResourceNodePrefab entry for " + name + " has NO entries!");
             }
         }
+        /// <summary>
+        /// Spawn a <see cref="ResourceDispenser"/> Scenery <b>explosion</b> using given data
+        /// </summary>
+        /// <param name="scenePos">The scene positioning of the explosion.</param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by. </param>
         public static void SpawnResourceNodeExplosion(Vector3 scenePos, SceneryTypes type, string biomeName)
         {
             GrabInitList();
@@ -457,6 +538,11 @@ namespace TerraTechETCUtil
             ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
             ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
         }
+        /// <summary>
+        /// Spawn a <see cref="ResourceDispenser"/> Scenery <b>explosion</b> using given data
+        /// </summary>
+        /// <param name="scenePos">The scene positioning of the explosion.</param>
+        /// <param name="resDisp">The direct reference to the <see cref="ResourceDispenser"/> to use.</param>
         public static void SpawnResourceNodeExplosion(Vector3 scenePos, ResourceDispenser resDisp)
         {
             GrabInitList();
@@ -464,6 +550,13 @@ namespace TerraTechETCUtil
             ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
             ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
         }
+        /// <summary>
+        /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data
+        /// </summary>
+        /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
+        /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
         public static ResourceDispenser SpawnResourceNodeSnapTerrain(Vector3 scenePos, SceneryTypes type, string biomeName)
         {
             GrabInitList();
@@ -472,6 +565,14 @@ namespace TerraTechETCUtil
             Quaternion flatRot = Quaternion.LookRotation((UnityEngine.Random.rotation * Vector3.forward).SetY(0).normalized, Vector3.up);
             return SpawnResourceNode(pos, flatRot, type, biomeName);
         }
+        /// <summary>
+        /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data
+        /// </summary>
+        /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
+        /// <param name="rotation">The scene rotation of the spawned resource node.</param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
+        /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
         public static ResourceDispenser SpawnResourceNode(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
         {
             GrabInitList();
@@ -487,6 +588,14 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("TTExtUtil: SpawnResourceNode encountered an error - " + e.Message, e);
             }
         }
+        /// <summary>
+        /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data, playing the <c>Regrow()</c> animation
+        /// </summary>
+        /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
+        /// <param name="rotation">The scene rotation of the spawned resource node.</param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
+        /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
         public static ResourceDispenser SpawnResourceNodeAnimated(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
         {
             GrabInitList();
@@ -504,6 +613,12 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("TTExtUtil: SpawnResourceNodeAnimated encountered an error - " + e.Message, e);
             }
         }
+        /// <summary>
+        /// Destroy the target <see cref="ResourceDispenser"/> immedeately
+        /// </summary>
+        /// <param name="resDisp">Target</param>
+        /// <param name="impactVec">The angle to simulate that final blow from</param>
+        /// <param name="spawnChunks">Spawn the chunks on death</param>
         public static void DestroyResourceNode(ResourceDispenser resDisp, Vector3 impactVec, bool spawnChunks)
         {
             GrabInitList();
@@ -521,6 +636,10 @@ namespace TerraTechETCUtil
 
         private static FieldInfo SetPiecesGet = typeof(ManWorld).GetField("m_AllSetPieces", BindingFlags.NonPublic | BindingFlags.Instance);
         private static List<TerrainSetPiece> piecesCached = new List<TerrainSetPiece>();
+        /// <summary>
+        /// Get the list of all permissiable <see cref="TerrainSetPiece"/>s in the game
+        /// </summary>
+        /// <returns>The list</returns>
         public static List<TerrainSetPiece> GetAllSetPieces()
         {
             piecesCached.Clear();
@@ -536,10 +655,20 @@ namespace TerraTechETCUtil
             }
             return piecesCached;
         }
+        /// <summary>
+        /// Get the list of names of all permissiable <see cref="TerrainSetPiece"/>s in the game
+        /// </summary>
+        /// <returns>The list of names</returns>
         public static IEnumerable<string> GetAllSetPieceNames()
         {
             return GetAllSetPieces().ConvertAll(x => x.name);
         }
+        /// <summary>
+        /// Find a <see cref="TerrainSetPiece"/> based on it's name
+        /// </summary>
+        /// <param name="SetPieceName">Name of the <see cref="TerrainSetPiece"/> to find</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The <see cref="TerrainSetPiece"/> if found, otherwise null</returns>
         public static TerrainSetPiece GetSetPiece(string SetPieceName, bool complainWhenFail = true)
         {
             List<TerrainSetPiece> TSPL = GetAllSetPieces();
@@ -551,12 +680,22 @@ namespace TerraTechETCUtil
             }
             return TSP;
         }
+        /// <summary>
+        /// Find multiple <see cref="TerrainSetPiece"/>s based on a list of names
+        /// </summary>
+        /// <param name="SetPieceNames">Names of the <see cref="TerrainSetPiece"/> to find</param>
+        /// <returns>The list of <see cref="TerrainSetPiece"/>s found</returns>
         public static List<TerrainSetPiece> GetSetPieces(HashSet<string> SetPieceNames)
         {
             return GetAllSetPieces().FindAll(x => SetPieceNames.Contains(x.name));
         }
         private static FieldInfo ActiveSetPiecesGet = typeof(ManWorld).GetField("m_SetPiecesPlacement", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo SetPieceContents = typeof(TerrainSetPiece).GetField("m_TerrainObjectsList", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Destroys the <see cref="TerrainSetPiece"/> immedeately at location
+        /// </summary>
+        /// <param name="worldPos">the world position of the <see cref="TerrainSetPiece"/> to remove</param>
+        /// <returns>true if removed</returns>
         public static bool DestroySetPiece(WorldPosition worldPos)
         {
             LegModExt.BypassSetPieceChecks = true;
@@ -567,11 +706,28 @@ namespace TerraTechETCUtil
             return remov;
         }
         private static List<ManWorld.SavedSetPiece> savedCache = new List<ManWorld.SavedSetPiece>();
+        /// <summary>
+        /// Spawns the set piece then forcibly reloads the terrain there to get it into the game ASAP
+        /// </summary>
+        /// <param name="name">Name of the <see cref="TerrainSetPiece"/> to find</param>
+        /// <param name="worldPos">the world position of the <see cref="TerrainSetPiece"/> to add</param>
+        /// <param name="groundOffset">The offset from the ground the <see cref="TerrainSetPiece"/> should be positioned at</param>
+        /// <param name="forwardsSnapped">Force the <see cref="TerrainSetPiece"/> to face world forwards (north)</param>
+        /// <returns>The <see cref="TerrainSetPiece"/> if found and spawned, otherwise null</returns>
         public static TerrainSetPiece ForceSpawnSetPiece(string name, WorldPosition worldPos, float groundOffset, Vector3 forwardsSnapped)
         {
             DestroySetPiece(worldPos);
             return SpawnSetPiece(name, worldPos, groundOffset, forwardsSnapped);
         }
+        /// <summary>
+        /// Spawns the set piece into the game <b>without</b> reloading the <see cref="WorldTile"/>s there, which will not be
+        /// seen until the <see cref="WorldTile"/>s are (re)generated by the player manually
+        /// </summary>
+        /// <param name="name">Name of the <see cref="TerrainSetPiece"/> to find</param>
+        /// <param name="worldPos">the world position of the <see cref="TerrainSetPiece"/> to add</param>
+        /// <param name="groundOffset">The offset from the ground the <see cref="TerrainSetPiece"/> should be positioned at</param>
+        /// <param name="forwardsSnapped">Force the <see cref="TerrainSetPiece"/> to face world forwards (north)</param>
+        /// <returns>The <see cref="TerrainSetPiece"/> if found and spawned, otherwise null</returns>
         public static TerrainSetPiece SpawnSetPiece(string name, WorldPosition worldPos, float groundOffset, Vector3 forwardsSnapped)
         {
             try
@@ -607,8 +763,13 @@ namespace TerraTechETCUtil
                 savedCache.Clear();
             }
         }
-        
 
+        /// <summary>
+        /// Get all <see cref="TerrainObject"/>s affiliated with the <see cref="TerrainSetPiece"/>.
+        /// </summary>
+        /// <param name="TSP">The <see cref="TerrainSetPiece"/> to check</param>
+        /// <returns>An <see cref="IEnumerable{TerrainObject}"/> of all afilliates</returns>
+        /// <exception cref="NullReferenceException">Set Piece does not have any contents</exception>
         public static IEnumerable<TerrainObject> GetContents(TerrainSetPiece TSP)
         {
             List<TerrainSetPiece.TerrainObjectData> obs = (List<TerrainSetPiece.TerrainObjectData>)SetPieceContents.GetValue(TSP);
@@ -616,6 +777,14 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("GetContents could not get contents of the SetPiece!");
             return obs.ConvertAll(x => x.m_TerrainObject);
         }
+        /// <summary>
+        /// Spawn a <see cref="TerrainObject"/> and add it to save data and the game scene
+        /// </summary>
+        /// <param name="TO">TerrainObject prefab to spawn from</param>
+        /// <param name="scenePos">Scene Position of the spawned <see cref="TerrainObject"/></param>
+        /// <param name="rotation">Rotation of the spawned <see cref="TerrainObject"/></param>
+        /// <returns>The <see cref="TerrainObject"/> if spawned, otherwise null</returns>
+        /// <exception cref="NullReferenceException">this failed somehow</exception>
         public static TerrainObject SpawnObject(TerrainObject TO, Vector3 scenePos, Quaternion rotation)
         {
             try
@@ -628,7 +797,10 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("TTExtUtil: SpawnObject encountered an error - " + e.Message, e);
             }
         }
-
+        /// <summary>
+        /// Remove the <see cref="TerrainObject"/> from savedata and the game scene
+        /// </summary>
+        /// <param name="Obj">instance to destroy</param>
         public static void DestroyObject(TerrainObject Obj)
         {
             Obj.Recycle();
@@ -638,10 +810,21 @@ namespace TerraTechETCUtil
 
 
         // General-Purpose explosion for use beyond vanilla
+        /// <summary>
+        /// Number of Base Bombs queued in <see cref="SpawnHelper"/>
+        /// </summary>
         public static int BombsActive => queuedBombs.Count;
 
         private const float vertOffsetDist = 250;
         internal static List<QueuedBomb> queuedBombs = new List<QueuedBomb>();
+        /// <summary>
+        /// Launch a Base Bomb with given stats. 
+        /// <para><b>DOES NOT ACCOUNT FOR SAVE AND LOAD</b></para>
+        /// </summary>
+        /// <param name="scenePos">End target</param>
+        /// <param name="forwards">The angle the bomb comes in at</param>
+        /// <param name="PostEvent">Called when the bomb hits the ground</param>
+        /// <param name="target">The optional target for the bomb to "chase"</param>
         public static void LaunchBaseBomb(Vector3 scenePos, Vector3 forwards, Action<QueuedBomb, Vector3> PostEvent, Visible target = null)
         {
             //  The bomb spawns about 500 meters off the ground, this will have to predict based on that
@@ -650,11 +833,26 @@ namespace TerraTechETCUtil
             QueuedBomb QB = new QueuedBomb(DBS, forwards, PostEvent, target);
             queuedBombs.Add(QB);
         }
+        /// <summary>
+        /// Data for a Base Bomb already in progress
+        /// </summary>
         public struct QueuedBomb
         {
+            /// <summary>
+            /// The forwards looking direction of the bomb
+            /// </summary>
             public Vector3 forwards { get; private set; }
+            /// <summary>
+            /// What to invoke on ground contact
+            /// </summary>
             public Action<QueuedBomb, Vector3> postEvent { get; private set; }
+            /// <summary>
+            /// The bomb itself
+            /// </summary>
             internal KineticDriver bomb { get; private set; }
+            /// <summary>
+            /// The bomb's chase target
+            /// </summary>
             public Visible target { get; private set; }
 
             internal QueuedBomb(DeliveryBombSpawner DBS, Vector3 forward, Action<QueuedBomb, Vector3> PostEvent, Visible aimTarget = null)

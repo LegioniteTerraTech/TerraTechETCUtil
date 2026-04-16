@@ -10,13 +10,26 @@ using static LocalisationEnums;
 namespace TerraTechETCUtil
 {
     /// <summary>
-    /// Does NOT support vanilla referencing
+    /// <inheritdoc/>
+    /// <para><b>Does NOT support vanilla referencing</b></para>
+    /// <para>For vanilla's <see cref="LocalisedString"/> for use in modded interfaces, see <see cref="LocExtStringVanilla"/></para>
     /// </summary>
     public class LocExtStringMod : LocExtString, ILocExtStringMod, ILocExtStringLSAble
     {
         private string data;
+        /// <summary>
+        /// The auto-assigned ID Index for <see cref="LocalisationExt"/> to access this
+        /// </summary>
         public readonly int IDIndex;
+        /// <summary>
+        /// The <see cref="StringBanks"/> category this was created with
+        /// </summary>
         public readonly StringBanks IDCategory;
+        /// <summary>
+        /// Create a <see cref="LocExtStringMod"/> for localisation text in a mod
+        /// </summary>
+        /// <param name="stringByLang">Languages to string</param>
+        /// <param name="category"></param>
         public LocExtStringMod(Dictionary<Languages, string> stringByLang, StringBanks category = LocalisationExt.LOC_ExtGeneralID)
         {
             LocalisationExt.InsureInit();
@@ -25,6 +38,12 @@ namespace TerraTechETCUtil
             IDIndex = LocalisationExt.RegisterStringDirect_Internal(stringByLang, category);
             LocalisationExt.TryGetFrom(category, IDIndex, ref data);
         }
+        /// <summary>
+        /// Create a <see cref="LocExtStringMod"/> for localisation text in a mod
+        /// <para>English-only quick version with no actual localisation</para>
+        /// </summary>
+        /// <param name="englishTranslation"></param>
+        /// <param name="category"></param>
         public LocExtStringMod(string englishTranslation, StringBanks category = LocalisationExt.LOC_ExtGeneralID)
         {
             LocalisationExt.InsureInit();
@@ -34,7 +53,8 @@ namespace TerraTechETCUtil
             LocalisationExt.TryGetFrom(category, IDIndex, ref data);
         }
         /// <summary>
-        /// ONLY FOR VANILLA ENTRY REFERENCING
+        /// Create a <see cref="LocExtStringMod"/> for localisation text in a mod
+        /// <para><b>ONLY FOR VANILLA ENTRY REFERENCING</b></para>
         /// </summary>
         /// <param name="category"></param>
         /// <param name="stringID"></param>
@@ -62,9 +82,12 @@ namespace TerraTechETCUtil
                 data = GetEnglish();
             }
         }
+        /// <inheritdoc/>
         public override string ToString() => data;
+
         /// <summary>
-        /// DOES NOT WORK FOR VANILLA ENTRY REFERENCING
+        /// <inheritdoc/>
+        /// <para><b>DOES NOT WORK FOR VANILLA ENTRY REFERENCING</b></para>
         /// </summary>
         public override string GetEnglish()
         {
@@ -74,19 +97,28 @@ namespace TerraTechETCUtil
                     ", category " + IDCategory);
             return outp;
         }
+        /// <summary>
+        /// To test this for the output localised string
+        /// </summary>
+        /// <param name="lang"></param>
+        /// <param name="output"></param>
+        /// <returns>True if a valid translation was found, false for fallback English</returns>
         public bool TryLookup(Languages lang, out string output)
         {
             output = string.Empty;
             return LocalisationExt.TryGetFromLang(lang, IDCategory, IDIndex, ref output);
         }
+        /// <inheritdoc/>
         public void ChangeEnglish(string newDesc)
         {
             Change(LocalisationExt.defaultLanguage, newDesc);
         }
+        /// <inheritdoc/>
         public void Change(Languages lang, string newDesc)
         {
             LocalisationExt.DoReplace(lang, IDCategory, IDIndex, newDesc);
         }
+        /// <inheritdoc/>
         public IEnumerable<KeyValuePair<Languages, string>> IterateLanguages()
         {
             string result = string.Empty;
@@ -96,6 +128,7 @@ namespace TerraTechETCUtil
                     yield return new KeyValuePair<Languages, string>(item, result);
             }
         }
+        /// <inheritdoc/>
         public LocalisedString CreateNewLocalisedString(bool guiExpanded = true)
         {
             return new LocalisedString
@@ -106,12 +139,14 @@ namespace TerraTechETCUtil
                 m_InlineGlyphs = LocalisationExt.emptyGlyphs,
             };
         }
+        /// <inheritdoc/>
         public void SetLocalisedString(LocalisedString inst)
         {
             inst.m_Bank = LocalisationExt.ModTag + IDIndex;
             inst.m_Id = ToString();
             inst.m_InlineGlyphs = LocalisationExt.emptyGlyphs;
         }
+        /// <inheritdoc/>
         public void SetTextAuto(TooltipComponent TC)
         {
             LocalisationExt.textSet.SetValue(TC, true);

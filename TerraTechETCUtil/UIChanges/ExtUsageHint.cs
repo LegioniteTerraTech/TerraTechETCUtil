@@ -7,17 +7,40 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-
-    public class ExtUsageHint : TinySettings
+    /// <summary>
+    /// The manager for <see cref="UsageHint"/>s that adds modded hints to <see cref="ManHints"/>
+    /// </summary>
+    public class ExtUsageHint : ITinySettings
     {
+        /// <summary>
+        /// Special tag to flag hints as modded in <see cref="ManHints"/>
+        /// </summary>
         public const string prefix = "ⁿ_";
+        /// <summary>
+        /// A usage hint automatically integrated with <see cref="ManHints"/> managed by <see cref="ExtUsageHint"/>
+        /// </summary>
         public class UsageHint
         {
+            /// <summary>
+            /// Mod that added this
+            /// </summary>
             public readonly string modID;
+            /// <summary>
+            /// Specific ID used to store and identify the hint in serialization save and load
+            /// </summary>
             public readonly string stringID;
+            /// <summary>
+            /// How long to display this hint for
+            /// </summary>
             public readonly float displayDuration;
-            public readonly bool repeatable;
+            /// <summary>
+            /// If calling this usage hint again permits it to be displayed more than once
+            /// </summary>
+            public readonly bool repeat;
             internal LocExtStringMod descAuto;
+            /// <summary>
+            /// The description to display for this hint
+            /// </summary>
             public string desc
             {
                 get
@@ -27,30 +50,54 @@ namespace TerraTechETCUtil
                     return string.Empty;
                 }
             }
+            /// <summary>
+            /// The auto assigned ID for this game session given by <see cref="ExtUsageHint"/>
+            /// </summary>
             public int assignedID { get; internal set; }
+            /// <summary>
+            /// Create a new hint for use on the UI system
+            /// </summary>
+            /// <param name="ModID">ModID from the mod adding this</param>
+            /// <param name="StringID">Specific ID used to store and identify the hint in serialization save and load.
+            /// <para><b>AVOID CHANGING THIS AFTER RELEASE</b></para></param>
+            /// <param name="desc">The description to display when showing the hint</param>
+            /// <param name="duration">How long to display this hint for</param>
+            /// <param name="repeat">If calling this usage hint again permits it to be displayed more than once</param>
             public UsageHint(string ModID, string StringID, string desc, float duration = defaultHintDisplayTime, bool repeat = false)
             {
                 modID = ModID;
                 stringID = StringID;
                 descAuto = new LocExtStringMod(desc);
                 displayDuration = duration;
-                repeatable = repeat;
+                this.repeat = repeat;
                 RegisterHint(this);
             }
+            /// <inheritdoc cref="UsageHint.UsageHint(string, string, string, float, bool)"/>
             public UsageHint(string ModID, string StringID, LocExtStringMod desc, float duration = defaultHintDisplayTime, bool repeat = false)
             {
                 modID = ModID;
                 stringID = StringID;
                 descAuto = desc;
                 displayDuration = duration;
-                repeatable = repeat;
+                this.repeat = repeat;
                 RegisterHint(this);
             }
+            /// <summary>
+            /// Show this hint.
+            /// <para>If it isn't working the second time, make sure to init this with <see cref="repeat"/> set to true!</para>
+            /// </summary>
+            /// <returns></returns>
             public bool Show()
             {
                 return ShowExistingHint(this);
             }
+            /// <summary>
+            /// Check to see if this hint was already seen
+            /// </summary>
+            /// <returns>True if already seen</returns>
+            public bool HintSeen() => ExtUsageHint.HintSeen(stringID);
         }
+        /// <inheritdoc/>
         public string DirectoryInExtModSettings => "UsageHints";
 
         internal static FieldInfo defD = typeof(EnumString).GetField("m_EnumValueInt", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -64,17 +111,31 @@ namespace TerraTechETCUtil
         private static Dictionary<int, string> extHintsIDLookupInv = new Dictionary<int, string>();
 
         private static HashSet<string> HintsSeen = new HashSet<string>();
+        /// <summary>
+        /// Check to see if the hint was already seen
+        /// </summary>
+        /// <param name="hintID"></param>
+        /// <returns>True if already seen</returns>
         public static bool HintSeen(string hintID)
         {
             return HintsSeen.Contains(hintID);
         }
+        /// <summary>
+        /// Reset ALL hints seen by the player.
+        /// <para><b>AVOID USING THIS IN RELEASE</b></para>
+        /// </summary>
         public static void ResetHints()
         {
             HintsSeen.Clear();
             HintsSeenToSave();
         }
-
+        /// <summary>
+        /// Serialized hints the player has seen thus far.
+        /// </summary>
         public string HintsSeenSAV = "";
+        /// <summary>
+        /// Where the hint indexes for the play session start at
+        /// </summary>
         public const int HintsSeenETCIndexStart = 5000;
         private static int HintsSeenETCIndex = HintsSeenETCIndexStart;
 
@@ -188,6 +249,12 @@ namespace TerraTechETCUtil
             }
         }*/
 
+        /// <summary>
+        /// Edit a hint that already exists <b>for a block type</b>
+        /// </summary>
+        /// <param name="subjectName"></param>
+        /// <param name="blockID">Target <see cref="BlockTypes"/></param>
+        /// <param name="HintDescription">The description to display for this hint</param>
         public static void EditHint(string subjectName, int blockID, string HintDescription)
         {
             try
@@ -250,6 +317,9 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// To test the <see cref="ExtUsageHint"/> system with. Can also be done in the in-game wiki tools
+        /// </summary>
         public static void ShowRandomExternalHint()
         {
             if (extHintsIDLookupInv.Any())
@@ -258,6 +328,11 @@ namespace TerraTechETCUtil
                 ShowHint((GameHints.HintID)entry.Key, 3, true);
             }
         }
+        /// <summary>
+        /// Show a block hint
+        /// </summary>
+        /// <param name="subjectName"></param>
+        /// <param name="blockID"></param>
         public static void ShowBlockHint(string subjectName, int blockID)
         {
             try
@@ -281,12 +356,17 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Assert(true, "ShowBlockHint crashed on blockID " + blockID + " - " + e.Message);
             }
         }
+        /// <summary>
+        /// Show a specific hint
+        /// </summary>
+        /// <param name="UH"></param>
+        /// <returns>True if it showed</returns>
         public static bool ShowExistingHint(UsageHint UH)
         {
             try
             {
                 if (!HintsSeen.Contains(UH.stringID))
-                    return ShowHint((GameHints.HintID)UH.assignedID, UH.displayDuration, UH.repeatable);
+                    return ShowHint((GameHints.HintID)UH.assignedID, UH.displayDuration, UH.repeat);
                 else
                     return true;
             }
@@ -350,6 +430,9 @@ namespace TerraTechETCUtil
             return false;
         }
 
+        /// <summary>
+        /// The default time a <see cref="UsageHint"/> will be displayed for
+        /// </summary>
         public const float defaultHintDisplayTime = 8;
 
         private static StringBuilder SB = new StringBuilder();

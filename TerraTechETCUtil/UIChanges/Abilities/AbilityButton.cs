@@ -10,23 +10,51 @@ using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// <inheritdoc/>
+    /// <para>This is the button variant that activates on press</para>
+    /// </summary>
     public class AbilityButton : AbilityElement
     {
+        /// <summary>
+        /// Button on the UI
+        /// </summary>
         public Button button;
+        /// <summary>
+        /// Called when the button is pressed
+        /// </summary>
         public readonly UnityAction Callback;
-        public override bool PressedState() => false;
+        /// <inheritdoc/>
+        protected override bool PressedState() => false;
+        /// <inheritdoc cref = "AbilityElement(LocExtStringMod, Sprite, float)" />
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="iconSprite"></param>
+        /// <param name="callback">Called when the button is pressed</param>
+        /// <param name="cooldown"></param>
         public AbilityButton(LocExtStringMod name, Sprite iconSprite, UnityAction callback, float cooldown) :
             base(name, iconSprite, cooldown)
         {
             Callback = callback;
             ManAbilities.InitElement(this);
         }
+        /// <inheritdoc cref = "AbilityElement(string, Sprite, float)" />
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="iconSprite"></param>
+        /// <param name="callback">Called when the button is pressed</param>
+        /// <param name="cooldown"></param>
         public AbilityButton(string name, Sprite iconSprite, UnityAction callback, float cooldown) :
             base(name, iconSprite, cooldown)
         {
             Callback = callback;
             ManAbilities.InitElement(this);
         }
+        /// <inheritdoc/>
         public override void TriggerNow() => TriggerThis();
         private void TriggerThis()
         {

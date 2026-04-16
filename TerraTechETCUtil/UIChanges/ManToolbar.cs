@@ -8,33 +8,71 @@ using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Custom modded interface for the lower left UI button toolbar
+    /// </summary>
     public class ManToolbar
     {
+        /// <summary>
+        /// An element displayed on the toolbar
+        /// </summary>
         public abstract class ToolbarElement
         {
+            /// <summary>
+            /// Displayed name of the element
+            /// </summary>
             public string Name => NameLoc == null ? NameMain : NameLoc.ToString();
+            /// <summary>
+            /// Name of the element in ENGLISH
+            /// </summary>
             public readonly string NameMain;
+            /// <summary>
+            /// Localized name of the element
+            /// </summary>
             public readonly LocExtStringMod NameLoc;
+            /// <summary>
+            /// Sprite to use for the element
+            /// </summary>
             public readonly Sprite Sprite;
+            /// <summary>
+            /// Is the element shown on the toolbar?
+            /// </summary>
             public bool IsShowing => Element.IsShowing;
+            /// <summary>
+            /// The UI displaying instance
+            /// </summary>
             protected GameObject inst;
             internal abstract UIHUDElement Element { get; }
+            /// <summary>
+            /// Create the toolbar element for the lower left UI button toolbar
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="iconSprite">This is needed</param>
             public ToolbarElement(LocExtStringMod name, Sprite iconSprite)
             {
                 NameLoc = name;
                 Sprite = iconSprite;
             }
+            /// <inheritdoc cref="ToolbarElement.ToolbarElement(LocExtStringMod, Sprite)"/>
             public ToolbarElement(string name, Sprite iconSprite)
             {
                 NameMain = name;
                 Sprite = iconSprite;
             }
+            /// <summary>
+            /// Remove this entirely from <see cref="ManToolbar"/>
+            /// </summary>
             public void Remove()
             {
                 UnityEngine.Object.Destroy(inst);
                 Elements.Remove(this);
             }
             internal abstract void Initiate();
+            /// <summary>
+            /// Insure that this is on the toolbar.  Automatically called by <see cref="Show"/>
+            /// </summary>
+            /// <exception cref="InvalidOperationException"></exception>
+            /// <exception cref="NullReferenceException"></exception>
             protected virtual void InsureWorking()
             {
                 if (!ready)
@@ -46,16 +84,25 @@ namespace TerraTechETCUtil
                 if (!inst.transform.parent)
                     throw new NullReferenceException("ManToolbar.ToolbarElement failed to get the parent for the toggle!  There MUST be a parent, how odd?!");
             }
+            /// <summary>
+            /// Show this element on the toolbar
+            /// </summary>
             public virtual void Show()
             {
                 InsureWorking();
                 Element.SetVisible(true);
             }
+            /// <summary>
+            /// Show this element on the toolbar and expand it's contents
+            /// </summary>
             public virtual void ShowAndExpand()
             {
                 Show();
                 Element.Expand(null);
             }
+            /// <summary>
+            /// Hide it from player view
+            /// </summary>
             public virtual void Hide()
             {
                 InsureWorking();
@@ -63,17 +110,33 @@ namespace TerraTechETCUtil
                 Element.Collapse(null);
             }
         }
+        /// <inheritdoc cref="ToolbarElement"/>
+        /// <summary>
+        /// 
+        /// </summary>
         public class ToolbarButton : ToolbarElement
         {
+            /// <summary>
+            /// The callback called when the this element is selected by the player
+            /// </summary>
             public readonly UnityAction Callback;
             private UIHUDButton togUI;
             internal override UIHUDElement Element => togUI;
+
+            /// <inheritdoc cref="ToolbarElement.ToolbarElement(LocExtStringMod, Sprite)"/>
+            /// <summary>
+            /// <para>This is the button version of it</para>
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="iconSprite"></param>
+            /// <param name="callback">The callback called when the this element is selected by the player</param>
             public ToolbarButton(LocExtStringMod name, Sprite iconSprite, UnityAction callback) :
                 base(name, iconSprite)
             {
                 Callback = callback;
                 InsuredStartup(this);
             }
+            /// <inheritdoc cref="ToolbarButton.ToolbarButton(LocExtStringMod, Sprite, UnityAction)"/>
             public ToolbarButton(string name, Sprite iconSprite, UnityAction callback) :
                 base(name, iconSprite)
             {
@@ -97,18 +160,33 @@ namespace TerraTechETCUtil
                 Elements.Add(this);
             }
         }
+        /// <inheritdoc cref="ToolbarElement"/>
+        /// <summary>
+        /// 
+        /// </summary>
         public class ToolbarToggle : ToolbarElement
         {
             private static readonly FieldInfo TogInfo = typeof(UIHUDToggleButton).GetField("m_ToggleButton", BindingFlags.Instance | BindingFlags.NonPublic);
+            /// <summary>
+            /// The callback called when the this element is selected by the player
+            /// </summary>
             public readonly UnityAction<bool> Callback;
             private UIHUDToggleButton togUI;
             internal override UIHUDElement Element => togUI;
+            /// <inheritdoc cref="ToolbarElement.ToolbarElement(LocExtStringMod, Sprite)"/>
+            /// <summary>
+            /// <para>This is the toggle version of it</para>
+            /// </summary>
+            /// <param name="name"></param>
+            /// <param name="iconSprite"></param>
+            /// <param name="callback">The callback called when the this element is selected by the player</param>
             public ToolbarToggle(LocExtStringMod name, Sprite iconSprite, UnityAction<bool> callback) :
                 base(name, iconSprite)
             {
                 Callback = callback;
                 InsuredStartup(this);
             }
+            /// <inheritdoc cref="ToolbarToggle.ToolbarToggle(LocExtStringMod, Sprite, UnityAction{bool})"/>
             public ToolbarToggle(string name, Sprite iconSprite, UnityAction<bool> callback) :
                 base(name, iconSprite)
             {
@@ -131,6 +209,10 @@ namespace TerraTechETCUtil
                 }
                 Elements.Add(this);
             }
+            /// <summary>
+            /// Set the visibility of the toggle itself
+            /// </summary>
+            /// <param name="state">true for shown</param>
             public void SetToggleVisibility(bool state)
             {
                 if (state)
@@ -138,6 +220,10 @@ namespace TerraTechETCUtil
                 else
                     Hide();
             }
+            /// <summary>
+            /// Set the actual state of the toggle itself
+            /// </summary>
+            /// <param name="state">true for on</param>
             public void SetToggleState(bool state)
             {
                 //if (togUI == null)
@@ -164,6 +250,9 @@ namespace TerraTechETCUtil
         private static bool ready = false;
         private static Queue<ToolbarElement> queued = null;
         private static List<ToolbarElement> Elements = null;
+        /// <summary>
+        /// If <see cref="ManToolbar"/> is ready to display
+        /// </summary>
         public static bool Ready => ready;
 
         private static void InsuredStartup(ToolbarElement add)

@@ -14,7 +14,7 @@ namespace TerraTechETCUtil
         private List<ChildModule> modules = new List<ChildModule>();
         private bool attached = false;
 
-        public bool Register(ChildModule CM)
+        internal bool Register(ChildModule CM)
         {
             if (CM)
             {
@@ -52,6 +52,8 @@ namespace TerraTechETCUtil
             }
         }
 
+
+        /// <inheritdoc/>
         public override void Fire(FireData fireData)
         {
             if (PB.launcher?.block)
@@ -63,6 +65,7 @@ namespace TerraTechETCUtil
                 Enable(false);
             }
         }
+        /// <inheritdoc/>
         public override void WorldRemoval()
         {
             Enable(false);

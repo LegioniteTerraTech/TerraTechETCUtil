@@ -2,42 +2,89 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
-using static LocalisationEnums;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using static TerraTechETCUtil.ManIngameWiki;
 
 namespace TerraTechETCUtil
 {
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
+    /// <summary>
+    /// <para>Wiki page for chunk information</para>
+    /// </summary>
     public class WikiPageChunk : ManIngameWiki.WikiPage
     {
+        /// <summary>
+        /// An additional event displayer for mods to add their own wiki data
+        /// </summary>
+        public static Event<ChunkTypes> AdditionalDisplayOnUI = new Event<ChunkTypes>();
+        /// <summary>
+        /// page, stringSection, searchText - 
+        /// Invoke the Action as true if the filter was triggered and true, or false if the filter failed to cancel the search target.
+        /// Do not invoke if the filter was not triggered!
+        /// <para>Use ManIngameWiki.WikiPage.FilterBlockPass for quick text filtering.  Be sure to end it with '<b>:</b>'!</para>
+        /// <para>Also add the annotation to AdditionalSearchFiltersPopup with a newline call</para>
+        /// </summary>
+        public static Event<WikiPageChunk, string, string, Action<bool>> AdditionalSearchFilters = 
+            new Event<WikiPageChunk, string, string, Action<bool>>();
+        /// <summary>
+        /// Use the stringbuilder given to AppendLine() new search filters for the user
+        /// </summary>
+        public static Event<StringBuilder> AdditionalSearchFiltersPopup = new Event<StringBuilder>();
+
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeData"/>
         public static Func<ChunkTypes, string> GetChunkData = null;
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeModName"/>
         public static Func<int, string> GetChunkModName = GetChunkModNameDefault;
+        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
         public int chunkID;
+        /// <inheritdoc cref="WikiPageBiome.desc"/>
         public string desc = "unset";
         internal ChunkDataInfo mainInfo;
         internal ChunkDataInfo damage;
         internal ChunkDataInfo damageable;
         internal ChunkDataInfo[] modules;
+
+        /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="ChunkID">The chunk ID (<see cref="ChunkTypes"/>) to affiliate with this page</param>
         public WikiPageChunk(int ChunkID) :
-            base(GetChunkModName(ChunkID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
-                () => { return StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID); }),
+            base(GetChunkModName(ChunkID), GetChunkName(ChunkID),
             ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), ManIngameWiki.LOC_Chunks, ManIngameWiki.ChunksSprite)
         {
             chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
 
+        /// <inheritdoc cref=" WikiPageChunk.WikiPageChunk(int)"/>
         public WikiPageChunk(int ChunkID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetChunkModName(ChunkID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID),
-                () => { return StringLookup.GetItemName(ObjectTypes.Chunk, ChunkID); }),
+            base(GetChunkModName(ChunkID), GetChunkName(ChunkID),
             ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), group)
         {
             chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null) =>
+            InsureChunksWikiGroup(ModID);
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null) =>
+            InsureChunksWikiGroup(ModID);
+        /// <summary>
+        /// Get the localised name from the ID
+        /// </summary>
+        /// <param name="ChunkID"></param>
+        /// <returns></returns>
+        public static LocExtStringVanillaOT GetChunkName(int ChunkID)
+        {
+            return new LocExtStringVanillaOT(ObjectTypes.Chunk, ChunkID);
+        }
+        /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
+        /// <inheritdoc/>
         public override bool OnWikiClosed()
         {
             if (mainInfo != null)
@@ -54,11 +101,149 @@ namespace TerraTechETCUtil
             return false;
         }
         private static List<ChunkDataInfo> Combiler = new List<ChunkDataInfo>();
+        /// <inheritdoc/>
         public override void GetIcon() { }
+
+        internal static void ValidChunkSearchQueryPopup()
+        {
+            try
+            {
+                AdditionalSearchFiltersPopup.Send(additionalFilters);
+                AltUI.Tooltip.GUITooltip("Supports searching in english with no spaces for:\n" +
+                    "type:[chunk type name]\n" +
+                    "raw:[the name of the raw version]\n" +
+                    "module:[chunk module name(s)]\n" +
+                    "dmg:[chunk main damageable type]\n" +
+                    "hp[g/l]:[max health greater/less than]\n" +
+                    additionalFilters.ToString());
+            }
+            finally
+            {
+                additionalFilters.Clear();
+            }
+        }
+        internal static bool ValidChunkSearchQueryPost(ManIngameWiki.WikiPage page, string pageName, string searchText)
+        {
+            if (page is WikiPageChunk WPC)
+            {
+                ChunkTypes CT = (ChunkTypes)WPC.chunkID;
+                int ignoreExtra = 0;
+                var stringSections = searchText.Split(' ');
+                foreach (var stringSection in stringSections)
+                {
+                    string[] queries = null;
+                    if (FilterPass(stringSection, "type:", ref queries))
+                    {
+                        if (!queries.Any(x => CT.ToString().ToLower().Contains(x)))
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "raw:", ref queries))
+                    {
+                        try
+                        {
+                            if (!queries.Any(x => StringLookup.GetItemName(new ItemTypeInfo(ObjectTypes.Chunk, 
+                                (int)ResourceManager.inst.GetRawResource(CT))).ToLower().Contains(x)))
+                                return false;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
+                    else if (FilterPass(stringSection, "module:", ref queries))
+                    {
+                        var chunkInst = ResourceManager.inst.resourceTable?.resources?.
+                            FirstOrDefault(x => x.m_ChunkType == CT)?.basePrefab?.GetComponent<ResourcePickup>();
+                        if (chunkInst != null)
+                        {
+                            if (!queries.All(x => chunkInst.GetComponents<Component>().
+                                Any(y => y.GetType().ToString().ToLower().Contains(x))))
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "dmg:", ref queries))
+                    {
+                        var chunkInst = ResourceManager.inst.resourceTable?.resources?.
+                            FirstOrDefault(x => x.m_ChunkType == CT)?.basePrefab?.GetComponent<ResourcePickup>();
+                        if (chunkInst != null)
+                        {
+                            if (chunkInst?.GetComponent<Damageable>() == null ||
+                                !queries.Any(x => StringLookup.GetDamageableTypeName(
+                                chunkInst.GetComponent<Damageable>().
+                                DamageableType).Replace(" ", string.Empty).ToLower().Contains(x)))
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "hpg:", ref queries))
+                    {
+                        var chunkInst = ResourceManager.inst.resourceTable?.resources?.
+                            FirstOrDefault(x => x.m_ChunkType == CT)?.basePrefab?.GetComponent<ResourcePickup>();
+                        if (chunkInst != null)
+                        {
+                            if (!float.TryParse(queries[0], out float num) ||
+                                chunkInst?.GetComponent<Damageable>() == null ||
+                                chunkInst.GetComponent<Damageable>().MaxHealth <= num)
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "hpl:", ref queries))
+                    {
+                        var chunkInst = ResourceManager.inst.resourceTable?.resources?.
+                            FirstOrDefault(x => x.m_ChunkType == CT)?.basePrefab?.GetComponent<ResourcePickup>();
+                        if (chunkInst != null)
+                        {
+                            if (!float.TryParse(queries[0], out float num) ||
+                                chunkInst?.GetComponent<Damageable>() == null ||
+                                chunkInst.GetComponent<Damageable>().MaxHealth >= num)
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
+                    else
+                    {
+                        bool filteredAtLeastOnce = false;
+                        bool cancel = false;
+                        AdditionalSearchFilters.Send(WPC, stringSection, searchText, (state) =>
+                        {
+                            filteredAtLeastOnce = true;
+                            if (!state)
+                                cancel = true;
+                        });
+                        if (cancel)
+                            return false;
+                        if (!filteredAtLeastOnce)
+                            break;
+                    }
+                    ignoreExtra = stringSection.Length + 1;
+                }
+                if (searchText.Length <= ignoreExtra)
+                    return true;
+                string leftOverText = searchText.Substring(ignoreExtra);
+                if (int.TryParse(leftOverText, out int potID) &&
+                    potID == WPC.chunkID)
+                    return true;
+                if (Enum.TryParse(leftOverText, out ChunkTypes potIDEnum) &&
+                    ((int)potIDEnum) == WPC.chunkID)
+                    return true;
+                return pageName.ToLower().Contains(searchText.Substring(ignoreExtra));
+            }
+            return false;
+        }
+
+
+        /// <inheritdoc/>
         public override void OnBeforeDisplay()
         {
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, chunkID);
         }
+        /// <inheritdoc/>
         protected override void DisplayGUI()
         {
             if (modules == null)
@@ -80,6 +265,7 @@ namespace TerraTechETCUtil
                                 item.infos.Add("Is Vanilla", chunkID <= Enum.GetValues(typeof(ChunkTypes)).Length);
                                 item.infos.Add("Cost", RecipeManager.inst.GetChunkPrice(CT));
 
+                                bool GetFromBlock = false;
 
                                 List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
                                 int chunkTypeFlags = ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<ChunkCategory>(
@@ -93,7 +279,10 @@ namespace TerraTechETCUtil
                                         links.Add(new ManIngameWiki.WikiLink(WPC));
                                 }
                                 else if ((chunkTypeFlags & (int)ChunkCategory.Component) != 0)
+                                {
+                                    GetFromBlock = true;
                                     item.infos.Add("Type", "Component");
+                                }
                                 else if ((chunkTypeFlags & (int)ChunkCategory.Raw) != 0)
                                     item.infos.Add("Type", "Raw");
                                 else
@@ -108,6 +297,39 @@ namespace TerraTechETCUtil
                                     {
                                         links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
                                             StringLookup.GetItemName(ObjectTypes.Scenery, item2.sceneryID))));
+                                    }
+                                }
+                                if (GetFromBlock)
+                                {
+                                    foreach (var item2 in IterateForInfo<WikiPageBlock>())
+                                    {
+                                        var prefab2 = item2.inst;
+                                        if (prefab2 != null && prefab2.GetComponent<ModuleRecipeProvider>() != null)
+                                        {
+                                            bool gotOne = false;
+                                            foreach (var recipieList in prefab2.GetComponent<ModuleRecipeProvider>())
+                                            {
+                                                if (recipieList != null)
+                                                {
+                                                    foreach (var recipie in recipieList)
+                                                    {
+                                                        if (recipie?.m_OutputItems != null && recipie.m_OutputItems.Any(x => x?.m_Item != null &&
+                                                            x.m_Item.ObjectType == ObjectTypes.Chunk && x.m_Item.ItemType == chunkID))
+                                                        {
+                                                            gotOne = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                if (gotOne)
+                                                    break;
+                                            }
+                                            if (gotOne)
+                                            {
+                                                links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
+                                                    StringLookup.GetItemName(ObjectTypes.Block, item2.blockID))));
+                                            }
+                                        }
                                     }
                                 }
 
@@ -133,6 +355,8 @@ namespace TerraTechETCUtil
             GUILayout.BeginHorizontal();
             AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
+            if (AdditionalDisplayOnUI.HasSubscribers())
+                AdditionalDisplayOnUI.Send((ChunkTypes)chunkID);
             if (mainInfo != null)
                 mainInfo.DisplayGUI();
             if (damage != null)
@@ -172,6 +396,12 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeModNameDefault(Biome)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="chunkType">The chunk type this is for</param>
+        /// <returns></returns>
         public static string GetChunkModNameDefault(int chunkType)
         {
             return ManIngameWiki.VanillaGameName;

@@ -11,20 +11,40 @@ using System.IO;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Alters the max terrain height system in the game by a factor of 
+    /// <seealso cref="TerrainOperations.RescaleFactor"/>, making it more like the concept art!
+    /// </summary>
     public class ManWorldGeneratorExt
     {
         /// <summary>
         /// The terrain has been vertically expanded by TerrainOperations.RescaleFactor = 4x
         /// </summary>
         public static bool AmplifiedTerrain => preInit;
+        /// <summary>
+        /// The current height multiplier applied to the terrain generation in <see cref="TileManager"/>
+        /// </summary>
         public static float CurrentHeightMultiplier => AmplifiedTerrain ? TerrainOperations.RescaleFactor : 1f;
+        /// <summary>
+        /// The current total height range applied to the terrain generation in <see cref="TileManager"/>
+        /// </summary>
         public static float CurrentTotalHeight => AmplifiedTerrain ? TerrainOperations.TileHeightRescaled : TerrainOperations.TileHeightDefault;
+        /// <summary>
+        /// The current maximum height applied to the terrain generation in <see cref="TileManager"/>
+        /// </summary>
         public static float CurrentMinHeight => AmplifiedTerrain ? TerrainOperations.TileYOffsetRescaled : TerrainOperations.TileYOffsetDefault;
+        /// <summary>
+        /// The current minimum height applied to the terrain generation in <see cref="TileManager"/>
+        /// </summary>
         public static float CurrentMaxHeight => AmplifiedTerrain ? (TerrainOperations.TileHeightRescaled + TerrainOperations.TileYOffsetRescaled) : 
             (TerrainOperations.TileHeightDefault + TerrainOperations.TileYOffsetDefault);
 
         private static bool preInit = false;
         private static bool mainInit = false;
+        /// <summary>
+        /// Pre-Init this, changing the terrain generation entirely.
+        /// <para><b>!!Currently messes with scenery when it's not supposed to!!</b></para>
+        /// </summary>
         public static void InsurePreInit()
         {
             if (preInit)
@@ -35,6 +55,10 @@ namespace TerraTechETCUtil
             ManGameMode.inst.ModeStartEvent.Subscribe(OnModeStart);
             MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldVerticalExtender), "TerraTechModExt", true);
         }
+        /// <summary>
+        /// Init this fully, changing the terrain generation entirely.
+        /// <para><b>!!Currently messes with scenery when it's not supposed to!!</b></para>
+        /// </summary>
         public static void InsureInit()
         {
             if (mainInit)
@@ -45,6 +69,9 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log("Init WorldTerraformer");
             InsureLowerTerrainClamps();
         }
+        /// <summary>
+        /// De-Init this, undoing the terrain generation changes
+        /// </summary>
         public static void DeInit()
         {
             if (preInit)
@@ -60,12 +87,28 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("De-Init WorldTerraformer");
             }
         }
+        /// <summary>
+        /// Sent when the terrain height range is clamped. 
+        /// <para><b>Beware!  This may be threaded!!!</b></para>
+        /// </summary>
         protected static EventNoParams OnClampTerrain = new EventNoParams();
 
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo layers = typeof(MapGenerator).GetField("m_Layers", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo generatorsDetails = typeof(Biome).GetField("layers", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         public static Dictionary<MapGenerator, float> LowerTerrainHeightClamped = new Dictionary<MapGenerator, float>();
-        private static void InsureLowerTerrainClamps()
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
+        protected static void InsureLowerTerrainClamps()
         {
             if (LowerTerrainHeightClamped.Count == 0)
             {
@@ -115,27 +158,65 @@ namespace TerraTechETCUtil
                 OnClampTerrain.Send();
             }
         }
-
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static Type biomesDataType = typeof(BiomeMap).GetNestedType("BiomeGroupDatabase", BindingFlags.NonPublic);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo biomesData = typeof(BiomeMap).GetField("m_BiomeGroupDatabase", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo biomesAll = biomesDataType.GetField("m_Biomes", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo biomesBatched = biomesDataType.GetField("m_BiomeGroups", BindingFlags.Instance | BindingFlags.NonPublic);
 
+
         //private static FieldInfo biomesAll2 = typeof(BiomeMap).GetField("biomes", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo biomesBatched2 = typeof(BiomeMap).GetField("m_BiomeGroups", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo biomesInside = typeof(BiomeGroup).GetField("m_Biomes", BindingFlags.Instance | BindingFlags.NonPublic),
             biomesWeights = typeof(BiomeGroup).GetField("m_BiomeWeights", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo[] MassCopy = null;
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo[] MassCopy2 = null;
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo[] MassCopy3 = null;
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo generatorHeights = typeof(Biome).GetField("heightMapGenerator",
             BindingFlags.Instance | BindingFlags.NonPublic);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo funcIDK = typeof(MapGenerator.Layer).GetField("function",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
+        /// <summary>
+        /// For WaterMod, blocks generation of scenery at a specific height of <b>-50</b>
+        /// </summary>
+        /// <param name="generator"><see cref="MapGenerator"/> to apply the change directly to</param>
+        /// <param name="invert">Instead, block scenery generation ABOVE water</param>
         public static void BlockBiomeSceneryInWater(MapGenerator generator, bool invert = false)
         {
             if (invert && generator.m_UseLegacy)
@@ -190,6 +271,10 @@ namespace TerraTechETCUtil
                 layers.SetValue(generator, ogLayers);
             }
         }
+        /// <summary>
+        /// <b>BROKEN! DO NOT USE!!!</b>
+        /// </summary>
+        /// <param name="generator"></param>
         protected static void ClampBiome(MapGenerator generator)
         {
             return;
@@ -226,6 +311,9 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static MapGenerator.Layer CopyLayer(MapGenerator.Layer ogLayer, int addOps = 0)
         {
             MapGenerator.Layer newLayer = new MapGenerator.Layer
@@ -265,6 +353,9 @@ namespace TerraTechETCUtil
             */
             return newLayer;
         }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static MapGenerator.Layer[] CopyLayers(MapGenerator.Layer[] ogLayers, int addExtra = 0)
         {
             MapGenerator.Layer[] NewLayers = new MapGenerator.Layer[ogLayers.Length + addExtra];
@@ -282,6 +373,9 @@ namespace TerraTechETCUtil
             return NewLayers;
         }
 
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static Biome CopyBiome(Biome from, string name)
         {
             if (MassCopy == null)
@@ -317,6 +411,9 @@ namespace TerraTechETCUtil
             return copyBiome;
         }
 
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static BiomeGroup CopyBiomeGroup(BiomeGroup from, string name, Biome[] biomes, float[] weights)
         {
             if (MassCopy3 == null)
@@ -341,6 +438,9 @@ namespace TerraTechETCUtil
             Debug_TTExt.LogGen("Made biomeGroup " + name);
             return copyGroup;
         }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static MapGenerator ShallowCopyGenerator(MapGenerator ogGen, string name)
         {
             if (MassCopy2 == null)
@@ -361,6 +461,9 @@ namespace TerraTechETCUtil
             }
             return MG;
         }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static MapGenerator DeepCopyGenerator(MapGenerator ogGen, string name, int addLayers = 0)
         {
             MapGenerator MG = ShallowCopyGenerator(ogGen, name);
@@ -370,14 +473,26 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         protected static float GenDelegateNone(float x, float y)
         {
             return 1;
         }
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo allowTS = typeof(Biome).GetField("m_AllowVendors",
             BindingFlags.Instance | BindingFlags.NonPublic);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo allowMarks = typeof(Biome).GetField("m_AllowLandmarks",
             BindingFlags.Instance | BindingFlags.NonPublic);
+        /// <summary>
+        /// Accessor for custom biome generation
+        /// </summary>
         protected static FieldInfo allowStunts = typeof(Biome).GetField("m_AllowStuntRamps",
             BindingFlags.Instance | BindingFlags.NonPublic);
 

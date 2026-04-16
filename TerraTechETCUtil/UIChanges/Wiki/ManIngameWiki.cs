@@ -3,24 +3,43 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using Newtonsoft.Json.Linq;
+using Steamworks;
 using UnityEngine;
 using static LocalisationEnums;
+using static TerraTechETCUtil.ManIngameWiki;
 using static VectorLineRenderer;
 
 namespace TerraTechETCUtil
 {
-    public class ManIngameWiki : TinySettings
+    /// <summary>
+    /// The modded ingame wiki manager.
+    /// <para>Every <see cref="WikiPage"/> type has subscribe-able contents</para>
+    /// <para>See <seealso cref="ExtendedWiki"/> for more options</para>
+    /// </summary>
+    public class ManIngameWiki : ITinySettings
     {
+        /// <summary>
+        /// Sent after a wiki is initally created with the wiki that was created
+        /// </summary>
         public static Event<Wiki> OnModWikiCreated = new Event<Wiki>();
+        /// <summary>
+        /// Sent in IMGUI for events that display custom UI elements on the wiki's top bar
+        /// </summary>
+        public static Event<Wiki> WikiTopBarEvent = new Event<Wiki>();
         private static byte renderedIcon = 0;
-        public static HashSet<string> ModulesOpened = new HashSet<string>();
-
+        internal static HashSet<string> ModulesOpened = new HashSet<string>();
+        /// <summary>
+        /// True if the language the user is using is not any form of English
+        /// </summary>
         public static bool DisplayingNonEnglish => Localisation.inst.CurrentLanguage != Languages.English &&
             Localisation.inst.CurrentLanguage != Languages.US_English;
 
+        /// <summary> Base-game sprite </summary>
         public static Sprite WikiSprite { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("ICON_SEE_BLOCKS").ConvertToSprite();
         private static Sprite infoSprite;
+        /// <summary> Base-game sprite </summary>
         public static Sprite InfoSprite {
             get
             {
@@ -36,27 +55,52 @@ namespace TerraTechETCUtil
                 return infoSprite;
             }
         }
+        /// <summary> Base-game sprite </summary>
         public static Sprite CorpsSprite => ManUI.inst.GetModernCorpIcon(FactionSubTypes.GSO);
+        /// <summary> Base-game sprite </summary>
         public static Sprite ChunksSprite => ManUI.inst.GetSprite(ObjectTypes.Chunk, (int)ChunkTypes.Wood);
+        /// <summary> Base-game sprite </summary>
         public static Sprite BlocksSprite => ManUI.inst.GetSprite(ObjectTypes.Block, (int)BlockTypes.GSOBlock_111);
+        /// <summary> Base-game sprite </summary>
         public static Sprite ScenerySprite => ManUI.inst.GetSprite(ObjectTypes.Block, (int)BlockTypes.SPEXmasTree_353);
 
+        /// <summary> Base-game sprite </summary>
         public static Sprite ToolsSprite { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("Icon_RecipesMenu_01_White").ConvertToSprite();
+        /// <summary> Base-game sprite </summary>
         public static Sprite BiomesSprite { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("NewGame_CreateAWorld").ConvertToSprite();
-
+        /// <summary>
+        /// Optional description override for a block data field ONLY in the wiki.
+        /// <para>Use a DocAttribute to automatically add a description in the JSON extraction data</para>
+        /// </summary>
+        /// <param name="typeName">The field name to replace, like <c>m_DamageableType</c></param>
+        /// <param name="newName">The field name to display in the wiki</param>
         public static void ApplyNewWikiBlockDescOverride(string typeName, string newName)
         {
             AutoDataExtractor.SpecialNames[typeName] = newName;
         }
+        /// <summary>
+        /// Hides the ExtModule given in type <c>T</c> in the wiki
+        /// </summary>
+        /// <typeparam name="T">The Type to ignore</typeparam>
         public static void IgnoreWikiBlockExtModule<T>() where T : ExtModule
         {
             AutoDataExtractor.ignoreModuleTypes.Add(typeof(T));
         }
+        /// <summary>
+        /// Allow an odd type to be displayed on the wiki, not guaranteed to work on all types.
+        /// </summary>
+        /// <typeparam name="T">The type to permit displaying</typeparam>
         public static void RecurseCheckWikiBlockExtModule<T>()
         {
             ModuleInfo.AllowedTypesUIWiki.Add(typeof(T));
         }
-
+        /// <summary>
+        /// Replace the description in a target wiki page 
+        /// </summary>
+        /// <param name="ModID">The wiki of the wiki page to target</param>
+        /// <param name="Title">The <b>ENGLISH</b> title of the wiki page to replace</param>
+        /// <param name="replacement">The description GUI replacement</param>
+        /// <exception cref="InvalidOperationException">Target page does not exist</exception>
         public static void ReplaceDescription(string ModID, string Title, Action replacement)
         {
             if (!ModID.NullOrEmpty() && Wikis.TryGetValue(ModID, out var wiki))
@@ -70,15 +114,28 @@ namespace TerraTechETCUtil
             throw new InvalidOperationException("ManIngameWiki.ReplaceDescription cannot be replaced because the ModID or title does not match");
         }
 
+        /// <summary>
+        /// Used to display an icon in IMGUI with a hover description
+        /// </summary>
         public struct WikiIconInfo
         {
-            Sprite Icon;
-            string Description;
+            readonly Sprite Icon;
+            readonly string Description;
+            /// <summary>
+            /// Create a new WikiIconInfo to display information in IMGUI for a wiki page in the context of
+            /// a different wiki page.
+            /// </summary>
+            /// <param name="icon">The icon to display. Icon should not be null but it will handle null incase it is ever null</param>
+            /// <param name="description">The description to display when hovering over this</param>
             public WikiIconInfo(Sprite icon, string description)
             {
                 Icon = icon;
                 Description = description;
             }
+            /// <summary>
+            /// Display this in the GUI
+            /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+            /// </summary>
             public void OnGUI(GUIStyle style)
             {
                 if (Icon == null)
@@ -92,6 +149,10 @@ namespace TerraTechETCUtil
                     AltUI.Tooltip.GUITooltip(Description);
                 }
             }
+            /// <summary>
+            /// Display this BIG in the GUI.
+            /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+            /// </summary>
             public bool OnGUILarge(GUIStyle style, GUIStyle styleText)
             {
                 if (Icon == null)
@@ -99,7 +160,7 @@ namespace TerraTechETCUtil
                     GUILayout.BeginHorizontal(AltUI.ButtonGrey);
                     GUILayout.Label("Error", styleText);
                     GUILayout.EndHorizontal();
-                    AltUI.Tooltip.GUITooltip("Icon Missing");
+                    AltUI.Tooltip.GUITooltip(AltUI.EnemyString("Icon Missing"));
                     return false;
                 }
                 else
@@ -112,17 +173,32 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Used to display a wiki link in IMGUI with a hover description
+        /// </summary>
         public struct WikiLink
         {
+            /// <summary>
+            /// The linked WikiPage
+            /// </summary>
             public readonly WikiPage linked;
+            /// <summary>
+            /// Create a new WikiIconInfo to display information in IMGUI for a wiki page in the context of
+            /// a different wiki page.
+            /// </summary>
+            /// <param name="theLink">The wiki page to display and link to. Icon will be displayed if present or text otherwise</param>
             public WikiLink(WikiPage theLink)
             { linked = theLink; }
+            /// <summary>
+            /// Display this in the GUI
+            /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+            /// </summary>
             public bool OnGUI(GUIStyle style)
             {
                 if (linked == null)
                 {
-                    GUILayout.Button("Error", AltUI.ButtonGrey);
-                    AltUI.Tooltip.GUITooltip("Link Broken");
+                    GUILayout.Button("<BROKEN LINK>", AltUI.ButtonGrey);
+                    AltUI.Tooltip.GUITooltip(AltUI.EnemyString("Wiki page is missing!"));
                     return false;
                 }
                 else
@@ -140,6 +216,10 @@ namespace TerraTechETCUtil
                     }
                 }
             }
+            /// <summary>
+            /// Display this BIG in the GUI.
+            /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+            /// </summary>
             public bool OnGUILarge(GUIStyle style, GUIStyle styleText)
             {
                 if (linked == null)
@@ -163,19 +243,43 @@ namespace TerraTechETCUtil
                 }
             }
         }
-
-        public abstract class WikiPage : GUILayoutHelpers.SlowSortable
+        /// <summary>
+        /// The basis for any wiki page in the ManIngameWiki system
+        /// </summary>
+        public abstract class WikiPage : GUILayoutHelpers.ISlowSortable
         {
+            /// <summary>
+            /// Wiki this is located in
+            /// </summary>
             public readonly Wiki wiki;
             /// <summary>
             /// The ENGLISH title
             /// </summary>
             public readonly string title;
+            /// <summary>
+            /// The title that is shown on the ui relitive to the user's settings
+            /// </summary>
             public LocExtString titleLoc;
+            /// <summary>
+            /// Icon to display.  Can be left null to use the name only for content links
+            /// </summary>
             public Sprite icon { get; protected set; } = null;
+            /// <summary>
+            /// The name the page displays on the Wiki UI
+            /// </summary>
             public string displayName => titleLoc != null ? titleLoc.ToString() : title;
+            /// <summary>
+            /// Override action to replace the info dialog of the page
+            /// </summary>
             public Action infoOverride = null;
-
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para><b>Does not insure and assign itself to a group!</b></para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
             protected WikiPage(string ModID, LocExtString Title, Sprite Icon)
             {
                 wiki = InsureWiki(ModID);
@@ -186,6 +290,15 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para><b>Does not insure and assign itself to a group!</b></para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="group">The group to assign to</param>
             protected WikiPage(string ModID, LocExtString Title, Sprite Icon, WikiPageGroup group)
             {
                 wiki = InsureWiki(ModID);
@@ -202,6 +315,16 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para>Will automatically insure and assign itself to the given group without advanced options</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="IconGroup">The icon to assign to the group if it has to be made</param>
             protected WikiPage(string ModID, LocExtString Title, Sprite Icon, string WikiGroupName, Sprite IconGroup)
             {
                 wiki = InsureWiki(ModID);
@@ -213,6 +336,16 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para>Will automatically insure and assign itself to the given group without advanced options</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="IconGroup">The icon to assign to the group if it has to be made</param>
             protected WikiPage(string ModID, LocExtString Title, Sprite Icon, LocExtString WikiGroupName, Sprite IconGroup)
             {
                 wiki = InsureWiki(ModID);
@@ -225,6 +358,33 @@ namespace TerraTechETCUtil
                 //    Debug_TTExt.Assert("Added Hints");
             }
 
+            /// <summary>
+            /// Overridable custom creator for WikiGroup that overrides the constructor sequence entirely
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="Icon">The icon to assign to the group if it has to be made</param>
+            /// <returns>A WikiPageGroup that is either found or newly created.  Should never be null</returns>
+            protected virtual WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null) => 
+                InsureDefaultWikiGroup(ModID, WikiGroupName, Icon);
+            /// <summary>
+            /// Overridable custom creator for WikiGroup that overrides the constructor sequence entirely
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="Icon">The icon to assign to the group if it has to be made</param>
+            /// <returns>A WikiPageGroup that is either found or newly created.  Should never be null</returns>
+            protected virtual WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null) =>
+                InsureDefaultWikiGroup(ModID, WikiGroupName, Icon);
+
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para><b>Does not insure and assign itself to a group!</b></para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
             protected WikiPage(string ModID, string Title, Sprite Icon)
             {
                 wiki = InsureWiki(ModID);
@@ -234,6 +394,15 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para><b>Does not insure and assign itself to a group!</b></para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="group">The group to assign to</param>
             protected WikiPage(string ModID, string Title, Sprite Icon, WikiPageGroup group)
             {
                 wiki = InsureWiki(ModID);
@@ -249,6 +418,16 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para>Will automatically insure and assign itself to the given group without advanced options</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="IconGroup">The icon to assign to the group if it has to be made</param>
             protected WikiPage(string ModID, string Title, Sprite Icon, string WikiGroupName, Sprite IconGroup)
             {
                 wiki = InsureWiki(ModID);
@@ -259,6 +438,16 @@ namespace TerraTechETCUtil
                 //if (title == LOC_Hints.GetEnglish())
                 //    Debug_TTExt.Assert("Added Hints");
             }
+            /// <summary>
+            /// Creates a WikiPage.
+            /// <para>If needed this automatically creates the wiki it is targeting.</para>
+            /// <para>Will automatically insure and assign itself to the given group without advanced options</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">Title to display for the page</param>
+            /// <param name="Icon">Optional icon to display on the page</param>
+            /// <param name="WikiGroupName">The group insure and to assign to</param>
+            /// <param name="IconGroup">The icon to assign to the group if it has to be made</param>
             protected WikiPage(string ModID, string Title, Sprite Icon, LocExtString WikiGroupName, Sprite IconGroup)
             {
                 wiki = InsureWiki(ModID);
@@ -464,24 +653,27 @@ namespace TerraTechETCUtil
                 wiki.ALLPages[replacement.title] = replacement;
             }
 
-            public static void ReplaceDescription(string ModID, string Title, Action replacement)
-            {
-                if (!inst.wikiID.NullOrEmpty() && Wikis.TryGetValue(ModID, out var wiki))
-                {
-                    if (!inst.pageName.NullOrEmpty() && wiki.ALLPages.TryGetValue(Title, out var page))
-                    {
-                        page.infoOverride = replacement;
-                        return;
-                    }
-                }
-                throw new InvalidOperationException("ManIngameWiki.WikiPage.ReplaceDescription cannot be replaced because the titles do not match");
-            }
+            /// <summary>
+            /// Replace the description in a target wiki page 
+            /// </summary>
+            /// <param name="ModID">The wiki of the wiki page to target</param>
+            /// <param name="Title">The <b>ENGLISH</b> title of the wiki page to replace</param>
+            /// <param name="replacement">The description GUI replacement</param>
+            /// <exception cref="InvalidOperationException">Target page does not exist</exception>
+            public static void ReplaceDescription(string ModID, string Title, Action replacement) =>
+                ManIngameWiki.ReplaceDescription(ModID, Title, replacement);
+            /// <summary>
+            /// Replace the description <b>for this page specifically</b>
+            /// </summary>
+            /// <param name="replacement">The description GUI replacement</param>
             public void ReplaceDescription(Action replacement)
             {
                 infoOverride = replacement;
             }
 
-
+            /// <summary>
+            /// A default option for DisplaySidebar() to display this page's button on the wiki sidebar
+            /// </summary>
             protected void ButtonGUIDisp()
             {
                 GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
@@ -497,6 +689,10 @@ namespace TerraTechETCUtil
                     GoHere();
                 }
             }
+            /// <summary>
+            /// A default option for DisplaySidebar() to display this page's button on the wiki sidebar.
+            /// <para>Use this if your icon needs to be generated at runtime when the wiki is opened later via call to <c>GetIcon()</c></para>
+            /// </summary>
             protected void ButtonGUIDispLateIcon()
             {
                 if (icon == null && renderedIcon == 0)
@@ -521,61 +717,209 @@ namespace TerraTechETCUtil
                 }
             }
 
+            /// <summary>
+            /// Jump to thre previous page the user was looking at. Only useful in temporary browsing contexts
+            /// </summary>
             public void GoBack()
             {
-                if (backtrace.Any())
+                try
                 {
-                    WikiPage WP = backtrace.Last();
-                    if (curWikiPage != WP)
-                        WP.OnBeforeDisplay();
-                    curWikiPage = WP;
-                    backtrace.RemoveAt(backtrace.Count - 1);
-                }
-                else
-                {
-                    if (wiki.MainPage == null)
+                    if (backtrace.Any())
                     {
-                        DefaultWikiPage.OnBeforeDisplay();
-                        curWikiPage = DefaultWikiPage;
+                        WikiPage WP = backtrace.Last();
+                        if (curWikiPage != WP)
+                            WP.OnBeforeDisplay();
+                        foretrace.Add(curWikiPage);
+                        if (foretrace.Count > 64)
+                            foretrace.RemoveAt(0);
+                        curWikiPage = WP;
+                        backtrace.RemoveAt(backtrace.Count - 1);
                     }
                     else
                     {
-                        wiki.MainPage.OnBeforeDisplay();
-                        CurrentWikiPage = wiki.MainPage;
+                        if (wiki?.MainPage == null)
+                        {
+                            DefaultWikiPage.OnBeforeDisplay();
+                            curWikiPage = DefaultWikiPage;
+                        }
+                        else
+                        {
+                            wiki.MainPage.OnBeforeDisplay();
+                            CurrentWikiPage = wiki.MainPage;
+                        }
                     }
                 }
+                catch (Exception)
+                {
+                    DefaultWikiPage.OnBeforeDisplay();
+                    curWikiPage = DefaultWikiPage;
+                }
             }
+            /// <summary>
+            /// Jump to the next page the user was looking at BEFORE they went back. Only useful in temporary browsing contexts
+            /// </summary>
+            public void GoForward()
+            {
+                try
+                {
+                    if (foretrace.Any())
+                    {
+                        WikiPage WP = foretrace.Last();
+                        if (curWikiPage != WP)
+                            WP.OnBeforeDisplay();
+                        if (curWikiPage != WP)
+                        {
+                            backtrace.Add(curWikiPage);
+                            if (backtrace.Count > 64)
+                                backtrace.RemoveAt(0);
+                            if (WP != null)
+                                WP.OnBeforeDisplay();
+                        }
+                        curWikiPage = WP;
+                        foretrace.RemoveAt(foretrace.Count - 1);
+                    }
+                }
+                catch (Exception)
+                {
+                    DefaultWikiPage.OnBeforeDisplay();
+                    curWikiPage = DefaultWikiPage;
+                }
+            }
+            /// <summary>
+            /// Jump to this very page.  Useful for links.
+            /// <para><b>Use <c>WikiLink</c> for this in GUI whenever possible instead of this!</b></para>
+            /// </summary>
             public void GoHere()
             {
                 CurrentWikiPage = this;
             }
 
 
+            // UTILITIES
+            /// <summary>
+            /// Used for displaying the description for filters for the WikiPageGroupBase searchbar
+            /// </summary>
+            protected static StringBuilder additionalFilters = new StringBuilder();
+            /// <summary>
+            /// Use this to check for filters under a certain keyword.
+            /// <para>The convention is: <b><c>[name]</c>:</b>(search term with no spaces)</para>
+            /// </summary>
+            /// <param name="toCheck">The current chunk of the search query, split by spaces</param>
+            /// <param name="name">Where <b><c>[name]</c></b> is in the search filter name</param>
+            /// <param name="queries">The output of each search term, split into multiple via '<c>,</c>'</param>
+            /// <returns></returns>
+            public static bool FilterPass(string toCheck, string name, ref string[] queries)
+            {
+                if (toCheck.StartsWith(name.ToLower()))
+                {
+                    queries = toCheck.Substring(name.Length).Split(',');
+                    return true;
+                }
+                return false;
+            }
         }
-
-        public sealed class WikiPageGroup : WikiPage
+        /// <summary>
+        /// The basis for a wikipage that serves as a hub for other wikipages
+        /// </summary>
+        public abstract class WikiPageGroupBase : WikiPage 
         {
-            public List<WikiPage> NestedPages = new List<WikiPage>();
+            /// <summary>
+            /// The pages this should display
+            /// </summary>
+            public abstract List<WikiPage> NestedPages { get; }
+            /// <summary>
+            /// Current user search query in the searchbar (appears if there are more than 16 entries)
+            /// </summary>
             public string searchQuery = "";
-            public Func<WikiPage, bool> PageHunterPostQuery;
+            /// <summary>
+            /// The event that is called in OnGUI which can be used to add tooltips
+            /// </summary>
+            public Action HoverUISearch;
+            /// <summary>
+            /// The search query to find the page (less expensive)
+            /// </summary>
+            public Func<WikiPage, string, string, bool> PageHunterPreQuery;
+            /// <summary>
+            /// The search query to final validate the page (more expensive)
+            /// </summary>
+            public Func<WikiPage, string, string, bool> PageHunterPostQuery;
+            /// <summary>
+            /// The automatic page sorting algorithm. Set this to null to reset the search entirely (SLOW)
+            /// </summary>
             public GUILayoutHelpers.SlowSorter<WikiPage> PageHunter;
+            /// <summary>
+            /// Called when the page is opened
+            /// </summary>
             public Action onOpen = null;
+            /// <summary>
+            /// If the expandable tab in the sidebar is currently open
+            /// </summary>
             public bool open = false;
-            public WikiPageGroup(string ModID, LocExtString Title, Sprite Icon = null, WikiPageGroup Group = null, Func<WikiPage, bool> preSearchQuery = null) : base(ModID, Title, Icon, Group)
+            /// <summary>
+            /// Create a wiki page group that nests pages of a category within itself. 
+            /// <para>Can be nested</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">The title of the wiki group to display</param>
+            /// <param name="Icon">The optional icon</param>
+            /// <param name="Group">The optional group to be nested inside of</param>
+            /// <param name="hoverUISearch">The event that is called in OnGUI which can be used to add tooltips</param>
+            /// <param name="preSearchQuery">The search query to find the page (less expensive)</param>
+            /// <param name="postSearchQuery">The search query to final validate the page (more expensive)</param>
+            public WikiPageGroupBase(string ModID, LocExtString Title, Sprite Icon = null, 
+                WikiPageGroup Group = null, Action hoverUISearch = null, 
+                Func<WikiPage, string, string, bool> preSearchQuery = null,
+                 Func<WikiPage, string, string, bool> postSearchQuery = null) : 
+                base(ModID, Title, Icon, Group)
             {
-                PageHunterPostQuery = preSearchQuery;
+                HoverUISearch = hoverUISearch;
+                PageHunterPreQuery = preSearchQuery;
+                PageHunterPostQuery = postSearchQuery;
             }
-            public WikiPageGroup(string ModID, string Title, Sprite Icon = null, WikiPageGroup Group = null, Func<WikiPage, bool> preSearchQuery = null) : base(ModID, Title, Icon, Group)
+            /// <summary>
+            /// Create a wiki page group that nests pages of a category within itself. 
+            /// <para>Can be nested</para>
+            /// </summary>
+            /// <param name="ModID">Mod ID to make under.</param>
+            /// <param name="Title">The title of the wiki group to display</param>
+            /// <param name="Icon">The optional icon</param>
+            /// <param name="Group">The optional group to be nested inside of</param>
+            /// <param name="hoverUISearch">The event that is called in OnGUI which can be used to add tooltips</param>
+            /// <param name="preSearchQuery">The search query to find the page (less expensive)</param>
+            /// <param name="postSearchQuery">The search query to final validate the page (more expensive)</param>
+            public WikiPageGroupBase(string ModID, string Title, Sprite Icon = null, 
+                WikiPageGroup Group = null, Action hoverUISearch = null,
+                Func<WikiPage, string, string, bool> preSearchQuery = null,
+                Func<WikiPage, string, string, bool> postSearchQuery = null) :
+                base(ModID, Title, Icon, Group)
             {
-                PageHunterPostQuery = preSearchQuery;
+                HoverUISearch = hoverUISearch;
+                PageHunterPreQuery = preSearchQuery;
+                PageHunterPostQuery = postSearchQuery;
             }
+            /// <summary>
+            /// Called when the gamemode is switched.  Helpful when the modded block lookup is changed
+            /// </summary>
+            /// <param name="mode">Mode it switched to</param>
             public override void OnGameModeSwitch(Mode mode)
             {
                 if (PageHunter != null)
                     PageHunter.SetNewSearchQueryIfNeeded(searchQuery, true);
             }
+
+            /// <inheritdoc />
             public override void GetIcon() { }
+            /// <inheritdoc />
             public override void DisplaySidebar()
+            {
+                DisplaySidebarStart();
+                DisplaySidebarEnd();
+            }
+
+            /// <summary>
+            /// The default WikiPageGroupBase call for generating the DisplaySidebar() <b>BEFORE</b> displaying sidebar contents
+            /// </summary>
+            protected void DisplaySidebarStart()
             {
                 GUILayout.BeginHorizontal(open ? AltUI.ButtonBlueActive : AltUI.ButtonBlue, GUILayout.Height(35));
                 GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35));
@@ -588,9 +932,25 @@ namespace TerraTechETCUtil
                 {
                     open = !open;
                     ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Select);
-                    if (open && onOpen != null)
-                        onOpen();
+                    if (open)
+                        DisplaySidebarOnOpen();
                 }
+            }
+
+            /// <summary>
+            /// Optional event to display while the sidebar is open in default execution of DisplaySidebarStart() in DisplaySidebar().
+            /// </summary>
+            protected virtual void DisplaySidebarOnOpen()
+            {
+                if (onOpen != null)
+                    onOpen();
+            }
+
+            /// <summary>
+            /// The default WikiPageGroupBase call for generating the DisplaySidebar() <b>AFTER</b> displaying sidebar contents
+            /// </summary>
+            protected void DisplaySidebarEnd()
+            {
                 if (open)
                 {
                     GUILayout.BeginVertical(AltUI.TextfieldBordered);
@@ -598,11 +958,13 @@ namespace TerraTechETCUtil
                     {
                         if (PageHunter == null)
                         {
-                            PageHunter = new GUILayoutHelpers.SlowSorter<WikiPage>(32, PageHunterPostQuery);
+                            PageHunter = new GUILayoutHelpers.SlowSorter<WikiPage>(32, 
+                                PageHunterPreQuery, PageHunterPostQuery);
                             PageHunter.SetSearchArrayAndSearchQuery(NestedPages.ToArray(), searchQuery, true);
                         }
                         if (GUILayoutHelpers.GUITextFieldDisp("Search:", ref searchQuery))
                             PageHunter.SetNewSearchQueryIfNeeded(searchQuery, true);
+                        HoverUISearch?.Invoke();
                         if (PageHunter.namesValid.Count > 0)
                         {
                             foreach (var item in PageHunter.valid)
@@ -621,16 +983,55 @@ namespace TerraTechETCUtil
                     GUILayout.EndVertical();
                 }
             }
+            /// <inheritdoc />
             public override bool OnWikiClosed()
             {
+                PageHunter.Abort();
+                PageHunter = null;
                 return false;
             }
         }
+        /// <summary>
+        /// Holds a list of <see cref="WikiPage"/>s in the sidebar
+        /// </summary>
+        public sealed class WikiPageGroup : WikiPageGroupBase
+        {
+            /// <inheritdoc />
+            public override List<WikiPage> NestedPages => _NestedPages;
+            private List<WikiPage> _NestedPages = new List<WikiPage>();
+
+            /// <inheritdoc />
+            public WikiPageGroup(string ModID, LocExtString Title, Sprite Icon = null, 
+                WikiPageGroup Group = null, Action hoverUISearch = null,
+                 Func<WikiPage, string, string, bool> preSearchQuery = null,
+                 Func<WikiPage, string, string, bool> postSearchQuery = null) : 
+                base(ModID, Title, Icon, Group, hoverUISearch, preSearchQuery, postSearchQuery)
+            {
+            }
+
+            /// <inheritdoc />
+            public WikiPageGroup(string ModID, string Title, Sprite Icon = null, 
+                WikiPageGroup Group = null, Action hoverUISearch = null,
+                Func<WikiPage, string, string, bool> preSearchQuery = null,
+                 Func<WikiPage, string, string, bool> postSearchQuery = null) : 
+                base(ModID, Title, Icon, Group, hoverUISearch, preSearchQuery, postSearchQuery)
+            {
+            }
+        }
+        /// <summary>
+        /// The main wiki page for a wiki.  Auto-generated for new wikis.
+        /// <para> Not advised to use this elsewhere</para>
+        /// </summary>
         public class WikiPageMainDefault : WikiPage
         {
+            /// <summary>
+            /// Creates a main wiki page for a wiki.  Not advised to use this elsewhere
+            /// </summary>
+            /// <inheritdoc/>
             public WikiPageMainDefault(string ModID, LocExtString Title, Sprite Icon = null) : base(ModID, Title, Icon, null)
             {
             }
+            ///<inheritdoc/>
             public override void DisplaySidebar()
             {
                 GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
@@ -640,31 +1041,90 @@ namespace TerraTechETCUtil
                     GoHere();
                 GUILayout.EndHorizontal();
             }
+            ///<inheritdoc/>
             public override bool OnWikiClosed()
             {
                 return false;
             }
+            ///<inheritdoc/>
             public override void GetIcon() { }
+        }
+        internal class WikiBroadSearch<T> : WikiPageGroupBase where T : WikiPage
+        {
+            public override List<WikiPage> NestedPages => _NestedPages;
+            private List<WikiPage> _NestedPages = new List<WikiPage>();
+            public WikiBroadSearch(string ModID, LocExtString Title, Sprite Icon = null,
+                WikiPageGroup Group = null, Action hoverUISearch = null,
+                Func<WikiPage, string, string, bool> preSearchQuery = null,
+                 Func<WikiPage, string, string, bool> postSearchQuery = null) :
+                base(ModID, Title, Icon, Group, hoverUISearch, preSearchQuery, postSearchQuery)
+            {
+            }
+            public WikiBroadSearch(string ModID, string Title, Sprite Icon = null,
+                WikiPageGroup Group = null, Action hoverUISearch = null,
+                Func<WikiPage, string, string, bool> preSearchQuery = null,
+                 Func<WikiPage, string, string, bool> postSearchQuery = null) :
+                base(ModID, Title, Icon, Group, hoverUISearch, preSearchQuery, postSearchQuery)
+            {
+            }
+            
+            protected override void DisplaySidebarOnOpen()
+            {
+                base.DisplaySidebarOnOpen();
+                if (!_NestedPages.Any())
+                {
+                    foreach (var page in IterateForInfo<T>())
+                        _NestedPages.Add(page);
+                }
+            }
+            public override bool OnWikiClosed()
+            {
+                _NestedPages.Clear();
+                return base.OnWikiClosed();
+            }
         }
 
 
-
+        /// <summary>
+        /// A wiki that displays the contents and data of the vanilla game or mod.  
+        /// Created automatically by pages when needed, but can be manually made for more precision.
+        /// </summary>
         public class Wiki
         {
+            /// <summary>
+            /// The name of the mod this wiki represents
+            /// <para>Must be the actual mod ID of the mod</para>
+            /// </summary>
             public readonly string ModID;
+            /// <summary>
+            /// The ModContainer of the target mod
+            /// </summary>
             public ModContainer modContainer => ManMods.inst.FindMod(ModID);
+            /// <summary>
+            /// The main page group to use for the wiki as a fallback incase there's no content
+            /// </summary>
             public WikiPageGroup MainPage = null;
             internal List<WikiPage> Pages => MainPage.NestedPages;
             internal Dictionary<string, WikiPage> ALLPages = new Dictionary<string, WikiPage>();
 
+            /// <summary>
+            /// Count of all pages in this Wiki
+            /// </summary>
             public int RegisteredPagesCount => ALLPages.Count;
 
+            /// <summary>
+            /// Create a new wiki.  Registered in ManIngameWiki automatically.
+            /// Created automatically by pages when needed, but can be manually made for more precision.
+            /// </summary>
+            /// <param name="ModID">Must be the actual mod ID of the mod</param>
             public Wiki(string ModID)
             {
                 this.ModID = ModID;
                 Wikis.Add(ModID, this);
                 if (ModID == VanillaGameName)
                     MainPage = new WikiPageGroup(ModID, "Vanilla - Terra Tech");
+                else if (ModID == GlobalName)
+                    MainPage = new WikiPageGroup(ModID, "<b>" + GlobalName + "</b>");
                 else
                     MainPage = new WikiPageGroup(ModID, "Mod - " + ModID);
                 Debug_TTExt.Log("Prepared wiki for " + ModID);
@@ -702,11 +1162,21 @@ namespace TerraTechETCUtil
                 }
             }
         }
-
+        /// <summary>
+        /// <b>Insure</b> a wiki by ModID
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The wiki. <b>Will create a new one if missing</b></returns>
         public static Wiki GetModWiki(string ModID)
         {
             return InsureWiki(ModID);
         }
+        /// <summary>
+        /// Try find a wiki by ModID
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="wiki">The wiki. Will return null if failed</param>
+        /// <returns>True if the wiki was successfully found</returns>
         public static bool TryGetModWiki(string ModID, out Wiki wiki) => Wikis.TryGetValue(ModID, out wiki);
 
         private static bool TryCleanupHint(string item, string name, int ID)
@@ -806,148 +1276,305 @@ namespace TerraTechETCUtil
             Biomes = typeof(BiomeMap).GetField("m_BiomeGroups", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatch = typeof(ManHints).GetField("m_HintDefinitions", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatchCore = typeof(HintDefinitionList).GetField("m_HintsList", BindingFlags.NonPublic | BindingFlags.Instance);
-
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Blocks = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Blocks" },
             {Languages.Japanese, "ブロック" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Corps = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Corporations" },
             {Languages.Japanese, "企業" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Chunks = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Chunks" },
             {Languages.Japanese, "資源" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Scenery = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Resources" },
             {Languages.Japanese, "木や石 鉱石 等" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Biomes = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Biomes" },
             {Languages.Japanese, "バイオーム" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_General = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "General" },
             {Languages.Japanese, "全般" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Combat = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Combat" },
             {Languages.Japanese, "戦闘" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Tools = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Tools" },
             {Languages.Japanese, "道具" }});
+        /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Hints = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Hints" },
             {Languages.Japanese, "ヒント" }});
+
+
         private static void AutoPopulateVanilla(Wiki wiki)
         {
-            Sprite specialIcon;
-            WikiPageGroup corps = new WikiPageGroup(wiki.ModID, LOC_Corps, CorpsSprite);
-            WikiPageGroup blocks = new WikiPageGroup(wiki.ModID, LOC_Blocks, BlocksSprite, null, WikiPageBlock.ValidBlockSearchQuery);
-            for (int step = 0; step < Enum.GetValues(typeof(BlockTypes)).Length; step++)
+            try
             {
-                BlockTypes BT = (BlockTypes)step;
-                if (ManSpawn.inst.IsBlockAllowedInLaunchedConfig(BT) &&
-                     ManSpawn.inst.GetCategory(BT) != BlockCategories.Null &&
-                    !wiki.ALLPages.ContainsKey(StringLookup.GetItemName(ObjectTypes.Block, step)))
+                WikiPageGroup corps = InsureCorpWikiGroup(wiki.ModID);
+                try
                 {
-                    new WikiPageBlock(step, blocks);
+                    WikiPageGroup blocks = InsureBlockWikiGroup(wiki.ModID);
+                    for (int step = 0; step < Enum.GetValues(typeof(BlockTypes)).Length; step++)
+                    {
+                        BlockTypes BT = (BlockTypes)step;
+                        if (ManSpawn.inst.IsBlockAllowedInLaunchedConfig(BT) &&
+                             ManSpawn.inst.GetCategory(BT) != BlockCategories.Null &&
+                            !wiki.ALLPages.ContainsKey(StringLookup.GetItemName(ObjectTypes.Block, step)))
+                            new WikiPageBlock(step, blocks);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug_TTExt.Log("Failed to init blocks for vanilla wiki! - " + e);
+                }
+                for (int step = 1; step < Enum.GetValues(typeof(FactionSubTypes)).Length; step++)
+                {
+                    FactionSubTypes FST = (FactionSubTypes)step;
+                    if (!wiki.ALLPages.ContainsKey(FST.ToString() + "_corp"))
+                        new WikiPageCorp(wiki.ModID, step, corps);
                 }
             }
-            for (int step = 1; step < Enum.GetValues(typeof(FactionSubTypes)).Length; step++)
+            catch (Exception e)
             {
-                FactionSubTypes FST = (FactionSubTypes)step;
-                if (!wiki.ALLPages.ContainsKey(FST.ToString() + "_corp"))
+                Debug_TTExt.Log("Failed to init corps for vanilla wiki! - " + e);
+            }
+            try
+            {
+                WikiPageGroup chunks = InsureChunksWikiGroup(wiki.ModID);
+                for (int step = 0; step < Enum.GetValues(typeof(ChunkTypes)).Length; step++)
                 {
-                    new WikiPageCorp(wiki.ModID, step, corps);
+                    if (!StringLookup.GetItemName(ObjectTypes.Chunk, step).StartsWith("ERROR:"))
+                        new WikiPageChunk(step, chunks);
                 }
             }
-            WikiPageGroup chunks = new WikiPageGroup(wiki.ModID, LOC_Chunks, ChunksSprite);
-            for (int step = 0; step < Enum.GetValues(typeof(ChunkTypes)).Length; step++)
+            catch (Exception e)
             {
-                if (!StringLookup.GetItemName(ObjectTypes.Chunk, step).StartsWith("ERROR:"))
+                Debug_TTExt.Log("Failed to init chunks for vanilla wiki! - " + e);
+            }
+            try
+            {
+                HashSet<Biome> biomesCollected = new HashSet<Biome>();
+                BiomeGroup[] groups = (BiomeGroup[])Biomes.GetValue(ManWorld.inst.CurrentBiomeMap);
+                for (int i = 0; i < groups.Length; i++)
                 {
-                    new WikiPageChunk(step, chunks);
+                    BiomeGroup item = groups[i];
+                    //Debug_TTExt.Log("Biome Group " + item.name + " - Distance Multi " + item.WeightingByDistance);
+                    for (int j = 0; j < item.Biomes.Length; j++)
+                    {
+                        Biome item2 = item.Biomes[j];
+                        //Debug_TTExt.Log("  " + item2.name + " - Type " + item2.BiomeType + ", Weight " + item.BiomeWeights[j]);
+                        if (!biomesCollected.Contains(item2))
+                            biomesCollected.Add(item2);
+                    }
+                }
+                WikiPageGroup biomes = InsureBiomesWikiGroup(wiki.ModID);
+                foreach (var biome in biomesCollected)
+                    new WikiPageBiome(biome, biomes);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init biomes for vanilla wiki! - " + e);
+            }
+            try
+            {
+                WikiPageGroup scenery = InsureSceneryWikiGroup(wiki.ModID);
+                for (int step = 0; step < Enum.GetValues(typeof(SceneryTypes)).Length; step++)
+                {
+                    if (!StringLookup.GetItemName(ObjectTypes.Scenery, step).StartsWith("ERROR:"))
+                        new WikiPageScenery(step, scenery);
                 }
             }
-            HashSet<Biome> biomesCollected = new HashSet<Biome>();
-            BiomeGroup[] groups = (BiomeGroup[])Biomes.GetValue(ManWorld.inst.CurrentBiomeMap);
-            for (int i = 0; i < groups.Length; i++)
+            catch (Exception e)
             {
-                BiomeGroup item = groups[i];
-                //Debug_TTExt.Log("Biome Group " + item.name + " - Distance Multi " + item.WeightingByDistance);
-                for (int j = 0; j < item.Biomes.Length; j++)
+                Debug_TTExt.Log("Failed to init scenery for vanilla wiki! - " + e);
+            }
+            try
+            {
+                List<ManHints.HintDefinition> lingo = (List<ManHints.HintDefinition>)hintBatchCore.GetValue(
+                    (HintDefinitionList)hintBatch.GetValue(ManHints.inst));
+                foreach (var item in lingo)
                 {
-                    Biome item2 = item.Biomes[j];
-                    //Debug_TTExt.Log("  " + item2.name + " - Type " + item2.BiomeType + ", Weight " + item.BiomeWeights[j]);
-                    if (!biomesCollected.Contains(item2))
-                        biomesCollected.Add(item2);
+                    if (item.m_HintMessage != null && item.m_HintMessage.IsValid)
+                        InjectHint(VanillaGameName, LOC_General, new LocExtStringVanillaText(item.m_HintMessage));
                 }
             }
-            WikiPageGroup biomes = new WikiPageGroup(wiki.ModID, LOC_Biomes, BiomesSprite);
-            foreach (var biome in biomesCollected)
+            catch (Exception e)
             {
-                new WikiPageBiome(biome, biomes);
+                Debug_TTExt.Log("Failed to init hints for vanilla wiki! - " + e);
             }
-            WikiPageGroup scenery = new WikiPageGroup(wiki.ModID, LOC_Scenery, ScenerySprite);
-            for (int step = 0; step < Enum.GetValues(typeof(SceneryTypes)).Length; step++)
+            try
             {
-                if (!StringLookup.GetItemName(ObjectTypes.Scenery, step).StartsWith("ERROR:"))
-                {
-                    new WikiPageScenery(step, scenery);
-                }
+                new WikiPageDamageStats(wiki.ModID, LOC_Combat, ManUI.inst.GetBlockCatIcon(BlockCategories.Weapons));
             }
-            List<ManHints.HintDefinition> lingo = (List<ManHints.HintDefinition>)hintBatchCore.GetValue(
-                (HintDefinitionList)hintBatch.GetValue(ManHints.inst));
-            foreach (var item in lingo)
+            catch (Exception e)
             {
-                if (item.m_HintMessage != null && item.m_HintMessage.IsValid)
-                    InjectHint(VanillaGameName, LOC_General, new LocExtStringVanillaText(item.m_HintMessage));
+                Debug_TTExt.Log("Failed to init damage stats for vanilla wiki! - " + e);
             }
-            new WikiPageDamageStats(wiki.ModID, LOC_Combat, ManUI.inst.GetBlockCatIcon(BlockCategories.Weapons));
-            new WikiPageInfo(wiki.ModID, LOC_Tools, ToolsSprite, GUITools);
-
-            ExtendedWiki.AutoPopulateWikiExtras(wiki);
+            try
+            {
+                new WikiPageInfo(wiki.ModID, LOC_Tools, ToolsSprite, GUITools);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init tools for vanilla wiki! - " + e);
+            }
+            try
+            {
+                ExtendedWiki.AutoPopulateWikiExtras(wiki);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init extras for vanilla wiki! - " + e);
+            }
 
             InvokeHelper.Invoke(FinishVanillaWikiSearch, 3f);
         }
+        private static void AutoPopulateGlobal(Wiki wiki)
+        {
+            try
+            {
+                CorpSearch = new WikiBroadSearch<WikiPageCorp>(wiki.ModID, LOC_Corps, CorpsSprite);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init corps for global wiki! - " + e);
+            }
+            try
+            {
+                BlockSearch = new WikiBroadSearch<WikiPageBlock>(wiki.ModID, LOC_Blocks, BlocksSprite, null,
+                    WikiPageBlock.ValidBlockSearchQueryPopup, WikiPageBlock.ValidBlockSearchQuery,
+                    WikiPageBlock.ValidBlockSearchQueryPost);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init blocks for global wiki! - " + e);
+            }
+            try
+            {
+                ChunkSearch = new WikiBroadSearch<WikiPageChunk>(wiki.ModID, LOC_Chunks, ChunksSprite, null,
+                    WikiPageChunk.ValidChunkSearchQueryPopup, null,
+                    WikiPageChunk.ValidChunkSearchQueryPost);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init chunks for global wiki! - " + e);
+            }
+            try
+            {
+                BiomeSearch = new WikiBroadSearch<WikiPageBiome>(wiki.ModID, LOC_Biomes, BiomesSprite);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init biomes for global wiki! - " + e);
+            }
+            try
+            {
+                ScenerySearch = new WikiBroadSearch<WikiPageScenery>(wiki.ModID, LOC_Scenery, ScenerySprite, null,
+                    WikiPageScenery.ValidScenerySearchQueryPopup, null,
+                    WikiPageScenery.ValidScenerySearchQueryPost);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init scenery for global wiki! - " + e);
+            }
+            try
+            {
+                ExtendedWiki.AutoPopulateWikiExtras(wiki);
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.Log("Failed to init extras for global wiki! - " + e);
+            }
+        }
+
+        internal static WikiBroadSearch<WikiPageCorp> CorpSearch;
+        internal static WikiBroadSearch<WikiPageBlock> BlockSearch;
+        internal static WikiBroadSearch<WikiPageChunk> ChunkSearch;
+        internal static WikiBroadSearch<WikiPageBiome> BiomeSearch;
+        internal static WikiBroadSearch<WikiPageScenery> ScenerySearch;
+
         private static void AutoPopulateWiki(Wiki wiki)
         {
             if (wiki.ModID == VanillaGameName)
-            {
                 AutoPopulateVanilla(wiki);
-            }
+            else if (wiki.ModID == GlobalName)
+                AutoPopulateGlobal(wiki);
             else
             {   // Modded
                 var MC = wiki.modContainer;
                 if (MC != null)
                 {
+                    string modName = wiki.ModID.NullOrEmpty() ? "<NULL>" : wiki.ModID;
                     var contents = MC.Contents;
-                    if (contents.m_Blocks != null && contents.m_Blocks.Any())
+                    try
                     {
-                        WikiPageGroup blocks = new WikiPageGroup(wiki.ModID, LOC_Blocks, BlocksSprite, null, WikiPageBlock.ValidBlockSearchQuery);
-                        foreach (var item in contents.m_Blocks)
+                        if (contents.m_Blocks != null && contents.m_Blocks.Any())
                         {
-                            if (!wiki.ALLPages.ContainsKey(item.m_BlockDisplayName))
+                            WikiPageGroup blocks = InsureBlockWikiGroup(wiki.ModID);
+                            foreach (var item in contents.m_Blocks)
                             {
-                                new WikiPageBlock(ManMods.inst.GetBlockID(item.name), blocks);
+                                if (!wiki.ALLPages.ContainsKey(item.m_BlockDisplayName))
+                                    new WikiPageBlock(ManMods.inst.GetBlockID(item.name), blocks);
                             }
                         }
                     }
-                    var corps = contents.m_Corps;
-                    if (corps != null && corps.Any())
+                    catch (Exception e)
                     {
-                        WikiPageGroup corpsPage = (WikiPageGroup)GetPage(MC.ModID, LOC_Corps);
-                        if (corpsPage == null)
-                            corpsPage = new WikiPageGroup(MC.ModID, LOC_Corps, CorpsSprite);
-                        foreach (var item in corps)
+                        Debug_TTExt.Log("Failed to init blocks for \"" + modName + "\" mod wiki! - " + e);
+                    }
+                    try
+                    {
+                        var corps = contents.m_Corps;
+                        if (corps != null && corps.Any())
                         {
-                            new WikiPageCorp(MC.ModID, (int)ManMods.inst.GetCorpIndex(item.m_ShortName), corpsPage);
+                            WikiPageGroup corpsPage = (WikiPageGroup)GetPage(MC.ModID, LOC_Corps);
+                            if (corpsPage == null)
+                                corpsPage = InsureCorpWikiGroup(wiki.ModID);
+                            foreach (var item in corps)
+                                new WikiPageCorp(MC.ModID, (int)ManMods.inst.GetCorpIndex(item.m_ShortName), corpsPage);
                         }
                     }
-                    if (TryGetModWiki(MC.ModID, out Wiki wiki2))
+                    catch (Exception e)
                     {
-                        wiki2.MainPage.onOpen = wiki2.PrepareModded;
-                        OnModWikiCreated.Send(wiki);
+                        Debug_TTExt.Log("Failed to init corps for \"" + modName + "\" mod wiki! - " + e);
+                    }
+                    try
+                    {
+                        ExtendedWiki.AutoPopulateWikiExtras(wiki);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug_TTExt.Log("Failed to init extras for \"" + modName + "\" mod wiki! - " + e);
+                    }
+                    try
+                    {
+                        if (TryGetModWiki(MC.ModID, out Wiki wiki2))
+                        {
+                            wiki2.MainPage.onOpen = wiki2.PrepareModded;
+                            OnModWikiCreated.Send(wiki);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug_TTExt.Log("FAILED TO GET \"" + modName + "\" mod wiki! - " + e);
                     }
                 }
             }
         }
+
+        /// <summary>
+        /// <b>Insure</b> a wiki by ModID
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The wiki. <b>Will create a new one if missing</b></returns>
         public static Wiki InsureWiki(string ModID)
         {
             if (ModID.NullOrEmpty())
@@ -961,7 +1588,16 @@ namespace TerraTechETCUtil
             return wiki;
         }
 
-        public static WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null)
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="WikiGroupName">The group insure and to assign to</param>
+        /// <param name="Icon">The icon to assign to the group if it has to be made</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID or WikiGroupName is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureDefaultWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null)
         {
             if (ModID.NullOrEmpty())
                 throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
@@ -980,7 +1616,16 @@ namespace TerraTechETCUtil
             else 
                 return new WikiPageGroup(ModID, WikiGroupName, Icon);
         }
-        public static WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null)
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="WikiGroupName">The group insure and to assign to</param>
+        /// <param name="Icon">The icon to assign to the group if it has to be made</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID or WikiGroupName is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureDefaultWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null)
         {
             if (ModID.NullOrEmpty())
                 throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
@@ -999,6 +1644,142 @@ namespace TerraTechETCUtil
             else
                 return new WikiPageGroup(ModID, WikiGroupName, Icon);
         }
+
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings for <b>Blocks</b> 
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureBlockWikiGroup(string ModID)
+        {
+            if (ModID.NullOrEmpty())
+                throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
+            Wiki wiki = InsureWiki(ModID);
+            if (wiki.ALLPages.TryGetValue(LOC_Blocks.GetEnglish(), out var page))
+            {
+                if (page is WikiPageGroup pageR2)
+                    return pageR2;
+                else
+                    throw new InvalidOperationException("InsureBlockWikiGroup tried to add a new entry to wiki \"" +
+                        ModID + "\", but it was already taken by a non-group of the same name!\n" +
+                        page.GetType().ToString() + ", name " + page.title);
+            }
+            else
+                return new WikiPageGroup(wiki.ModID, LOC_Blocks, BlocksSprite, null,
+                        WikiPageBlock.ValidBlockSearchQueryPopup,
+                        WikiPageBlock.ValidBlockSearchQuery, WikiPageBlock.ValidBlockSearchQueryPost);
+        }
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings for <b>Corporations</b> 
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureCorpWikiGroup(string ModID)
+        {
+            if (ModID.NullOrEmpty())
+                throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
+            Wiki wiki = InsureWiki(ModID);
+            if (wiki.ALLPages.TryGetValue(LOC_Corps.GetEnglish(), out var page))
+            {
+                if (page is WikiPageGroup pageR2)
+                    return pageR2;
+                else
+                    throw new InvalidOperationException("InsureCorpWikiGroup tried to add a new entry to wiki \"" +
+                        ModID + "\", but it was already taken by a non-group of the same name!\n" +
+                        page.GetType().ToString() + ", name " + page.title);
+            }
+            else
+                return new WikiPageGroup(wiki.ModID, LOC_Corps, CorpsSprite);
+        }
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings for <b>Chunks</b> 
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureChunksWikiGroup(string ModID)
+        {
+            if (ModID.NullOrEmpty())
+                throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
+            Wiki wiki = InsureWiki(ModID);
+            if (wiki.ALLPages.TryGetValue(LOC_Chunks.GetEnglish(), out var page))
+            {
+                if (page is WikiPageGroup pageR2)
+                    return pageR2;
+                else
+                    throw new InvalidOperationException("InsureChunksWikiGroup tried to add a new entry to wiki \"" +
+                        ModID + "\", but it was already taken by a non-group of the same name!\n" +
+                        page.GetType().ToString() + ", name " + page.title);
+            }
+            else
+                return new WikiPageGroup(wiki.ModID, LOC_Chunks, ChunksSprite, null,
+                    WikiPageChunk.ValidChunkSearchQueryPopup, null,
+                    WikiPageChunk.ValidChunkSearchQueryPost);
+        }
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings for <b>Biomes</b> 
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureBiomesWikiGroup(string ModID)
+        {
+            if (ModID.NullOrEmpty())
+                throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
+            Wiki wiki = InsureWiki(ModID);
+            if (wiki.ALLPages.TryGetValue(LOC_Biomes.GetEnglish(), out var page))
+            {
+                if (page is WikiPageGroup pageR2)
+                    return pageR2;
+                else
+                    throw new InvalidOperationException("InsureBiomesWikiGroup tried to add a new entry to wiki \"" +
+                        ModID + "\", but it was already taken by a non-group of the same name!\n" +
+                        page.GetType().ToString() + ", name " + page.title);
+            }
+            else
+                return new WikiPageGroup(wiki.ModID, LOC_Biomes, BiomesSprite);
+        }
+        /// <summary>
+        /// Creates a new WikiPageGroup with default settings for <b>Scenery</b> 
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <returns>The WikiPageGroup if it exists or a new one based on given data</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
+        /// <exception cref="InvalidOperationException">Page of the same ENGLISH name exists already in target wiki</exception>
+        public static WikiPageGroup InsureSceneryWikiGroup(string ModID)
+        {
+            if (ModID.NullOrEmpty())
+                throw new NullReferenceException("ModID should NOT be null.  WHY IS IT NULL");
+            Wiki wiki = InsureWiki(ModID);
+            if (wiki.ALLPages.TryGetValue(LOC_Scenery.GetEnglish(), out var page))
+            {
+                if (page is WikiPageGroup pageR2)
+                    return pageR2;
+                else
+                    throw new InvalidOperationException("InsureSceneryWikiGroup tried to add a new entry to wiki \"" +
+                        ModID + "\", but it was already taken by a non-group of the same name!\n" +
+                        page.GetType().ToString() + ", name " + page.title);
+            }
+            else
+                return new WikiPageGroup(wiki.ModID, LOC_Scenery, ScenerySprite, null,
+                    WikiPageScenery.ValidScenerySearchQueryPopup, null,
+                    WikiPageScenery.ValidScenerySearchQueryPost);
+        }
+
+        /// <summary>
+        /// Automatically managed by ExtUsageHint for ingame hints.
+        /// <para>Use this for hints you don't want to ever display during gameplay</para>
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="Title">The category of the hint</param>
+        /// <param name="hintLOC">The hint description to display under the hint</param>
+        /// <exception cref="InvalidOperationException">Page of the same name already exists in the target wiki</exception>
         public static void InjectHint(string ModID, LocExtString Title, LocExtString hintLOC)
         {
             if (!ModID.NullOrEmpty())
@@ -1024,6 +1805,14 @@ namespace TerraTechETCUtil
             }
             throw new InvalidOperationException("ManIngameWiki.ReplaceDescription cannot be replaced because the ModID or title does not match");
         }
+        /// <summary>
+        /// Automatically managed by ExtUsageHint for ingame hints.
+        /// <para>Use this for hints you don't want to ever display during gameplay</para>
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="Title">The category of the hint</param>
+        /// <param name="hintLOC">The hint description to display under the hint</param>
+        /// <exception cref="InvalidOperationException">Page of the same name already exists in the target wiki</exception>
         public static void InjectHint(string ModID, string Title, LocExtString hintLOC)
         {
             if (!ModID.NullOrEmpty())
@@ -1051,6 +1840,12 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary>
+        /// Find a page based on the page name.
+        /// <para>Using ModID is faster and more precise!</para>
+        /// </summary>
+        /// <param name="pageName">The name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPage GetPage(LocExtString pageName)
         {
             try
@@ -1062,6 +1857,12 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a page based on the page name specified by ModID.
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="pageName">The name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPage GetPage(string ModID, LocExtString pageName)
         {
             try
@@ -1073,6 +1874,11 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a page based on the page name specified by ModID.
+        /// </summary>
+        /// <param name="pageName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPage GetPage(string pageName)
         {
             try
@@ -1084,6 +1890,13 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a page based on the page name.
+        /// <para>Using ModID is faster and more precise!</para>
+        /// </summary>
+        /// <param name="ModID">Must be the actual mod ID of the mod</param>
+        /// <param name="pageName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPage GetPage(string ModID, string pageName)
         {
             try
@@ -1095,6 +1908,11 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a WikiPageBlock by the name
+        /// </summary>
+        /// <param name="blockName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPageBlock GetBlockPage(string blockName)
         {
             try
@@ -1106,6 +1924,11 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a WikiPageChunk by the name
+        /// </summary>
+        /// <param name="chunkName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPageChunk GetChunkPage(string chunkName)
         {
             try
@@ -1117,6 +1940,11 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Find a WikiPageCorp by the name
+        /// </summary>
+        /// <param name="corp">The FactionSubTypes ID of the corp</param>
+        /// <returns>The page if found, otherwise null</returns>
         public static WikiPageCorp GetCorpPage(FactionSubTypes corp)
         {
             try
@@ -1129,24 +1957,43 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <summary>
+        /// Get the global WikiPageDamageStats page
+        /// </summary>
+        /// <returns>The page, should not be null</returns>
+        public static WikiPageDamageStats GetDamageStatsPage() => (WikiPageDamageStats)GetModWiki(VanillaGameName).ALLPages[LOC_Combat.ToString()];
 
-
+        /// <summary>
+        /// Name of the vanilla game for the wiki in ENGLISH
+        /// </summary>
         public const string VanillaGameName = "Terra Tech";
+        /// <summary>
+        /// Name of the global search wiki in ENGLISH
+        /// </summary>
+        public const string GlobalName = "Global Search";
+
+        /// <inheritdoc/>
         public string DirectoryInExtModSettings => "IngameWiki";
 
         private static ManIngameWiki inst = new ManIngameWiki();
         private static Dictionary<string, Wiki> Wikis = new Dictionary<string, Wiki>();
+        /// <summary>
+        /// All wikis registered in <see cref="ManIngameWiki"/>
+        /// </summary>
         public static Dictionary<string, Wiki> AllWikis => Wikis;
 
         private static LocExtStringMod LOC_WikiMainName = new LocExtStringMod(new Dictionary<Languages, string>
-            {{ Languages.US_English, "Terra Tech Wiki V0.4" },
-            {Languages.Japanese, "テラテックウィキ V0.4" }});
+            {{ Languages.US_English, "Terra Tech Wiki V0.6" },
+            {Languages.Japanese, "テラテックウィキ V0.6" }});
         private static WikiPage DefaultWikiPage = new WikiPageMainDefault(VanillaGameName,
             LOC_WikiMainName, WikiSprite);
 
 
         private static bool assignedQuit = false;
         private static WikiPage curWikiPage = default;
+        /// <summary>
+        /// The current wiki page at the top of the stack
+        /// </summary>
         public static WikiPage CurrentWikiPage
         {
             get => curWikiPage;
@@ -1154,6 +2001,7 @@ namespace TerraTechETCUtil
             {
                 if (curWikiPage != value)
                 {
+                    foretrace.Clear();
                     backtrace.Add(curWikiPage);
                     if (backtrace.Count > 64)
                         backtrace.RemoveAt(0);
@@ -1169,15 +2017,41 @@ namespace TerraTechETCUtil
             }
         }
         private static List<WikiPage> backtrace = new List<WikiPage>();
+        private static List<WikiPage> foretrace = new List<WikiPage>();
 
+        /// <summary>
+        /// The set keybind to toggle the wiki
+        /// </summary>
         public static KeyCode WikiButtonKeybind = KeyCode.Slash;
+        /// <summary>
+        /// If the left side panel of the wiki is is open
+        /// </summary>
         public bool sideOpen = true;
+        /// <summary>
+        /// If the wiki should display the JSON export buttons
+        /// </summary>
         public bool enabledJSONExport = false;
+        /// <summary>
+        /// The currently viewed wiki ID to remember for next session
+        /// </summary>
         public string wikiID;
+        /// <summary>
+        /// The currently viewed pageName to remember for next session
+        /// </summary>
         public string pageName;
+        /// <summary>
+        /// The currently viewed page scroll height to remember for next session
+        /// </summary>
         public float scrollY;
+        /// <summary>
+        /// The currently viewed side panel scroll height
+        /// </summary>
         public static Vector2 scrollSide;
+        /// <summary>
+        /// The currently viewed page scroll height
+        /// </summary>
         public static Vector2 scroll;
+        /// <inheritdoc cref="enabledJSONExport"/>
         public static bool ShowJSONExport => inst.enabledJSONExport;
 
 
@@ -1188,7 +2062,7 @@ namespace TerraTechETCUtil
         private static LocExtStringMod LOC_WikiTopName = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Mod Wiki" },
             {Languages.Japanese, "改造ウィキ" }});
-        public class GUIInst : MonoBehaviour
+        internal class GUIInst : MonoBehaviour
         {
             /// <summary>
             /// To ONLY be set by GUIInst.SetGUI(bool state)!!!
@@ -1238,7 +2112,8 @@ namespace TerraTechETCUtil
                 {
                     if (_WikiWindowOpen)
                     {
-                        guiWindow = AltUI.Window(ExtWikiID, guiWindow, GUILayouter, LOC_WikiTopName.ToString(), CloseGUI);
+                        guiWindow = AltUI.Window(ExtWikiID, guiWindow, GUILayouter, 
+                            LOC_WikiTopName.ToString(), CloseGUI, ExtraGUITopBar);
                     }
                 }
                 catch (ExitGUIException e)
@@ -1248,14 +2123,17 @@ namespace TerraTechETCUtil
                 catch (Exception) { }
             }
         }
-        public static Rect InGUIRect = new Rect();
+
         private static LocExtStringMod LOC_WikiGoBack = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Go Back" },
             {Languages.Japanese, "ページに戻る" }});
+        private static LocExtStringMod LOC_WikiGoForward = new LocExtStringMod(new Dictionary<Languages, string>
+            {{ Languages.US_English, "Go Forward" },
+            {Languages.Japanese, "ページを転送する" }});
         private static LocExtStringMod LOC_WikiContents = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Contents" },
             {Languages.Japanese, "目次" }});
-        public static void GUILayouter(int ID)
+        private static void GUILayouter(int ID)
         {
             GUILayout.BeginHorizontal(GUILayout.Height(40));
             {
@@ -1267,8 +2145,16 @@ namespace TerraTechETCUtil
                 else
                     GUILayout.Button("<", AltUI.ButtonGreyLarge, GUILayout.Width(40));
                 AltUI.Tooltip.GUITooltip(LOC_WikiGoBack.ToString());
+                if (foretrace.Any())
+                {
+                    if (GUILayout.Button(">", AltUI.ButtonOrangeLarge, GUILayout.Width(40)))
+                        CurrentWikiPage.GoForward();
+                }
+                else
+                    GUILayout.Button(">", AltUI.ButtonGreyLarge, GUILayout.Width(40));
+                AltUI.Tooltip.GUITooltip(LOC_WikiGoForward.ToString());
             }
-            if (GUILayout.Button(LOC_WikiContents.ToString(), inst.sideOpen ? AltUI.ButtonBlueLargeActive : AltUI.ButtonBlueLarge, GUILayout.Width(280)))
+            if (GUILayout.Button(LOC_WikiContents.ToString(), inst.sideOpen ? AltUI.ButtonBlueLargeActive : AltUI.ButtonBlueLarge, GUILayout.Width(240)))
                 inst.sideOpen = !inst.sideOpen;
             if (curWikiPage != null)
                 GUILayout.Label(curWikiPage.displayName, AltUI.LabelBlackTitle);
@@ -1280,12 +2166,11 @@ namespace TerraTechETCUtil
             {
                 GUILayout.BeginVertical(GUILayout.Width(320));
                 scrollSide = GUILayout.BeginScrollView(scrollSide);
-                foreach (var item in Wikis.Values)
+                DisplayGlobalWiki();
+                foreach (var item in Wikis.Values.Where(x => x.ModID != GlobalName))
                 {
                     if (item.MainPage != null)
-                    {
                         item.MainPage.DisplaySidebar();
-                    }
                 }
                 GUILayout.EndScrollView();
                 GUILayout.EndVertical();
@@ -1303,6 +2188,8 @@ namespace TerraTechETCUtil
             //tooltip.EndDisplayGUIToolTip();
             GUI.DragWindow();
         }
+        private static void DisplayGlobalWiki() =>
+            GlobalWiki?.MainPage?.DisplaySidebar();
 
 
         internal static void ToggleGUI()
@@ -1316,6 +2203,10 @@ namespace TerraTechETCUtil
             instGUI.SetGUI(state);
         }
         private static void CloseGUI() => instGUI.SetGUI(false);
+        private static void ExtraGUITopBar()
+        {
+            WikiTopBarEvent.Send(CurrentWikiPage?.wiki);
+        }
 
 
 
@@ -1328,6 +2219,7 @@ namespace TerraTechETCUtil
             {Languages.Japanese, "ゲーム内ウィキ" }}
         );
         private static ManToolbar.ToolbarToggle WikiButton = new ManToolbar.ToolbarToggle(wikiName, WikiSprite, SetGUI);
+        private static Wiki GlobalWiki = null;
         internal static void InitWiki()
         {
             _ = InfoSprite;
@@ -1339,6 +2231,7 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: InitWiki()");
                 ManGameMode.inst.ModeStartEvent.Subscribe(OnGameModeSwitch);
                 //WikiPageBlock.GetImagesForPending();
+                GlobalWiki = InsureWiki(GlobalName);
             }
             //InvokeHelper.InvokeSingleRepeat(SpamIt, 0.1f);
             /*

@@ -6,12 +6,18 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Debug logging for <see cref="TerraTechETCUtil"/>
+    /// </summary>
     public static class Debug_TTExt
     {
         private const string modName = "TerraTechModExt";
 
+        /// <summary> log EVERYTHING </summary>
         public static bool LogAll = false;
+        /// <summary> log basic logging </summary>
         public static bool ShouldLog = true;
+        /// <summary> log for <b>ManWorldGeneratorExt</b> </summary>
         public static bool ShouldLogBiomeGen = false;
         private static bool LogDev = false;
 

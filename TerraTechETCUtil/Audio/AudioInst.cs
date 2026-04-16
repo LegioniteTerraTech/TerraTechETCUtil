@@ -20,10 +20,16 @@ using FMODUnity;
 namespace TerraTechETCUtil
 {
 #if !EDITOR
+    /// <summary>
+    /// An audio file managed by <see cref="TerraTechETCUtil"/>
+    /// </summary>
     public class AudioInst
     {
         private static FMOD.System sys = RuntimeManager.LowlevelSystem;
 
+        /// <summary>
+        /// The sound is playing
+        /// </summary>
         public bool IsPlaying
         {
             get
@@ -32,6 +38,9 @@ namespace TerraTechETCUtil
                 return playing;
             }
         }
+        /// <summary>
+        /// the sound is paused
+        /// </summary>
         public bool IsPaused
         {
             get
@@ -40,8 +49,17 @@ namespace TerraTechETCUtil
                 return paused;
             }
         }
+        /// <summary>
+        /// Random variance of the sound selected <b>when it starts playing</b>
+        /// </summary>
         public float PitchVariance = 0;
+        /// <summary>
+        /// Random variance of the sound selected <b>when it starts playing</b>
+        /// </summary>
         public float RangeVariance = 0;
+        /// <summary>
+        /// the current volume of the sound, multiplied later on by the user's <see cref="ManProfile.SoundSettings"/>
+        /// </summary>
         public float Volume
         {
             get => _volume;
@@ -52,6 +70,9 @@ namespace TerraTechETCUtil
                     ActiveSound.setVolume(ManAudioExt._SFXVolume * value);
             }
         }
+        /// <summary>
+        /// The maximum range of the sound, where it's gone entirely
+        /// </summary>
         public float RangeMax
         {
             get => _rangeMax;
@@ -63,6 +84,9 @@ namespace TerraTechETCUtil
                     ActiveSound.set3DMinMaxDistance(_rangeMin, _rangeMax);
             }
         }
+        /// <summary>
+        /// The minimum range of the sound, where it begins fading till <see cref="RangeMax"/>
+        /// </summary>
         public float RangeMin
         {
             get => _rangeMin;
@@ -74,6 +98,9 @@ namespace TerraTechETCUtil
                     ActiveSound.set3DMinMaxDistance(_rangeMin, _rangeMax);
             }
         }
+        /// <summary>
+        /// The pitch of the sound, avoid setting this while playing as it will screw with audio consistancy
+        /// </summary>
         public float Pitch
         {
             get => _pitch;
@@ -91,7 +118,9 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// The position in the Scene space the sound is playing at
+        /// </summary>
         public Vector3 Position
         {
             get
@@ -122,6 +151,9 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// The transform this sound is binded to
+        /// </summary>
         public Transform transform
         {
             get => trans;
@@ -140,6 +172,9 @@ namespace TerraTechETCUtil
                     trans = null;
             }
         }
+        /// <summary>
+        /// A custom function can be inserted here to position the sound automatically
+        /// </summary>
         public Func<Vector3> PositionFunc
         {
             get
@@ -171,7 +206,9 @@ namespace TerraTechETCUtil
                 }
             }
         }
-
+        /// <summary>
+        /// If the sound is to loop endlessly
+        /// </summary>
         public bool Looped
         {
             get => _loop;
@@ -203,7 +240,13 @@ namespace TerraTechETCUtil
 
         private FMOD.Channel ActiveSound;
         private FMOD.Sound sound;
+        /// <summary>
+        /// The raw <see cref="FMOD.Channel"/> data for the playing sound to edit. For advanced users only!
+        /// </summary>
         public FMOD.Channel ActiveSoundAdvanced => ActiveSound;
+        /// <summary>
+        /// The raw <see cref="FMOD.Sound"/> data to edit. For advanced users only!
+        /// </summary>
         public FMOD.Sound SoundAdvanced => sound;
         private FMOD.RESULT Callback(IntPtr channelraw, FMOD.CHANNELCONTROL_TYPE controltype,
                 FMOD.CHANNELCONTROL_CALLBACK_TYPE type, IntPtr commanddata1, IntPtr commanddata2)
@@ -230,6 +273,10 @@ namespace TerraTechETCUtil
             return FMOD.RESULT.OK;
         }
 
+        /// <summary>
+        /// Create an <see cref="AudioInst"/> from an <see cref="AudioInstFile"/> saved in a mod's AssetBundle
+        /// </summary>
+        /// <param name="AIJ"></param>
         public AudioInst(AudioInstFile AIJ)
         {
             ManAudioExt.InsureInit();
@@ -270,6 +317,10 @@ namespace TerraTechETCUtil
                 throw e;
             }
         }
+        /// <summary>
+        /// Create an <see cref="AudioInst"/> from an a path to a sound filetype on disk.
+        /// <para>Ogg is preferred.</para>
+        /// </summary>
         public AudioInst(string path)
         {
             ManAudioExt.InsureInit();
@@ -294,6 +345,11 @@ namespace TerraTechETCUtil
                 throw e;
             }
         }
+        /// <summary>
+        /// Create an <see cref="AudioInst"/> using raw <see cref="FMOD.Sound"/> data
+        /// </summary>
+        /// <param name="Sound">The <see cref="FMOD.Sound"/> to assign to this</param>
+        /// <param name="setChannel">The channel to assign to</param>
         public AudioInst(ref FMOD.Sound Sound, FMOD.Channel setChannel = default)
         {
             ManAudioExt.InsureInit();
@@ -312,7 +368,10 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// Copies the sound without copying the <see cref="FMOD.Sound"/>
+        /// </summary>
+        /// <returns></returns>
         public AudioInst Copy()
         {
             return new AudioInst(ref sound)
@@ -327,10 +386,16 @@ namespace TerraTechETCUtil
                 RangeVariance = RangeVariance,
             };
         }
+        /// <summary>
+        /// Start managing the positional updates for dynamic sound tracking for this
+        /// </summary>
         public void StartPosUpdates()
         {
             ManAudioExt.managed.Add(this);
         }
+        /// <summary>
+        /// Stop managing the positional updates for dynamic sound tracking for this
+        /// </summary>
         public void StopPosUpdates()
         {
             ManAudioExt.managed.Remove(this);
@@ -362,6 +427,9 @@ namespace TerraTechETCUtil
                 InvokeHelper.Invoke(WaitForEnding, 0.01f);
             */
         }
+        /// <summary>
+        /// Stop the sound entirely
+        /// </summary>
         public void Reset()
         {
             if (IsPlaying)
@@ -372,6 +440,9 @@ namespace TerraTechETCUtil
                 StopPosUpdates();
             }
         }
+        /// <summary>
+        /// Stop the sound and play it from the start immedeately
+        /// </summary>
         public void PlayFromBeginning()
         {
             if (IsPlaying)
@@ -381,7 +452,15 @@ namespace TerraTechETCUtil
             }
             Play();
         }
+        /// <summary>
+        /// Play the sound from the beginning
+        /// </summary>
         public void Play() => Play(false);
+        /// <summary>
+        /// Play the sound with support for multiple instances and/or a position to play at
+        /// </summary>
+        /// <param name="overlap"></param>
+        /// <param name="scenePos"></param>
         public void Play(bool overlap, Vector3 scenePos = default)
         {
             if (IsPlaying)
@@ -482,6 +561,9 @@ namespace TerraTechETCUtil
             }
         }
         private void StartWrapper(FMOD.Channel inst) => inst.setPaused(false);
+        /// <summary>
+        /// Pause the playing sound
+        /// </summary>
         public void Pause()
         {
             if (!IsPaused)
@@ -490,6 +572,9 @@ namespace TerraTechETCUtil
                 StopPosUpdates();
             }
         }
+        /// <summary>
+        /// Continue the sound from where it left off
+        /// </summary>
         public void Resume()
         {
             if (IsPaused)
@@ -498,6 +583,10 @@ namespace TerraTechETCUtil
                 ActiveSound.setPaused(false);
             }
         }
+        /// <summary>
+        /// Stop the sound immedeately and set it back to the start
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
         public void Stop()
         {
             if (IsPlaying)

@@ -21,9 +21,14 @@ namespace TerraTechETCUtil
         private static FieldInfo asdr = typeof(AudioProvider).GetField("m_Adsr01", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo state = typeof(AudioProvider).GetField("m_State", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        public static bool FetchSound = false;
+
+        internal static bool FetchSound = false;
+        /// <summary>  </summary>
         public static FMODEventInstance LastPlayed = default;
-        public static Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>> remoteSFX = new Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>>();
+        /// <summary>  </summary>
+        public static Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>> remoteSFX =
+            new Dictionary<Transform, HashSet<TechAudio.IModuleAudioProvider>>();
+        /// <summary>  </summary>
         public static TechAudio.TechAudioEventSimple[] freeAudio = null;
 
         /// <summary>
@@ -81,6 +86,11 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Like <see cref="TechAudio.PlayOneshot(TankBlock, TechAudio.SFXType)"/>, this plays the sounds for modded content
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <param name="SFX"></param>
         public static void TankPlayOneshot(Tank tank, TechAudio.SFXType SFX)
         {
             try
@@ -94,10 +104,25 @@ namespace TerraTechETCUtil
             }
             catch { }
         }
+        /// <summary>
+        /// Plays looping audio for modded SFX.
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <param name="SFX"></param>
+        /// <param name="duration"></param>
+        /// <param name="ASDR1"></param>
         public static void TankPlayLooping(Tank tank, TechAudio.SFXType SFX, float duration, float ASDR1)
         {
             TankPlayLooping(tank, SFX, duration, ASDR1, FMODEvent.FMODParams.empty);
         }
+        /// <summary>
+        /// Plays looping audio for modded SFX.
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <param name="SFX"></param>
+        /// <param name="duration"></param>
+        /// <param name="ASDR1"></param>
+        /// <param name="additionalParams"></param>
         public static void TankPlayLooping(Tank tank, TechAudio.SFXType SFX, float duration, float ASDR1,
             FMODEvent.FMODParams additionalParams)
         {
@@ -234,7 +259,7 @@ namespace TerraTechETCUtil
         }
 
 
-        public class GUIManaged : GUILayoutHelpers
+        internal class GUIManaged : GUILayoutHelpers
         {
             private static FieldInfo sfxPool = typeof(TechAudio).GetField("m_SimpleEvents", BindingFlags.NonPublic | BindingFlags.Instance);
 

@@ -9,14 +9,27 @@ using System.Reflection;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// A general-use patcher for Harmony with segmented error-checking to insure at least some patches get through if some fail
+    /// </summary>
     public static class MassPatcher
     {
         private static bool IsUnstable => CheckIfUnstable();
 
+        /// <summary>
+        /// Check if game is on Unstable version
+        /// </summary>
+        /// <returns></returns>
         public static bool CheckIfUnstable()
         {
             return SKU.DisplayVersion.Count(x => x == '.') > 2;
         }
+        /// <summary>
+        /// Throw a quick and dirty <see cref="Exception"/>
+        /// </summary>
+        /// <param name="throwOnFail"></param>
+        /// <param name="stringIn"></param>
+        /// <exception cref="Exception"></exception>
         public static void Thrower(bool throwOnFail, string stringIn)
         {
             if (throwOnFail)
@@ -25,6 +38,14 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log(stringIn);
         }
 
+        /// <summary>
+        /// Mass-patch all in a target class. See <see cref="AllProjectilePatches"/> as an example of how to layout the class
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <param name="ToPatch"></param>
+        /// <param name="modName"></param>
+        /// <param name="throwOnFail"></param>
+        /// <returns></returns>
         public static bool MassPatchAllWithin(this Harmony inst, Type ToPatch, string modName, bool throwOnFail = false)
         {
             bool errorless = true;
@@ -177,6 +198,15 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log(modName + ": Mass patched " + ToPatch.Name);
             return errorless;
         }
+
+        /// <summary>
+        /// Mass-unpatch all in a target class.
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <param name="ToPatch"></param>
+        /// <param name="modName"></param>
+        /// <param name="throwOnFail"></param>
+        /// <returns></returns>
         public static bool MassUnPatchAllWithin(this Harmony inst, Type ToPatch, string modName, bool throwOnFail = false)
         {
             try
@@ -244,7 +274,7 @@ namespace TerraTechETCUtil
             return true;
         }
 
-        public class MassPatcherTemplate
+        internal class MassPatcherTemplate
         {
             internal string fullName = null;
             internal HarmonyMethod prefix = null;

@@ -10,23 +10,63 @@ using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// A custom UI button that can be triggered to call upon a Tech ability
+    /// </summary>
     public abstract class AbilityElement
     {
+        /// <summary>
+        /// Display name
+        /// </summary>
         public string Name => NameLoc == null ? NameMain : NameLoc.ToString();
+        /// <summary>
+        /// Display name in ENGLISH
+        /// </summary>
         public readonly string NameMain;
+        /// <summary>
+        /// Display name in localised text
+        /// </summary>
         public readonly LocExtStringMod NameLoc;
+        /// <summary>
+        /// Sprite to use on the hotbar
+        /// </summary>
         public readonly Sprite Sprite;
+        /// <summary>
+        /// Affiliated visual button GameObject
+        /// </summary>
         protected GameObject inst;
+        /// <summary>
+        /// Time until it can be pressed again
+        /// </summary>
         protected float Cooldown = 0;
         private float cooldownCur = 0;
+        /// <summary>
+        /// Affiliated images
+        /// </summary>
         protected Image[] images;
-        public abstract bool PressedState();
+        /// <summary>
+        /// Return the state of the button if it is pressed or not
+        /// </summary>
+        /// <returns></returns>
+        protected abstract bool PressedState();
+        /// <summary>
+        /// Create a new instance
+        /// </summary>
+        /// <param name="name">Display name</param>
+        /// <param name="iconSprite">Sprite to use on the hotbar</param>
+        /// <param name="cooldown">Time until it can be pressed again</param>
         public AbilityElement(LocExtStringMod name, Sprite iconSprite, float cooldown)
         {
             NameLoc = name;
             Sprite = iconSprite;
             Cooldown = cooldown;
         }
+        /// <summary>
+        /// Create a new instance
+        /// </summary>
+        /// <param name="name">Display name</param>
+        /// <param name="iconSprite">Sprite to use on the hotbar</param>
+        /// <param name="cooldown">Time until it can be pressed again</param>
         public AbilityElement(string name, Sprite iconSprite, float cooldown)
         {
             NameMain = name;
@@ -34,6 +74,10 @@ namespace TerraTechETCUtil
             Cooldown = cooldown;
         }
         internal void ShowInUI_Internal(bool state) => inst.SetActive(state);
+        /// <summary>
+        /// Show or hide it on the hotbar
+        /// </summary>
+        /// <param name="state"></param>
         public void SetShown(bool state)
         {
             if (state)
@@ -41,16 +85,25 @@ namespace TerraTechETCUtil
             else
                 Hide();
         }
+        /// <summary>
+        /// Show it on the hotbar
+        /// </summary>
         public void Show()
         {
             ManAbilities.Shown.Add(this);
             ManAbilities.RefreshPage();
         }
+        /// <summary>
+        /// Hide it from the hotbar
+        /// </summary>
         public void Hide()
         {
             ManAbilities.Shown.Remove(this);
             ManAbilities.RefreshPage();
         } 
+        /// <summary>
+        /// Remove it
+        /// </summary>
         public void Destroy()
         {
             UnityEngine.Object.Destroy(inst);
@@ -62,6 +115,10 @@ namespace TerraTechETCUtil
         }
         internal abstract void Initiate();
         internal abstract void SetAvail(bool state);
+        /// <summary>
+        /// Set the visual fill state of the sprite icon
+        /// </summary>
+        /// <param name="fillPercent"></param>
         public void SetFillState(float fillPercent)
         {
             if (inst)
@@ -72,6 +129,9 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Called when the player activates this UI element
+        /// </summary>
         public abstract void TriggerNow();
         internal void TriggerCooldown()
         {

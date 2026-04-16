@@ -260,6 +260,11 @@
     <Compile Include="Debug_TTExt.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="PatchBatch\Patches.cs" />
+    <Compile Include="UIChanges\GUIMiniMenu.cs" />
+    <Compile Include="UIChanges\Wiki\WikiPageTools.cs" />
+    <Compile Include="PatchBatch\AllProjectilePatches.cs" />
+    <Compile Include="PatchBatch\AllUIPatches.cs" />
     <Compile Include="UIChanges\Wiki\ExtendedWiki.cs" />
     <Compile Include="UIChanges\GUIButtonMadness.cs" />
     <Compile Include="UIChanges\GUIModModal.cs" />
@@ -274,7 +279,7 @@
     <Compile Include="DebugExtUtilities.cs" />
     <Compile Include="Helpers\GUILayoutHelpers.cs" />
     <Compile Include="Helpers\TerrainModifier.cs" />
-    <Compile Include="UIChanges\ModManagerGUI.cs" />
+    <None Include="UIChanges\ModManagerGUI.cs" />
     <Compile Include="UIChanges\Abilities\AbilityButton.cs" />
     <Compile Include="UIChanges\Abilities\AbilityElement.cs" />
     <Compile Include="UIChanges\Abilities\AbilityToggle.cs" />
@@ -311,7 +316,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Helpers\SpawnHelper.cs" />
     <Compile Include="UIChanges\UIHelpersExt.cs" />
-    <Compile Include="UIChanges\Wiki\UIHUDWiki.cs" />
+    <None Include="UIChanges\Wiki\UIHUDWiki.cs" />
     <Compile Include="Documentation\AutoDataExtractor.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageInfo.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageHints.cs" />

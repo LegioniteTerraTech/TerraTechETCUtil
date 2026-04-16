@@ -9,8 +9,14 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Manager for the GUI mod modal system which is a mod-compatible version of <see cref="RadialMenu"/>
+    /// </summary>
     public static class GUIModModal
     {
+        /// <summary>
+        /// The modal can be shown to the player
+        /// </summary>
         public static bool ModalShown => LastModalButtonCount != 0;
 
         internal static Rect HotWindow = new Rect(0, 0, 250, 260);   // the "window"
@@ -126,11 +132,19 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Check to see if the modal can continue displaying
+        /// </summary>
+        /// <returns>True if it can</returns>
         public static bool DefaultCanContinueDisplay()
         {
             return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow));
         }
 
+        /// <summary>
+        /// Check to see if the modal can continue displaying while overlapping other mod UIs
+        /// </summary>
+        /// <returns>True if it can</returns>
         public static bool CanContinueDisplayOverlap()
         {
             return UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow);
@@ -334,6 +348,10 @@ namespace TerraTechETCUtil
         internal static FieldInfo ig = typeof(UISliderControlRadialMenu).GetField("m_LeftOptionIconGroups", BindingFlags.NonPublic | BindingFlags.Instance);
         internal static Type ig2 = typeof(UISliderControlRadialMenu).GetNestedType("LeftOptionIconGroup", BindingFlags.NonPublic | BindingFlags.Instance);
         internal static FieldInfo ig3 = ig2.GetField("m_IconSprite", BindingFlags.Public | BindingFlags.Instance);
+        /// <summary>
+        /// Insure the modded radial menu has it's prefabs.
+        /// <para><b>This is done automatically upon calling related functions here</b></para>
+        /// </summary>
         public static void InsureRadialMenuPrefabs()
         {
             if (MenuPanelPrefabs != null)

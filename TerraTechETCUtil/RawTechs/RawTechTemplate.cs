@@ -5,11 +5,22 @@ using Newtonsoft.Json;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// <inheritdoc/>
+    /// <para>This is the ACTIVE <see cref="RawTechBase"/>. For the serialized version see <see cref="RawTechTemplate"/></para>
+    /// </summary>
     public class RawTechTemplate : RawTechBase
     {
+        /// <summary>
+        /// Lone anchor default
+        /// </summary>
         public string savedTech = "{\"t\":\"GSOAnchorFixed_111\",\"p\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"r\":0}";
 
 #if !EDITOR
+        /// <summary>
+        /// Get the BB cost of this Tech
+        /// </summary>
+        /// <param name="BT"></param>
 
         public static implicit operator int(RawTechTemplate BT)
         {
@@ -18,12 +29,21 @@ namespace TerraTechETCUtil
             return BT.baseCost;
         }
 
+        /// <summary>
+        /// Create a empty <see cref="RawTechTemplate"/>. <b>Not recommended.</b>
+        /// </summary>
         public RawTechTemplate()
         {
         }
+        /// <summary>
+        /// Create a <see cref="RawTechTemplate"/> based on given <see cref="TechData"/>
+        /// </summary>
+        /// <param name="tech"></param>
+        /// <param name="MustBeExact"></param>
         public RawTechTemplate(TechData tech, bool MustBeExact = false)
         {
             techName = tech.Name;
+#pragma warning disable CS0612 // Type or member is obsolete
             faction = GetTopCorp(tech);
             if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
                 factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
@@ -32,38 +52,62 @@ namespace TerraTechETCUtil
             savedTech = MemoryToJSONExternal(TechToMemoryExternal(tech, MustBeExact));
             bool anchored = tech.CheckIsAnchored();
             purposes = GetHandler(savedTech, faction, anchored, out terrain, out IntendedGrade);
+#pragma warning restore CS0612 // Type or member is obsolete
             serialDataBlock = EncodeSerialData(tech);
 
             this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
+        /// <summary>
+        /// Create a <see cref="RawTechTemplate"/> based on a given <see cref="RawBlockMem"/> list
+        /// </summary>
+        /// <param name="Name"></param>
+        /// <param name="mems"></param>
+        /// <param name="anchored"></param>
+        /// <param name="MustBeExact"></param>
         public RawTechTemplate(string Name, List<RawBlockMem> mems, bool anchored = false, bool MustBeExact = false)
         {
             techName = Name;
             List<RawBlockMem> mem = mems;
+#pragma warning disable CS0612 // Type or member is obsolete
             faction = GetTopCorp(mem);
             savedTech = MemoryToJSONExternal(mems);
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
+#pragma warning restore CS0612 // Type or member is obsolete
             serialDataBlock = new Dictionary<int, List<string>>();
 
             this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
 
+        /// <summary>
+        /// Create a <see cref="RawTechTemplate"/> based on a given <see cref="RawTech"/> JSON string
+        /// </summary>
+        /// <param name="Name"></param>
+        /// <param name="rawTech"></param>
+        /// <param name="anchored"></param>
+        /// <param name="MustBeExact"></param>
         public RawTechTemplate(string Name, string rawTech, bool anchored = false, bool MustBeExact = false)
         {
             techName = Name;
             List<RawBlock> mem = JSONToMemoryExternalNonAlloc(rawTech);
+#pragma warning disable CS0612 // Type or member is obsolete
             faction = GetTopCorp(mem);
             savedTech = rawTech;
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
+#pragma warning restore CS0612 // Type or member is obsolete
             serialDataBlock = new Dictionary<int, List<string>>();
 
             this.ValidateBlocksInTech(!MustBeExact, MustBeExact);
         }
 
+        /// <summary>
+        /// Convert a <see cref="RawTech"/> into a <see cref="RawTechTemplate"/> for quick loading
+        /// </summary>
+        /// <param name="tech">Copy from target</param>
         public RawTechTemplate(RawTech tech) : base(tech)
         {
             techName = tech.techName;
-            faction = tech.faction;
+            //faction = tech.faction;
+            factionName = tech.FactionActual;
             baseCost = tech.baseCost;
             blockCount = tech.blockCount;
             deployBoltsASAP = tech.deployBoltsASAP;
@@ -77,11 +121,19 @@ namespace TerraTechETCUtil
             savedTech = MemoryToJSONExternal(tech.savedTech);
             purposes = new HashSet<BasePurpose>(tech.purposes);
         }
+        /// <summary>
+        /// Convert this to a <see cref="RawTechTemplate"/> for quick loading in-game
+        /// </summary>
+        /// <returns></returns>
         public RawTech ToActive()
         {
             return new RawTech(this);
         }
 
+        /// <summary>
+        /// True if this is anchored and armed
+        /// </summary>
+        /// <returns></returns>
         public bool IsDefense()
         {
             return purposes.Contains(BasePurpose.Defense);
@@ -89,17 +141,7 @@ namespace TerraTechETCUtil
 
 
 
-        /// <summary>
-        /// Spawns a RawTech IMMEDEATELY.  Do NOT Call while calling BlockMan or spawner blocks or the game will break!
-        /// </summary>
-        /// <param name="pos"></param>
-        /// <param name="Team"></param>
-        /// <param name="forwards"></param>
-        /// <param name="Blueprint"></param>
-        /// <param name="snapTerrain"></param>
-        /// <param name="Charged"></param>
-        /// <param name="ForceInstant"></param>
-        /// <returns></returns>
+        /// <inheritdoc/>
         public override Tank SpawnRawTech(Vector3 pos, int Team, Vector3 forwards, bool snapTerrain = false, 
             bool Charged = false, bool randomSkins = false, bool CanBeIncomplete = true)
         {

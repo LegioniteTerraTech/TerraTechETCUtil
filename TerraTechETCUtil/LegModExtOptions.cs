@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// The options for <see cref="TerraTechETCUtil"/> shared content
+    /// </summary>
     public class LegModExtOptions
     {
         internal static ModConfig config;
@@ -16,6 +19,9 @@ namespace TerraTechETCUtil
 
         internal static OptionKey WikiSettings;
         internal static OptionToggle WikiHideFull;
+        /// <summary>
+        /// The wiki keybind
+        /// </summary>
         public static int wikiBind = (int)ManIngameWiki.WikiButtonKeybind;
 
         internal static OptionKey Ability1;
@@ -23,10 +29,25 @@ namespace TerraTechETCUtil
         internal static OptionKey Ability3;
         internal static OptionKey Ability4;
         internal static OptionKey AbilityPage;
+        /// <summary>
+        /// Ability hotkey to trigger in the <see cref="ManAbilities"/> hotbar
+        /// </summary>
         public static int abil1 = (int)ManAbilities.ability1;
+        /// <summary>
+        /// Ability hotkey to trigger in the <see cref="ManAbilities"/> hotbar
+        /// </summary>
         public static int abil2 = (int)ManAbilities.ability2;
+        /// <summary>
+        /// Ability hotkey to trigger in the <see cref="ManAbilities"/> hotbar
+        /// </summary>
         public static int abil3 = (int)ManAbilities.ability3;
+        /// <summary>
+        /// Ability hotkey to trigger in the <see cref="ManAbilities"/> hotbar
+        /// </summary>
         public static int abil4 = (int)ManAbilities.ability4;
+        /// <summary>
+        /// Ability hotkey to cycle to the next page in the <see cref="ManAbilities"/> hotbar
+        /// </summary>
         public static int abilPage = (int)ManAbilities.AbilityTogglePage;
         internal static void InitOptionsAndConfig()
         {
@@ -103,7 +124,7 @@ namespace TerraTechETCUtil
                 config = thisModConfig;
                 Debug_TTExt.Log("TerraTechETCUtil: Init LegModExtOptions");
             }
-            catch (Exception e) { }
+            catch { }
         }
     }
 }

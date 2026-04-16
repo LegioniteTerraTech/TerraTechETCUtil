@@ -7,6 +7,8 @@ using System.Reflection;
 using UnityEngine;
 using System.Collections;
 using System.Runtime.Serialization;
+using static UnityEngine.TouchScreenKeyboard;
+
 
 
 #if !EDITOR
@@ -15,30 +17,61 @@ using Steamworks;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// The status of a mod is determined by <see cref="ModStatusChecker"/> on mod loading via 
+    /// <see cref="ModStatusChecker.EncapsulateSafeInit(string, Action, Action, bool)"/>
+    /// </summary>
     public enum EModStatus : byte
     {
+        /// <summary> TTSMM is not installed! </summary>
         ModManagerMissing,
+        /// <summary> Crashed on startup call in <see cref="ModStatusChecker.EncapsulateSafeInit(string, Action, Action, bool)"/> </summary>
         Exception,
+        /// <summary> <see cref="TerraTechETCUtil"/> crashed itself while initing the mod! <b>VERY BAD!</b> </summary>
         TTETCUtilException,
+        /// <summary> <see cref="TerraTechETCUtil"/> with the mod is outdated and may pose a mod stability risk.  Please update. </summary>
         TTETCUtilOutdated,
+        /// <summary> Mod was made for a newer version of TerraTech... <b>I hope you aren't <i>pirating...</i></b> </summary>
         GameOutdated,
+        /// <summary> Mod loaded in just fine with no errors.  Horray! </summary>
         UpToDate,
+        /// <summary> Mod loaded in just fine with no errors.  Horray! But we didn't check for outdatedness...</summary>
+        SkippedOnlineCheck,
+        /// <summary> Mod is still updating as the game is launching??? </summary>
         ModUpdating,
+        /// <summary> Mod is outdated as there is a new version of it on Steam Workshop </summary>
         NeedsToBeUpdated,
+        /// <summary> The mod installed has a ModID that does not match itself??? </summary>
         ModIDMismatch,
+        /// <summary> Mod is older than the game itself.  It might be out of date and be broken... </summary>
         MightBeOutOfDate,
+        /// <summary> Mod is seen, but absent from the disk??? </summary>
         MissingFromDisk,
+        /// <summary> Mod exists on disk but does not exist on the Steam Workshop? </summary>
         FailedToFetch,
     }
+    /// <summary>
+    /// Keep track of the game's version
+    /// </summary>
     public struct GameVersion
     {
+        /// <summary> </summary>
         public bool Valid;
+        /// <summary> </summary>
         public readonly int Major;
+        /// <summary> </summary>
         public readonly int Mid;
+        /// <summary> </summary>
         public readonly int Minor;
+        /// <summary> </summary>
         public readonly int Unstable;
+        /// <summary> </summary>
         public static GameVersion Default => new GameVersion("0");
-
+        /// <summary>
+        /// Creates a <see cref="GameVersion"/> for use in determining the state of the game from a string.
+        /// <para>Usually found at <see cref="SKU.DisplayVersion"/></para>
+        /// </summary>
+        /// <param name="SKU_DisplayVersion"></param>
         public GameVersion(string SKU_DisplayVersion)
         {
             if (SKU_DisplayVersion.NullOrEmpty())
@@ -71,33 +104,80 @@ namespace TerraTechETCUtil
             Valid = true;
         }
 
+        /// <inheritdoc/>
         public static bool operator ==(GameVersion a, GameVersion b) => (a.Valid == b.Valid) &&
             (a.Major == b.Major) && (a.Mid == b.Mid) && (a.Minor == b.Minor) && (a.Unstable == b.Unstable);
+        /// <inheritdoc/>
         public static bool operator !=(GameVersion a, GameVersion b) => (a.Valid != b.Valid) ||
             (a.Major != b.Major) || (a.Mid != b.Mid) || (a.Minor != b.Minor) || (a.Unstable != b.Unstable);
 
+        /// <inheritdoc/>
         public static bool operator >(GameVersion a, GameVersion b) => (a.Valid && !b.Valid) ||
             a.Major > b.Major || a.Mid > b.Mid || a.Minor > b.Minor || a.Unstable > b.Unstable;
+        /// <inheritdoc/>
         public static bool operator <(GameVersion a, GameVersion b) => (!a.Valid && b.Valid) ||
             a.Major < b.Major || a.Mid < b.Mid || a.Minor < b.Minor || a.Unstable < b.Unstable;
+        /// <inheritdoc/>
         public static bool operator >=(GameVersion a, GameVersion b) => a.Valid || (!a.Valid && !b.Valid) ||
             a.Major >= b.Major || a.Mid >= b.Mid || a.Minor >= b.Minor || a.Unstable >= b.Unstable;
+        /// <inheritdoc/>
         public static bool operator <=(GameVersion a, GameVersion b) => b.Valid || (!a.Valid && !b.Valid) ||
             a.Major <= b.Major || a.Mid <= b.Mid || a.Minor <= b.Minor || a.Unstable <= b.Unstable;
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             return Major + "." + Mid + "." + Minor + 
                 (Unstable > 0 ? "." + Unstable : "");
         }
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            return obj is GameVersion version &&
+                   Valid == version.Valid &&
+                   Major == version.Major &&
+                   Mid == version.Mid &&
+                   Minor == version.Minor &&
+                   Unstable == version.Unstable;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            int hashCode = 1391761443;
+            hashCode = hashCode * -1521134295 + Valid.GetHashCode();
+            hashCode = hashCode * -1521134295 + Major.GetHashCode();
+            hashCode = hashCode * -1521134295 + Mid.GetHashCode();
+            hashCode = hashCode * -1521134295 + Minor.GetHashCode();
+            hashCode = hashCode * -1521134295 + Unstable.GetHashCode();
+            return hashCode;
+        }
     }
+    /// <summary>
+    /// The status of a mod loaded through <see cref="ModStatusChecker.EncapsulateSafeInit(string, Action, Action, bool)"/>
+    /// </summary>
     public class ModStatus
     {
+        /// <summary>
+        /// Name of the mod, the <b>ModID</b>
+        /// </summary>
         public readonly string name;
+        /// <summary>
+        /// The loaded assembly of the mod.
+        /// </summary>
         public Assembly assembly { get; internal set; }
+        /// <summary>
+        /// Current status of the mod
+        /// </summary>
         public EModStatus status { get; internal set; }
+        /// <summary>
+        /// The site of the exception if this mod failed to initiate, if applicable
+        /// </summary>
         public MethodBase site { get; internal set; }
         private string _exception = "NULL";
+        /// <summary>
+        /// Gets a cleaned version of the exception on mod initiation if that ever happened
+        /// </summary>
         public string exception {
             get => _exception;
             internal set
@@ -143,13 +223,19 @@ namespace TerraTechETCUtil
 
     }
 
-    public class ModStatusChecker : TinySettings
+    /// <summary>
+    /// An advanced mod startup checker that reports to the user if anything goes wrong
+    /// </summary>
+    public class ModStatusChecker : ITinySettings
     {
 #if !EDITOR
         private static readonly FieldInfo SessionData = typeof(ManMods).GetField("m_CurrentSession", BindingFlags.Instance | BindingFlags.NonPublic);
 #endif
         private static readonly string DataDirectory = "ModKickStartHelper";
 
+        /// <summary>
+        /// The mod status strings to display to the user according to error status
+        /// </summary>
         public static Dictionary<EModStatus, string[]> ModStatusLOC = new Dictionary<EModStatus, string[]>
         {
             { EModStatus.ModManagerMissing, new string[]{"Requires TTSMM & 0ModManager", 
@@ -162,6 +248,8 @@ namespace TerraTechETCUtil
                 "The mod's backend is conflicting with backend of the same type, but different version.  There is a chance the mod may encounter serious errors!" }  },
             { EModStatus.UpToDate, new string[]{"Working",
                 "The mod has started up properly with no issues." }  },
+            { EModStatus.SkippedOnlineCheck, new string[]{"Working",
+                "The mod has started up properly with no issues. We skipped the online check." }  },
             { EModStatus.ModUpdating, new string[]{"Mod is still updating",
                 "The mod is still being downloaded." }  },
             { EModStatus.NeedsToBeUpdated, new string[]{"Mod is outdated",
@@ -181,6 +269,14 @@ namespace TerraTechETCUtil
         private static ModStatusChecker inst;
         private static GUIInst instGUI;
 
+        /// <summary>
+        /// Ping Steam to get data on mod update statuses every time the game is started up. 
+        /// <para>Turn this off via code call if you are frequently booting the game and need to save your Steam API tokens.</para>
+        /// </summary>
+        public bool CheckOnlineStatus = true;
+        /// <summary>
+        /// The last version the <see cref="ModStatusChecker"/> was launched under to warn the user every time the game is updated
+        /// </summary>
         public string LastVersion = new GameVersion(SKU.DisplayVersion).ToString();
         /// <summary>
         /// 0. Show Always
@@ -191,8 +287,12 @@ namespace TerraTechETCUtil
         /// </list>
         /// </summary>
         public int ShowSetting = 0;
+        /// <summary>
+        /// What setting the user has set <see cref="ModStatusChecker"/> to display on startup
+        /// </summary>
         public static bool ShowWarnings => inst.ShowSetting <= 1;
 
+        /// <inheritdoc/>
         public string DirectoryInExtModSettings => DataDirectory;
 
         private static Dictionary<string, ModStatus> modStatuses = new Dictionary<string, ModStatus>();
@@ -200,7 +300,7 @@ namespace TerraTechETCUtil
         private const int ExtDebugID = 1002247;
 
         private static string[] options = new string[] { "Always", "Warnings", "Error", "Off" };
-        public class GUIInst : MonoBehaviour
+        private class GUIInst : MonoBehaviour
         {
             public void OnGUI()
             {
@@ -367,17 +467,25 @@ namespace TerraTechETCUtil
             instGUI.gameObject.SetActive(false);
         }
 
-        public static bool TryGetSteamWorkshopID(string ModStringID, out ulong uID)
+        private static bool TryGetSteamWorkshopID(string ModStringID, out ulong uID)
         {
             ModSessionInfo data = (ModSessionInfo)SessionData.GetValue(ManMods.inst);
             uID = 0;
             return data != null && data.Mods.TryGetValue(ModStringID, out uID);
         }
 
-
+        /// <summary>
+        /// Check to see if <see cref="ModManager"/> is present
+        /// </summary>
         public static bool Is0MMAvail => LookForMod("NLogManager");//LookForMod("0ModManager");
 
+        /// <summary>
+        /// Check to see if <b>RandomAdditions</b> is present
+        /// </summary>
         public static bool IsRandomAdditionsAvail => LookForMod("RandomAdditions");
+        /// <summary>
+        /// Check to see if <b>WaterMod</b> or it's other variant is present
+        /// </summary>
         public static bool IsWaterModAvail => LookForMod("Water Mod") || LookForMod("Water Mod + Lava");
 
 
@@ -407,6 +515,11 @@ namespace TerraTechETCUtil
                 ShowErrorLog(AltUI.EnemyString("TerraTechETCUtil (Backend shared code of the following mods) has failed to initialize!"));
             }
         }
+        /// <summary>
+        /// Look for a mod of a name in the current <see cref="AppDomain"/> of the game
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public static bool LookForMod(string name)
         {
             if (name == "RandomAdditions")
@@ -648,10 +761,10 @@ namespace TerraTechETCUtil
             }
         }
         /// <summary>
-        /// 
+        /// Check the status of the mod now and return a <see cref="ModStatus"/> with detailed info on it
         /// </summary>
         /// <param name="name">has to be the EXACT name of the mod!</param>
-        /// <returns></returns>
+        /// <returns><see cref="ModStatus"/> with infomration on the mod's startup</returns>
         public static ModStatus CheckStatusOfMod(string name)
         {
             try
@@ -746,44 +859,50 @@ namespace TerraTechETCUtil
                     if (fileData != null)
                         return new ModStatus(name, EModStatus.UpToDate);
 
-                    EItemState state = (EItemState)SteamUGC.GetItemState(ID);
-                    if ((state & EItemState.k_EItemStateInstalled) == 0)
+                    if (inst.CheckOnlineStatus)
                     {
-                        Debug_TTExt.LogError("Could not load data of item " + name + " because it is not installed.");
-                        return new ModStatus(name, EModStatus.MissingFromDisk);
-                    }
-                    EModStatus status = EModStatus.FailedToFetch;
-                    if ((state & EItemState.k_EItemStateDownloadPending) > 0 ||
-                        (state & EItemState.k_EItemStateDownloading) > 0)
-                    {
-                        status = EModStatus.ModUpdating;
-                    }
-                    else
-                    {
-                        if ((state & EItemState.k_EItemStateInstalled) > 0)
+
+                        EItemState state = (EItemState)SteamUGC.GetItemState(ID);
+                        if ((state & EItemState.k_EItemStateInstalled) == 0)
                         {
-                            if ((state & EItemState.k_EItemStateNeedsUpdate) > 0)
-                                status = EModStatus.NeedsToBeUpdated;
-                            else
-                            {
-                                if (ResourcesHelper.TryGetModContainer(name, out var MC) &&
-                                    ResourcesHelper.GUIManaged.infoCache.TryGetValue(MC, out var val))
-                                {
-                                    if (!val.synced)
-                                        return new ModStatus(name, EModStatus.TTETCUtilOutdated);
-                                    DateTime DT = Directory.GetLastWriteTime(directory.ToString());
-                                    DateTime DTM = File.GetLastWriteTime(Assembly.GetAssembly(typeof(TankBlock)).Location);
-                                    //Debug_TTExt.Log("Time is " + DT.ToString() + " vs " + DTM.ToString());
-                                    if (DT < DTM)
-                                        return new ModStatus(name, EModStatus.MightBeOutOfDate);
-                                }
-                                status = EModStatus.UpToDate;
-                            }
+                            Debug_TTExt.LogError("Could not load data of item " + name + " because it is not installed.");
+                            return new ModStatus(name, EModStatus.MissingFromDisk);
+                        }
+                        EModStatus status = EModStatus.FailedToFetch;
+                        if ((state & EItemState.k_EItemStateDownloadPending) > 0 ||
+                            (state & EItemState.k_EItemStateDownloading) > 0)
+                        {
+                            status = EModStatus.ModUpdating;
                         }
                         else
-                            status = EModStatus.MissingFromDisk;
+                        {
+                            if ((state & EItemState.k_EItemStateInstalled) > 0)
+                            {
+                                if ((state & EItemState.k_EItemStateNeedsUpdate) > 0)
+                                    status = EModStatus.NeedsToBeUpdated;
+                                else
+                                {
+                                    if (ResourcesHelper.TryGetModContainer(name, out var MC) &&
+                                        ResourcesHelper.GUIManaged.infoCache.TryGetValue(MC, out var val))
+                                    {
+                                        if (!val.synced)
+                                            return new ModStatus(name, EModStatus.TTETCUtilOutdated);
+                                        DateTime DT = Directory.GetLastWriteTime(directory.ToString());
+                                        DateTime DTM = File.GetLastWriteTime(Assembly.GetAssembly(typeof(TankBlock)).Location);
+                                        //Debug_TTExt.Log("Time is " + DT.ToString() + " vs " + DTM.ToString());
+                                        if (DT < DTM)
+                                            return new ModStatus(name, EModStatus.MightBeOutOfDate);
+                                    }
+                                    status = EModStatus.UpToDate;
+                                }
+                            }
+                            else
+                                status = EModStatus.MissingFromDisk;
+                        }
+                        return new ModStatus(name, status);
                     }
-                    return new ModStatus(name, status);
+                    else
+                        return new ModStatus(name, EModStatus.SkippedOnlineCheck);
                 }
 #endif
                 return new ModStatus(name, EModStatus.FailedToFetch);
@@ -794,7 +913,7 @@ namespace TerraTechETCUtil
                     " since an error occurred - " + e);
                 return new ModStatus(name, EModStatus.Exception);
             }
-            return new ModStatus(name, EModStatus.ModManagerMissing);
+            //return new ModStatus(name, EModStatus.ModManagerMissing);
         }
 
         private static void CheckStatusOfAllMods_Internal()

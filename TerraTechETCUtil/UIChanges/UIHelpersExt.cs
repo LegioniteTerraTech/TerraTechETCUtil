@@ -9,24 +9,51 @@ using UnityEngine.Networking;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// A bunch of helpers for UI and IMGUI.
+    /// <para>See <seealso cref="AltUI"/> and <seealso cref="ManModGUI"/> for more UI helpers</para>
+    /// </summary>
     public static class UIHelpersExt
     {
-        private static FieldInfo delay = typeof(ManHUD).GetField("m_RadialShowDelay", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static FieldInfo dist = typeof(ManHUD).GetField("m_RadialMouseDistanceThreshold", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo radialShowDelay = typeof(ManHUD).GetField("m_RadialShowDelay", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo radialMaxMouseDist = typeof(ManHUD).GetField("m_RadialMouseDistanceThreshold", BindingFlags.NonPublic | BindingFlags.Instance);
         private static MethodInfo overlays = typeof(ManOverlay).GetMethod("AddQueuedOverlay", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        /// <summary>
+        /// That default icon used for mods that have no icon
+        /// </summary>
         public static Sprite ModContentIcon { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("ICON_MOD").ConvertToSprite();
+        /// <summary>
+        /// The same as <see cref="ModContentIcon"/> but as a block sprite
+        /// </summary>
         public static Sprite NullSprite => ManUI.inst.GetSprite(ObjectTypes.Block, -1);
         internal static bool UseNullIfNoSpriteProvided = true;
         internal static float _ROROpenTimeDelay = 0.10f;
+        /// <summary>
+        /// The Vanilla GUI <see cref="RadialMenu"/> modal show delay
+        /// </summary>
         public static float ROROpenTimeDelay => _ROROpenTimeDelay;
         internal static float _ROROpenAllowedMouseDeltaSqr = 0;
+        /// <summary>
+        /// The Vanilla GUI <see cref="RadialMenu"/> modal minimum mouse move distance before <see cref="ROROpenTimeDelay"/> happens.
+        /// <para>If the mouse exceeds this distance the radial menu shall not open</para>
+        /// </summary>
         public static float ROROpenAllowedMouseDeltaSqr => _ROROpenAllowedMouseDeltaSqr;
+        /// <summary>
+        /// The custom element enum type to flag it as a <see cref="ManModGUI"/> managed UI element
+        /// </summary>
         public static readonly ManHUD.HUDElementType customElement = (ManHUD.HUDElementType)(-1);
         internal static Dictionary<string, Sprite> CachedUISprites = new Dictionary<string, Sprite>();
 
+        /// <summary>
+        /// If the player can use the mouse to interact with blocks
+        /// </summary>
         public static bool IsIngame { get { return !ManPauseGame.inst.IsPaused && !ManPointer.inst.IsInteractionBlocked; } }
 
+        /// <summary>
+        /// Release control of all IMGUI windows. Excludes vanilla's UI system
+        /// </summary>
+        /// <param name="Name"></param>
         public static void ReleaseControl(string Name = null)
         {
             if (Name == null)
@@ -46,14 +73,19 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// Init <see cref="UIHelpersExt"/>
+        /// </summary>
         public static void Init()
         {
-            _ROROpenTimeDelay = (float)delay.GetValue(ManHUD.inst);
-            int dis = (int)dist.GetValue(ManHUD.inst);
+            _ROROpenTimeDelay = (float)radialShowDelay.GetValue(ManHUD.inst);
+            int dis = (int)radialMaxMouseDist.GetValue(ManHUD.inst);
             _ROROpenAllowedMouseDeltaSqr = dis * dis;
         }
 
+        /// <summary>
+        /// Log all of the available vanilla options that <see cref="GetGUIIcon(string)"/> can re-use for mods
+        /// </summary>
         public static void LogCachedIcons()
         {
             GUIModModal.InsureRadialMenuPrefabs();
@@ -64,13 +96,27 @@ namespace TerraTechETCUtil
             }
             Debug_TTExt.Log("------ END CACHED ------");
         }
+        /// <summary>
+        /// Get a sprite for use in the modal or UI.
+        /// <para>You can get them all at runtime by calling <see cref="LogCachedIcons"/></para>
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException"></exception>
         public static Sprite GetGUIIcon(string name)
         {
             GUIModModal.InsureRadialMenuPrefabs();
             if (!CachedUISprites.TryGetValue(name, out var val))
                 throw new NullReferenceException("Icon " + name + " does not exist in UIHelpers");
             return val;
-        } 
+        }
+        /// <summary>
+        /// Get a sprite from an image file in a <see cref="ModContainer"/>.
+        /// <para>You can access <see cref="ModContainer"/>s of mods quickly through <see cref="ResourcesHelper"/></para>
+        /// </summary>
+        /// <param name="MC"></param>
+        /// <param name="name">Name of the texture file to use as a sprite</param>
+        /// <returns></returns>
         public static Sprite GetIconFromBundle(ModContainer MC, string name)
         {
             var holder = ResourcesHelper.GetTextureFromModAssetBundle(MC, name, false);
@@ -82,6 +128,12 @@ namespace TerraTechETCUtil
                 return NullSprite;
             return null;
         }
+        /// <summary>
+        /// Log the contents of a GameObject's components of type <typeparamref name="T"/> 
+        /// to output_log.txt at <see cref="Application.consoleLogPath"/>
+        /// </summary>
+        /// <typeparam name="T">Component type to log</typeparam>
+        /// <param name="GO"></param>
         public static void PrintAllComponentsGameObjectDepth<T>(GameObject GO) where T : Component
         {
             Debug_TTExt.Log("-------------------------------------------");
@@ -101,12 +153,20 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log("-------------------------------------------");
         }
 
-
+        /// <summary>
+        /// Show a popup in the style of the vanilla UI shown when hovering over <see cref="Visible"/>s
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <param name="IO"></param>
+        /// <param name="title"></param>
+        /// <param name="desc"></param>
+        /// <param name="typeDesc"></param>
+        /// <param name="icon"></param>
         public static void GUIWarningPopup(Tank tank, ref InfoOverlay IO, string title, string desc, string typeDesc = null, Sprite icon = null)
         {
             if (tank == null)
                 return;
-            Visible vis = tank.visible;
+            Visible vis = tank?.visible;
             if (vis != null)
             {
                 if (IOD == null)
@@ -198,8 +258,10 @@ namespace TerraTechETCUtil
         }
 
 
-
-        public class NetBigMessage : MessageBase
+        /// <summary>
+        /// Network message for <see cref="BigF5broningBanner(string, bool)"/>
+        /// </summary>
+        internal class NetBigMessage : MessageBase
         {
             public NetBigMessage() { }
             public NetBigMessage(int team, string desc, bool noise)
@@ -233,7 +295,7 @@ namespace TerraTechETCUtil
             }
             else
                 return true;
-            return false;
+            //return false;
         }
 
         internal static void InsureNetHooks()
@@ -249,11 +311,7 @@ namespace TerraTechETCUtil
         private static UIMultiplayerHUD warningBanner;
         private static bool bannerActive = false;
         private static bool subbed = false;
-        /// <summary>
-        /// Make a big, nice obvious warning on the screen that's nearly impossible to miss.
-        /// </summary>
-        /// <param name="Text">What text to show on the banner.  Set to nothing to hide immedeately.</param>
-        /// <param name="startNoise">Play payload inbound warning SFX for duration of showing.</param>
+        /// <inheritdoc cref="BigF5broningBanner(int, string, bool)"/>
         public static void BigF5broningBanner(string Text, bool startNoise = true)
         {
             if (netHook.CanBroadcast())
@@ -261,6 +319,12 @@ namespace TerraTechETCUtil
             else
                 DoBigF5broningBanner(Text, startNoise);
         }
+        /// <summary>
+        /// Make a big, nice obvious warning on the screen that's nearly impossible to miss.
+        /// </summary>
+        /// <param name="team">The team we should only show the banner to</param>
+        /// <param name="Text">What text to show on the banner.  Set to nothing to hide immedeately.</param>
+        /// <param name="startNoise">Play payload inbound warning SFX for duration of showing.</param>
         public static void BigF5broningBanner(int team, string Text, bool startNoise = true)
         {
             if (netHook.CanBroadcast())
@@ -319,9 +383,13 @@ namespace TerraTechETCUtil
         }
 
         /// <summary>
-        /// Client Only!
+        /// Point at something like the way the vanilla tutorial does it
+        /// <para><b>Client Only!</b></para>
         /// </summary>
-        public static void PointAtTransform(Transform trans, Vector3 offset, float duration)
+        /// <param name="trans">Transform to point at and follow</param>
+        /// <param name="offset">Offset from the traget transform</param>
+        /// <param name="duration">How long to point at it in seconds</param>
+        public static void PointAtTransform(Transform trans, Vector3 offset, float duration = 8)
         {
             if (!Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.BouncingArrow))
             {
@@ -336,6 +404,11 @@ namespace TerraTechETCUtil
             };
             Singleton.Manager<ManHUD>.inst.ShowHudElement(ManHUD.HUDElementType.BouncingArrow, context);
         }
+
+        /// <summary>
+        /// Stop pointing at the transform
+        /// <para><b>Client Only!</b></para>
+        /// </summary>
         public static void StopPointing()
         {
             if (Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.BouncingArrow))
@@ -344,13 +417,23 @@ namespace TerraTechETCUtil
             }
         }
 
+
         /// <summary>
-        /// Client Only!
+        /// Point at this like the way the vanilla tutorial does it
+        /// <para><b>Client Only!</b></para>
         /// </summary>
+        /// <param name="trans">Transform to point at and follow</param>
+        /// <param name="offset">Offset from the traget transform</param>
+        /// <param name="duration">How long to point at it in seconds</param>
         public static void PointAtThis(this Transform trans, Vector3 offset, float duration = 8)
         {
             PointAtTransform(trans, offset, duration);
         }
+        /// <summary>
+        /// Stop pointing at this
+        /// <para><b>Client Only!</b></para>
+        /// </summary>
+        /// <param name="trans">Transform to point at and follow</param>
         public static void StopPointing(this Transform trans)
         {
             StopPointing();

@@ -8,28 +8,52 @@ using UnityEngine;
 namespace TerraTechETCUtil
 {
     //None of these should be used alone.
+    /// <summary>
+    /// Interface for gimbaling aimers
+    /// </summary>
     public interface IExtGimbalControl
     {
+        /// <summary>
+        /// Linear instead of rotational
+        /// </summary>
+        /// <returns></returns>
         bool Linear();
     }
 
+    /// <summary>
+    /// Gimbaling axi
+    /// </summary>
     public enum ExtGimbalAxis
     {
+        /// <summary> Any direction </summary>
         Free,
+        /// <summary> X-Axis </summary>
         X,
+        /// <summary> Y-Axis </summary>
         Y,
+        /// <summary> Z-Axis </summary>
         Z,
     }
 
+    /// <summary>
+    /// External aiming gimbal 
+    /// </summary>
     public abstract class ExtGimbal : MonoBehaviour
     {
+        /// <summary> </summary>
         protected IExtGimbalControl EGC;
+        /// <summary> </summary>
         protected Vector3 rotAxis = Vector3.up;
+        /// <summary> </summary>
         protected Quaternion startRotLocal = Quaternion.identity;
+        /// <summary> </summary>
         protected float angle = 0;
+        /// <summary> </summary>
         protected bool closeAim = false;
 
+        /// <summary> </summary>
         public ExtGimbalAxis Axis = ExtGimbalAxis.X;
+        /// <summary> </summary>
         public float[] AimRestrictions = new float[2] { -180, 180 };
 
         /// <summary>
@@ -41,6 +65,7 @@ namespace TerraTechETCUtil
         /// </summary>
         protected Vector3 upAim = Vector3.up;
 
+        /// <summary> </summary>
         public void OnPool()
         {
             if (AimRestrictions[0] > AimRestrictions[1])
@@ -57,6 +82,7 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary> </summary>
         public void Setup(IExtGimbalControl control)
         {
 
@@ -80,6 +106,7 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary> </summary>
         public void ResetAim()
         {
             angle = 0;
@@ -88,10 +115,12 @@ namespace TerraTechETCUtil
 
 
 
+        /// <summary> </summary>
         public bool GetCloseEnough()
         {
             return closeAim;
         }
+        /// <summary> </summary>
         public void UpdateAim(float rotThisFrame)
         {
             switch (Axis)

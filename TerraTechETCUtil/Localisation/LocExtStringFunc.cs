@@ -9,13 +9,19 @@ using static LocalisationEnums;
 namespace TerraTechETCUtil
 {
     /// <summary>
-    /// DO NOT RELY ON THIS - LAGGY AF
+    /// <inheritdoc/>
+    /// <para><b>If done incorrectly...</b> DO NOT RELY ON THIS - LAGGY AF</para>
     /// </summary>
     public class LocExtStringFunc : LocExtString
     {
         private readonly string English;
         private readonly Func<string> GetString;
         private string data;
+        /// <summary>
+        /// Gets the localization based off of a getter function
+        /// </summary>
+        /// <param name="english"></param>
+        /// <param name="getString"></param>
         public LocExtStringFunc(string english, Func<string> getString)
         {
             LocalisationExt.InsureInit();
@@ -29,6 +35,7 @@ namespace TerraTechETCUtil
         {
             data = GetString();
         }
+        /// <inheritdoc/>
         public override string ToString() => data;
         /// <summary>
         /// DOES NOT WORK FOR VANILLA ENTRY REFERENCING

@@ -25,68 +25,127 @@ using FMOD;
 namespace TerraTechETCUtil
 {
 #if !EDITOR
+    /// <summary>
+    /// Keeps track of mod data for easy comperisons and access
+    /// </summary>
     public struct ModDataHandle
     {
+        /// <summary>
+        /// The ModID of the ModDataHandle
+        /// </summary>
+        public readonly string ModID;
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
             if (ModID == null)
                 return 0;
             return ModID.GetHashCode();
         }
+        /// <inheritdoc/>
         public static bool operator ==(ModDataHandle script1, ModDataHandle script2)
         {
             return script1.ModID == script2.ModID;
         }
+        /// <inheritdoc/>
         public static bool operator !=(ModDataHandle script1, ModDataHandle script2)
         {
             return script1.ModID != script2.ModID;
         }
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            return obj is ModDataHandle MDH && (MDH == this);
+        }
+        /// <summary>
+        /// Creates a ModDataHandle for the given mod
+        /// </summary>
+        /// <param name="modID">The actual ModID for the mod, usually not the display name of the mod</param>
+        /// <exception cref="NullReferenceException">The mod does not exist now</exception>
         public ModDataHandle(string modID)
         {
             if (!ManMods.inst.ModExists(modID))
                 throw new NullReferenceException("ModResourceHandle - ModID " + modID + " does not exists");
             ModID = modID;
         }
-        public readonly string ModID;
 
+        /// <summary>
+        /// Get the ModContainer
+        /// </summary>
+        /// <returns>The mod</returns>
         public ModContainer GetModContainer()
         {
             return ResourcesHelper.GetModContainerFromScript(this);
         }
 
+        /// <summary>
+        /// Subscribe an event to BEFORE all mods load
+        /// </summary>
+        /// <param name="preEvent"></param>
         public void SubToModsPreLoad(Action preEvent)
         {
             ResourcesHelper.ModsPreLoadEvent.Subscribe(preEvent);
         }
+        /// <summary>
+        /// Subscribe an event to AFTER all mods are loaded
+        /// </summary>
+        /// <param name="postEvent"></param>
         public void SubToModsPostLoad(Action postEvent)
         {
             ResourcesHelper.ModsPostLoadEvent.Subscribe(postEvent);
         }
+        /// <summary>
+        /// Subscribe an event to AFTER all blocks are loaded
+        /// </summary>
+        /// <param name="postEvent"></param>
         public void SubToBlocksPostChange(Action postEvent)
         {
             ResourcesHelper.BlocksPostChangeEvent.Subscribe(postEvent);
         }
 
+        /// <summary>
+        /// Return the ModID
+        /// </summary>
         public string GetModName()
         {
             return ModID;
         }
+        /// <summary>
+        /// Log this mod's contents in the game's output_log.txt
+        /// </summary>
+        /// <inheritdoc cref="ResourcesHelper.LookIntoModContents(ModContainer)"/>
         public void DebugLogModContents()
         {
             ResourcesHelper.LookIntoModContents(GetModContainer());
         }
+        /// <summary>
+        /// Try get a resource from this mod's container
+        /// </summary>
+        /// <inheritdoc cref="ResourcesHelper.GetTextureFromModAssetBundle(ModContainer, string, bool, bool)"/>
         public Texture2D GetModTexture(string nameNoExt)
         {
             return ResourcesHelper.GetTextureFromModAssetBundle(GetModContainer(), nameNoExt);
         }
+        /// <summary>
+        /// Try get a resource from this mod's container
+        /// </summary>
+        /// <inheritdoc cref="ResourcesHelper.GetObjectFromModContainer(ModContainer, string)"/>
         public T GetModObject<T>(string nameNoExt) where T : UnityEngine.Object
         {
             return ResourcesHelper.GetObjectFromModContainer<T>(GetModContainer(), nameNoExt);
         }
+        /// <summary>
+        /// Try iterate resources in this mod's container
+        /// </summary>
+        /// <inheritdoc cref="ResourcesHelper.IterateAssetsInModContainer(ModContainer)"/>
         public IEnumerable<T> GetModObjects<T>() where T : UnityEngine.Object
         {
             return ResourcesHelper.IterateAssetsInModContainer<T>(GetModContainer());
         }
+        /// <summary>
+        /// Try iterate resources in this mod's container
+        /// </summary>
+        /// <param name="nameNoExt">The start of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <inheritdoc cref="ResourcesHelper.IterateAssetsInModContainer(ModContainer, string)"/>
         public IEnumerable<T> GetModObjects<T>(string nameNoExt) where T : UnityEngine.Object
         {
             return ResourcesHelper.IterateAssetsInModContainer<T>(GetModContainer(), nameNoExt);
@@ -114,16 +173,27 @@ namespace TerraTechETCUtil
         }
     }
 #endif
+    /// <summary>
+    /// Use this to get resources from both modded and the base game
+    /// </summary>
     public static class ResourcesHelper
     {
-
+        /// <summary>
+        /// Log everything <see cref="ResourcesHelper"/> is doing
+        /// </summary>
         public static bool ShowDebug = false;
         /// <summary>Add as a post or prefix to flag it as an additional asset item</summary>
         public const string BlockFolderJsonFlag = "%";
 #if !EDITOR
+        /// <summary>
+        /// Special event for <see cref="TerraTechETCUtil"/>, similar to <see cref="Event"/>
+        /// </summary>
         public class RelayEvent
         {
             private EventNoParams eventHook = new EventNoParams();
+            /// <summary>
+            /// Send it to all recipients
+            /// </summary>
             public void Send()
             {
                 if (startupHook)
@@ -133,6 +203,9 @@ namespace TerraTechETCUtil
                 }
                 eventHook.Send();
             }
+            /// <summary>
+            /// Add a recipient
+            /// </summary>
             public void Subscribe(Action act)
             {
                 if (startupHook)
@@ -142,6 +215,9 @@ namespace TerraTechETCUtil
                 }
                 eventHook.Subscribe(act);
             }
+            /// <summary>
+            /// Remove a recipient
+            /// </summary>
             public void Unsubscribe(Action act)
             {
                 if (startupHook)
@@ -156,9 +232,21 @@ namespace TerraTechETCUtil
         private static Dictionary<string, ModContainer> modsEmpty = new Dictionary<string, ModContainer>();
         private static Dictionary<string, ModContainer> modsDirect = null;
         private static bool startupHook = true;
+        /// <summary>
+        /// Called before mods are loaded
+        /// </summary>
         public static RelayEvent ModsPreLoadEvent = new RelayEvent();
+        /// <summary>
+        /// Called after blocks are loaded
+        /// </summary>
         public static EventNoParams BlocksPostChangeEvent => ManMods.inst.BlocksModifiedEvent;
+        /// <summary>
+        /// Called after mods are loaded
+        /// </summary>
         public static EventNoParams ModsPostLoadEvent => ManMods.inst.ModSessionLoadCompleteEvent;
+        /// <summary>
+        /// Called every time the <see cref="ModBase.Update"/> is called
+        /// </summary>
         public static RelayEvent ModsUpdateEvent = new RelayEvent();
 
         private static void InitHooks()
@@ -172,6 +260,10 @@ namespace TerraTechETCUtil
             ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(OnModsChanged);
             modsDirect = modsEmpty;
         }
+        /// <summary>
+        /// Get the modlist raw
+        /// </summary>
+        /// <returns>The modlist</returns>
         public static Dictionary<string, ModContainer> GetAllMods()
         {
             if (modsDirect == null)
@@ -189,6 +281,10 @@ namespace TerraTechETCUtil
             }
             return modsDirect;
         }
+        /// <summary>
+        /// Iterate the modlist raw
+        /// </summary>
+        /// <returns>The modlist <see cref="IEnumerable"/></returns>
         public static IEnumerable<KeyValuePair<string, ModContainer>> IterateAllMods() => GetAllMods();
 #endif
 
@@ -314,6 +410,11 @@ namespace TerraTechETCUtil
 
 
 #if !EDITOR
+        /// <summary>
+        /// Iterate all assets in a bundle of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">Type to filter by</typeparam>
+        /// <returns>Iterator of type <typeparamref name="T"/></returns>
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>()
             where T : UnityEngine.Object
         {
@@ -326,6 +427,12 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Iterate all assets in a bundle of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">Type to filter by</typeparam>
+        /// <param name="nameEndsWith">The ending of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <returns>Iterator of type <typeparamref name="T"/></returns>
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(string nameEndsWith) 
             where T : UnityEngine.Object
         {
@@ -338,6 +445,12 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Iterate all assets in a bundle of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">Type to filter by</typeparam>
+        /// <param name="searchIterator">A specific filter function</param>
+        /// <returns>Iterator of type <typeparamref name="T"/></returns>
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(Func<T, bool> searchIterator)
             where T : UnityEngine.Object
         {
@@ -350,6 +463,13 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Iterate all assets in a bundle of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">Type to filter by</typeparam>
+        /// <param name="nameEndsWith">The ending of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <param name="searchIterator">A specific filter function</param>
+        /// <returns>Iterator of type <typeparamref name="T"/></returns>
         public static IEnumerable<KeyValuePair<ModDataHandle, T>> IterateAllModAssetsBundle<T>(string nameEndsWith, Func<T, bool> searchIterator)
             where T : UnityEngine.Object
         {
@@ -362,11 +482,25 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Mod informaton outside the assetbundle
+        /// </summary>
         public struct ModExtPath
         {
+            /// <summary>
+            /// The mod affiliated with this file
+            /// </summary>
             public ModDataHandle Mod;
+            /// <summary>
+            /// The filesystem path to the found file
+            /// </summary>
             public string LocationDisk;
         }
+        /// <summary>
+        /// Iterate all files that end with the extension in all mod folders
+        /// </summary>
+        /// <param name="fileExtension">Type to find</param>
+        /// <returns>Each file with their respective ModHandle and their location on the disk for accessing</returns>
         public static IEnumerable<ModExtPath> IterateAllModAssetsExternal(string fileExtension)
         {
             foreach (var item in GetAllMods())
@@ -387,6 +521,12 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Iterate all files that end with the extension in all mod folders
+        /// </summary>
+        /// <param name="fileExtension">Type to find</param>
+        /// <param name="namePostfix">postfix of the name to find, excluding the file extension</param>
+        /// <returns>Each file with their respective ModHandle and their location on the disk for accessing</returns>
         public static IEnumerable<ModExtPath> IterateAllModAssetsExternal(string fileExtension, string namePostfix)
         {
             foreach (var item in GetAllMods())
@@ -408,7 +548,12 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// Gets the <see cref="ModContainer"/> based on the <see cref="ModDataHandle"/>
+        /// </summary>
+        /// <param name="script"><see cref="ModDataHandle"/> to use as a search target</param>
+        /// <returns><see cref="ModContainer"/> instance registered in the game. If this fails it will throw an <see cref="NullReferenceException"/> instead</returns>
+        /// <exception cref="NullReferenceException">ModContainer does not exist</exception>
         public static ModContainer GetModContainerFromScript(ModDataHandle script)
         {
             if (script.ModID.NullOrEmpty())
@@ -420,6 +565,13 @@ namespace TerraTechETCUtil
             }
             throw new NullReferenceException("GetModContainerFromScript could not find the mod with the given script");
         }
+        /// <summary>
+        /// Gets the <see cref="ModContainer"/> based on the <see cref="ModDataHandle"/>
+        /// </summary>
+        /// <param name="script"><see cref="ModDataHandle"/> to use as a search target</param>
+        /// <param name="MC">The found <see cref="ModContainer"/>. Else <c>null</c></param>
+        /// <returns>True if the  <see cref="ModContainer"/> was found</returns>
+        /// <exception cref="NullReferenceException">ModID is null</exception>
         public static bool TryGetModContainerFromScript(ModDataHandle script, out ModContainer MC)
         {
             if (script.ModID.NullOrEmpty())
@@ -427,6 +579,13 @@ namespace TerraTechETCUtil
                     "Make sure you have a ModDataHandle with a ModID that is valid!");
             return GetAllMods().TryGetValue(script.ModID, out MC);
         }
+        /// <summary>
+        /// Gets the <see cref="ModContainer"/> based on the ModID
+        /// </summary>
+        /// <param name="modName">The ModID of the mod</param>
+        /// <param name="MC">The found <see cref="ModContainer"/>. Else <c>null</c></param>
+        /// <returns>True if the  <see cref="ModContainer"/> was found</returns>
+        /// <exception cref="NullReferenceException">modName is null</exception>
         public static bool TryGetModContainer(string modName, out ModContainer MC)
         {
             if (modName.NullOrEmpty())
@@ -435,12 +594,18 @@ namespace TerraTechETCUtil
             MC = ManMods.inst.FindMod(modName);
             return MC != null;
         }
-        public static ModContainer GetModContainer(string modName, out ModContainer MC)
+        /// <summary>
+        /// Gets the <see cref="ModContainer"/> based on the ModID
+        /// </summary>
+        /// <param name="modName">The ModID of the mod</param>
+        /// <returns><see cref="ModContainer"/> instance registered in the game. If this fails it will throw an <see cref="NullReferenceException"/> instead</returns>
+        /// <exception cref="NullReferenceException">ModContainer does not exist</exception>
+        public static ModContainer GetModContainer(string modName)
         {
             if (modName.NullOrEmpty())
                 throw new NullReferenceException("GetModContainer was given NULL modName.  " +
                     "Make sure you have a modName that is valid!");
-            MC = ManMods.inst.FindMod(modName);
+            ModContainer MC = ManMods.inst.FindMod(modName);
             if (MC == null)
             {
                 StringBuilder SB = new StringBuilder();
@@ -453,6 +618,11 @@ namespace TerraTechETCUtil
             }
             return MC;
         }
+        /// <summary>
+        /// Log the mod's contents in the game's output_log.txt
+        /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <exception cref="NullReferenceException">ModContainer does not exist</exception>
         public static void LookIntoModContents(ModContainer MC)
         {
             if (MC == null)
@@ -487,7 +657,11 @@ namespace TerraTechETCUtil
             }
         }
 #endif
-
+        /// <summary>
+        /// Throw exception for invalid types
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <exception cref="InvalidOperationException"></exception>
         public static void StopInvalidTypes<T>()
         {
             if (typeof(T) == typeof(AudioClip))
@@ -496,6 +670,13 @@ namespace TerraTechETCUtil
         }
 
 #if !EDITOR
+        /// <summary>
+        /// Try get a resource from the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="searchIterator">The selection function to find the first entry that matches</param>
+        /// <returns>The first found object, else null</returns>
         public static T GetObjectFromModContainer<T>(this ModContainer MC, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -507,12 +688,26 @@ namespace TerraTechETCUtil
             }
             return null;
         }
+        /// <summary>
+        /// Try get a resource from the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <returns>The first found object, else null</returns>
         public static T GetObjectFromModContainer<T>(this ModContainer MC, string nameNoExt) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
             return (T)MC.Contents.m_AdditionalAssets.Find(delegate (UnityEngine.Object cand)
             { return cand is T && cand.name.Equals(nameNoExt); });
         }
+        /// <summary>
+        /// Try iterate resources in the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="searchIterator">The selection function to find the first entry that matches</param>
+        /// <returns>Enumerates the matching objects</returns>
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -523,6 +718,12 @@ namespace TerraTechETCUtil
                     yield return result;
             }
         }
+        /// <summary>
+        /// Try iterate resources in the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <returns>Enumerates the matching objects</returns>
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -533,6 +734,13 @@ namespace TerraTechETCUtil
                     yield return result;
             }
         }
+        /// <summary>
+        /// Try iterate resources in the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameStartsWith">The start of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <returns>Enumerates the matching objects</returns>
         public static IEnumerable<T> IterateAssetsInModContainer<T>(this ModContainer MC, string nameStartsWith) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -543,6 +751,13 @@ namespace TerraTechETCUtil
                     yield return result;
             }
         }
+        /// <summary>
+        /// Try iterate resources in the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameEndsWith">The ending of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <returns>Enumerates the matching objects</returns>
         public static IEnumerable<T> IterateAssetsInModContainerPostfix<T>(this ModContainer MC, string nameEndsWith) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -553,6 +768,14 @@ namespace TerraTechETCUtil
                     yield return result;
             }
         }
+        /// <summary>
+        /// Try iterate resources in the mod container
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameEndsWith">The ending of the <see cref="UnityEngine.Object.name"/> to look for</param>
+        /// <param name="searchIterator">A specific filter function</param>
+        /// <returns>Enumerates the matching objects</returns>
         public static IEnumerable<T> IterateAssetsInModContainerPostfix<T>(this ModContainer MC, string nameEndsWith, Func<T, bool> searchIterator) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -572,6 +795,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Mesh GetMeshFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
         {
             Mesh mesh = null;
@@ -590,6 +817,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static string GetTextFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
         {
             TextAsset TA = null;
@@ -617,6 +848,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static byte[] GetBinaryFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
         {
             TextAsset TA = null;
@@ -642,6 +877,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static AudioInst GetAudioFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
         {
             string name = AudioInstFile.leadingFileName + nameNoExt.Replace(AudioInstFile.leadingFileName, string.Empty);
@@ -660,6 +899,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static AudioInst GetAudioFromModAssetBundleCached(this ModContainer MC, string nameNoExt, bool complainWhenFail = true)
         {
             string name = AudioInstFile.leadingFileName + nameNoExt.Replace(AudioInstFile.leadingFileName, string.Empty);
@@ -671,6 +914,11 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <param name="testIconsFolder">Look in the testIcons folder located at <see cref="tempDirect"/> for quick testing and hotswapping</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Texture2D GetTextureFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true, bool testIconsFolder = false)
         {
             Texture2D tex = null;
@@ -695,6 +943,11 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Make sure the Mod AssetBundle is loaded first!
         /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="nameNoExt">The name of the target to look for <b>without file extension</b></param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <param name="testIconsFolder">Look in the testIcons folder located at <see cref="tempDirect"/> for quick testing and hotswapping</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Material GetMaterialFromModAssetBundle(this ModContainer MC, string nameNoExt, bool complainWhenFail = true, bool testIconsFolder = false)
         {
             Texture2D tex = null;
@@ -771,6 +1024,11 @@ namespace TerraTechETCUtil
 #if !EDITOR
 
         private static HashSet<string> names = new HashSet<string>();
+        /// <summary>
+        /// Log the names of all data of type <c>T</c> in game data and put it in output_log.txt,
+        /// including duplicates of the same name
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
         public static void LogObjectsFromBaseGameAll<T>() where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -804,6 +1062,13 @@ namespace TerraTechETCUtil
                 names.Clear();
             }
         }
+        /// <summary>
+        /// Find the target loaded in the scene game data by the given name
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="objectName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static T GetObjectFromBaseGameActive<T>(string objectName, bool complainWhenFail = true) 
             where T : UnityEngine.Object
         {
@@ -814,6 +1079,13 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Assert(complainWhenFail, objectName + " " + typeof(T).Name + " in base game could not be found!");
             return mat;
         }
+        /// <summary>
+        /// Find the target in game data by the given name
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="objectName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static T GetObjectFromBaseGameAllFast<T>(string objectName, bool complainWhenFail = true) 
             where T : UnityEngine.Object
         {
@@ -834,6 +1106,13 @@ namespace TerraTechETCUtil
                 names.Clear();
             }
         }
+        /// <summary>
+        /// Find the target in game data by the given name, including duplicates postfixed by (#)
+        /// </summary>
+        /// <typeparam name="T">The type to find</typeparam>
+        /// <param name="objectName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static T GetObjectFromBaseGameAllDeep<T>(string objectName, bool complainWhenFail = true) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
@@ -868,40 +1147,113 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Find the target loaded in the scene game data by the given name
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Texture2D GetTexture2DFromBaseGameActive(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameActive<Texture2D>(MaterialName, complainWhenFail);
+        /// <summary>
+        /// Find the target in game data by the given name
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Texture2D GetTexture2DFromBaseGameAllFast(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameAllFast<Texture2D>(MaterialName, complainWhenFail);
+
+        /// <summary>
+        /// Find the target in game data by the given name, including duplicates postfixed by (#)
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Texture2D GetTexture2DFromBaseGameAllDeep(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameAllDeep<Texture2D>(MaterialName, complainWhenFail);
 
 
+        /// <summary>
+        /// Find the target loaded in the scene game data by the given name
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Material GetMaterialFromBaseGameActive(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameActive<Material>(MaterialName, complainWhenFail);
+        /// <summary>
+        /// Find the target in game data by the given name
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Material GetMaterialFromBaseGameAllFast(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameAllFast<Material>(MaterialName, complainWhenFail);
+
+        /// <summary>
+        /// Find the target in game data by the given name, including duplicates postfixed by (#)
+        /// </summary>
+        /// <param name="MaterialName">The name of the target</param>
+        /// <param name="complainWhenFail">Log spam details about how this failed if it fails!</param>
+        /// <returns>The target if found, otherwise null</returns>
         public static Material GetMaterialFromBaseGameAllDeep(string MaterialName, bool complainWhenFail = true) =>
             GetObjectFromBaseGameAllDeep<Material>(MaterialName, complainWhenFail);
 
+        /// <summary>
+        /// Find the target in game data by the given name asynchronously
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="ResourceName">The name of the target</param>
+        /// <param name="callback">Called when found, otherwise never</param>
+        /// <param name="processIterations">How many subjects to search through for each Update()</param>
+        /// <returns>The loader instance.  Make sure to call AsyncLoader.Update() every game update</returns>
         public static AsyncLoader<T> GetResourceFromBaseGamePreciseAsync<T>(string ResourceName, Action<T> callback, int processIterations = 16) where T : UnityEngine.Object
         {
             StopInvalidTypes<T>();
             return new AsyncLoader<T>(Resources.FindObjectsOfTypeAll<T>(), ResourceName, callback, processIterations);
         }
+        /// <summary>
+        /// Find the target in game data by the given name asynchronously without a specific type. 
+        /// Much slower than the generic version.
+        /// </summary>
+        /// <param name="type">The <see cref="Type"/> to search for </param>
+        /// <param name="ResourceName">The name of the target</param>
+        /// <param name="callback">Called when found, otherwise never</param>
+        /// <param name="processIterations">How many subjects to search through for each Update()</param>
+        /// <returns>The loader instance.  Make sure to call AsyncLoader.Update() every game update</returns>
         public static AsyncLoaderUnstable GetResourceFromBaseGamePreciseAsync(Type type, string ResourceName, Action<UnityEngine.Object> callback, int processIterations = 16)
         {
             return new AsyncLoaderUnstable(Resources.FindObjectsOfTypeAll(type), ResourceName, callback, processIterations);
         }
 
+        /// <summary>
+        /// Convert a texture into a sprite
+        /// </summary>
+        /// <param name="texture">target texture to convert</param>
+        /// <returns>The sprite</returns>
         public static Sprite ConvertToSprite(this Texture2D texture)
         {
             return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.zero, 1, 0, SpriteMeshType.FullRect);
         }
+        /// <summary>
+        /// Convert a texture into a sprite using another sprite as reference
+        /// </summary>
+        /// <param name="texture">target texture to convert</param>
+        /// <param name="refSprite">target sprite to copy fields from</param>
+        /// <returns>The sprite</returns>
         public static Sprite ConvertToSprite(this Texture2D texture, Sprite refSprite)
         {
             return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Vector2.zero, refSprite.pixelsPerUnit, 0, SpriteMeshType.FullRect, refSprite.border);
         }
 
+        /// <summary>
+        /// Find the target in both ModContainers or the mod directory itself as a raw file
+        /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="textNameWithExt">The name of the target to look for, with extension</param>
+        /// <param name="DLLDirectory">The directory of the mod's DLL incase there is no <see cref="ModContainer"/></param>
+        /// <returns></returns>
         public static byte[] FetchBinaryData(ModContainer MC, string textNameWithExt, string DLLDirectory = null)
         {
             byte[] tex = null;
@@ -930,6 +1282,13 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("Could not load Binary " + textNameWithExt + "!  \n   File is missing!");
             return null;
         }
+        /// <summary>
+        /// Find the target in both ModContainers or the mod directory itself as a raw file
+        /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="textNameWithExt">The name of the target to look for, with extension</param>
+        /// <param name="DLLDirectory">The directory of the mod's DLL incase there is no <see cref="ModContainer"/></param>
+        /// <returns></returns>
         public static string FetchTextData(ModContainer MC, string textNameWithExt, string DLLDirectory = null)
         {
             string tex = null;
@@ -958,6 +1317,13 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("Could not load Text " + textNameWithExt + "!  \n   File is missing!");
             return string.Empty;
         }
+        /// <summary>
+        /// Find the target in both ModContainers or the mod directory itself as a raw file
+        /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="pngName">The name of the target to look for, with extension</param>
+        /// <param name="DLLDirectory">The directory of the mod's DLL incase there is no <see cref="ModContainer"/></param>
+        /// <returns></returns>
         public static Texture2D FetchTexture(ModContainer MC, string pngName, string DLLDirectory = null)
         {
             Texture2D tex = null;
@@ -1002,6 +1368,13 @@ namespace TerraTechETCUtil
                 return group2.main[0];
             return FetchSoundDirect(wavNameWithExt, DLLDirectory, MC);
         }
+        /// <summary>
+        /// Find the target in both ModContainers or the mod directory itself as a raw file
+        /// </summary>
+        /// <param name="MC">The <see cref="ModContainer"/> to look inside of</param>
+        /// <param name="wavNameWithExt">The name of the target to look for, with extension</param>
+        /// <param name="DLLDirectory">The directory of the mod's DLL incase there is no <see cref="ModContainer"/></param>
+        /// <returns></returns>
         public static AudioInst FetchSoundDirect(string wavNameWithExt, string DLLDirectory, ModContainer MC = null)
         {
             if (MC != null)
@@ -1032,7 +1405,8 @@ namespace TerraTechETCUtil
             AudioClipToFMODSound(ACPrev, "", out var channel);
         }
 
-        internal static float[] sampleCache;
+
+        //internal static float[] sampleCache;
         /// <summary>
         /// Source for the AudioClip to FMOD.Sound: https://qa.fmod.com/t/load-an-audioclip-as-fmod-sound/11741/2
         /// </summary>
@@ -1227,7 +1601,7 @@ namespace TerraTechETCUtil
 
         private static Vector3 OffsetSnapVec => new Vector3(0, 350, 0);
         private static Camera Snapshotter;
-        private static Coroutine updater;
+        //private static Coroutine updater;
         private static Queue<RenderQueueItem> queueRend = null;
         private static RenderQueueItem RQI = default;
         private static List<Globals.ObjectLayer> AllowedLayers = new List<Globals.ObjectLayer>
@@ -1242,7 +1616,7 @@ namespace TerraTechETCUtil
             Globals.inst.layerPickup,
         };
 
-        public static void AllocPreviewer()
+        private static void AllocPreviewer()
         {
             if (Snapshotter == null)
             {
@@ -1298,7 +1672,7 @@ namespace TerraTechETCUtil
         }
         internal static Vector3 returnPos;
         internal static Transform returnParent;
-        public static IEnumerator StaticUpdate()
+        private static IEnumerator StaticUpdate()
         {
             yield return new WaitForEndOfFrame();
             while (queueRend.Any())
@@ -1346,7 +1720,7 @@ namespace TerraTechETCUtil
             }
             */
         }
-        public static void SyncLayers(List<Globals.ObjectLayer> permittedlayers)
+        private static void SyncLayers(List<Globals.ObjectLayer> permittedlayers)
         {
             int layerMask = 0;
             if (permittedlayers == null)
@@ -1395,6 +1769,10 @@ namespace TerraTechETCUtil
             */
             Snapshotter.cullingMask = layerMask;
         }
+        /// <summary>
+        /// Unload the Previewer created when calling any <see cref="GeneratePreviewForGameObject(Action{Texture2D},GameObject, Bounds, List{Globals.ObjectLayer})"/> functions to 
+        /// save on memory use.
+        /// </summary>
         public static void DeallocPreviewer()
         {
             if (Snapshotter)
@@ -1405,7 +1783,14 @@ namespace TerraTechETCUtil
                 Snapshotter = null;
             }
         }
-      
+
+        /// <summary>
+        /// Creates an async preview PNG for a target GameObject 
+        /// </summary>
+        /// <param name="Callback">Called when it's finished</param>
+        /// <param name="GO">The <see cref="GameObject"/> to take the preview of</param>
+        /// <param name="bounds">The bounds of the target gameobject to position the camera to fit</param>
+        /// <param name="LayersToShow">The only <see cref="GameObject"/> layers to show when taking the preview</param>
         public static void GeneratePreviewForGameObject(Action<Texture2D> Callback, GameObject GO, Bounds bounds, List<Globals.ObjectLayer> LayersToShow = null)
         {   // The block preview is dirty, so we need to re-render a preview icon
             if (!GO)
@@ -1427,6 +1812,14 @@ namespace TerraTechETCUtil
             if (queueRend.Count == 1)
                 InvokeHelper.InvokeCoroutine(StaticUpdate());
         }
+        /// <summary>
+        /// Creates an async preview PNG for a target GameObject 
+        /// </summary>
+        /// <param name="Callback">Called when it's finished</param>
+        /// <param name="GO">The <see cref="GameObject"/> to take the preview of</param>
+        /// <param name="bounds">The bounds of the target gameobject to position the camera to fit</param>
+        /// <param name="offset">The offset of the previewing snapshot in the game scene to not disrupt gameplay</param>
+        /// <param name="LayersToShow">The only <see cref="GameObject"/> layers to show when taking the preview</param>
         public static void GeneratePreviewForGameObject(Action<Texture2D> Callback, GameObject GO, Bounds bounds, Vector3 offset, List<Globals.ObjectLayer> LayersToShow = null)
         {   // The block preview is dirty, so we need to re-render a preview icon
             if (!GO)
@@ -1444,6 +1837,13 @@ namespace TerraTechETCUtil
             if (queueRend.Count == 1)
                 InvokeHelper.InvokeCoroutine(StaticUpdate());
         }
+        /// <summary>
+        /// Creates an async preview PNG for a target GameObject 
+        /// </summary>
+        /// <param name="Callback">Called when it's finished</param>
+        /// <param name="GO">The <see cref="GameObject"/> to take the preview of</param>
+        /// <param name="bounds">The bounds of the target gameobject to position the camera to fit</param>
+        /// <param name="LayersToShow">The only <see cref="GameObject"/> layers to show when taking the preview</param>
         public static void GeneratePreviewForGameObjectOnSite(Action<Texture2D> Callback, GameObject GO, Bounds bounds, List<Globals.ObjectLayer> LayersToShow = null)
         {   // The block preview is dirty, so we need to re-render a preview icon
             if (!GO)
@@ -1465,6 +1865,15 @@ namespace TerraTechETCUtil
             if (queueRend.Count == 1)
                 InvokeHelper.InvokeCoroutine(StaticUpdate());
         }
+
+        /// <summary>
+        /// Creates an async preview PNG for a target GameObject 
+        /// </summary>
+        /// <param name="Callback">Called when it's finished</param>
+        /// <param name="GO">The <see cref="GameObject"/> to take the preview of</param>
+        /// <param name="bounds">The bounds of the target gameobject to position the camera to fit</param>
+        /// <param name="offset">The offset of the previewing snapshot in the game scene to not disrupt gameplay</param>
+        /// <param name="LayersToShow">The only <see cref="GameObject"/> layers to show when taking the preview</param>
         public static void GeneratePreviewForGameObjectOnSite(Action<Texture2D> Callback, GameObject GO, Bounds bounds, Vector3 offset, List<Globals.ObjectLayer> LayersToShow = null)
         {   // The block preview is dirty, so we need to re-render a preview icon
             if (!GO)
@@ -1534,7 +1943,13 @@ namespace TerraTechETCUtil
 #endif
 
 
-
+        /// <summary>
+        /// Compress data from a <see cref="GameObject"/> to send between the game/editor.
+        /// <para>Only sends positional and hierarchy data over, not the actual models as those need to be in the editor itself.</para>
+        /// <para><b>THIS IS NOT A FULL DATA EXTRACTOR</b> - Use <c>AssetStudio</c> or <c>UnityAssetBundleExtractor</c> instead!</para>
+        /// </summary>
+        /// <param name="GO">Target <see cref="GameObject"/></param>
+        /// <returns>the serials to send over</returns>
         public static List<SerialGO> CompressToSerials(GameObject GO)
         {
             List<SerialGO> GOL = new List<SerialGO>
@@ -1553,6 +1968,13 @@ namespace TerraTechETCUtil
                 CompressToSerials_Recurse(child.gameObject, GORoot, GOL);
             }
         }
+        /// <summary>
+        /// Uncompress data from a <see cref="GameObject"/> sent between the game/editor to build a new <see cref="GameObject"/>
+        /// <para>Only sends positional and hierarchy data over, not the actual models as those need to be in the editor itself.</para>
+        /// <para><b>THIS IS NOT A FULL DATA EXTRACTOR</b> - Use <c>AssetStudio</c> or <c>UnityAssetBundleExtractor</c> instead!</para>
+        /// </summary>
+        /// <param name="GOL">Target serial data</param>
+        /// <returns>the serials to send over</returns>
         public static GameObject DecompressFromSerials(List<SerialGO> GOL)
         {
             GameObject GOR = null;
@@ -1564,6 +1986,14 @@ namespace TerraTechETCUtil
             }
             return GOR;
         }
+        /// <summary>
+        /// Uncompress data from a <see cref="GameObject"/> sent between the game/editor to alter an existing <see cref="GameObject"/>
+        /// <para>Only sends positional and hierarchy data over, not the actual models as those need to be in the editor itself.</para>
+        /// <para><b>THIS IS NOT A FULL DATA EXTRACTOR</b> - Use <c>AssetStudio</c> or <c>UnityAssetBundleExtractor</c> instead!</para>
+        /// </summary>
+        /// <param name="toApplyTo">Target <see cref="GameObject"/> to alter</param>
+        /// <param name="GOL">Target serial data</param>
+        /// <returns>the serials to send over</returns>
         public static GameObject DecompressFromSerials(GameObject toApplyTo, List<SerialGO> GOL)
         {
             if (!GOL.Any())
@@ -1574,26 +2004,41 @@ namespace TerraTechETCUtil
             return toApplyTo;
         }
 
-
+        /// <summary>
+        /// Serialized GameObject information.
+        /// </summary>
         public class SerialGO
         {
             //private static StringBuilder SB = new StringBuilder();
+            /// <summary>  </summary>
             public bool Active;
+            /// <summary>  </summary>
             public string Name;
+            /// <summary>  </summary>
             public int Layer;
+            /// <summary>  </summary>
             public Vector3 Position;
+            /// <summary>  </summary>
             public Vector4 Rotation;
+            /// <summary>  </summary>
             public Vector3 Scale;
+            /// <summary>  </summary>
             public string Hierarchy;
+            /// <summary>  </summary>
             public string Mesh;
+            /// <summary>  </summary>
             public string Texture;
+            /// <summary>  </summary>
             public Dictionary<string, string> ComponentData = new Dictionary<string, string>();
             /// <summary>
             /// EDITOR ONLY
             /// </summary>
             public SerialGO()
-            { 
+            {
             }
+            /// <summary>
+            /// <b>USE <see cref="CompressToSerials"/> INSTEAD OF THIS!!!</b>
+            /// </summary>
             public SerialGO(GameObject GO, GameObject lowestGO, bool saveMonoData = false)
             {
                 if (GO == null)
@@ -1660,6 +2105,9 @@ namespace TerraTechETCUtil
                     catch { }
                 }
             }
+            /// <summary>
+            /// <b>USE <see cref="CompressToSerials"/> INSTEAD OF THIS!!!</b>
+            /// </summary>
             public GameObject RebuildAndAssignToHierarchy(GameObject root)
             {
                 GameObject GO = null;
@@ -1889,6 +2337,9 @@ namespace TerraTechETCUtil
                     return GO;
                 }
             }
+            /// <summary>
+            /// <b>USE <see cref="CompressToSerials"/> INSTEAD OF THIS!!!</b>
+            /// </summary>
             public GameObject OverrideInternalLayout(GameObject target)
             {
                 Transform rootNavi = null;
@@ -2022,7 +2473,12 @@ namespace TerraTechETCUtil
                     return trans.name;
             }
         }
-
+        /// <summary>
+        /// Finds a type of name in all assemblies
+        /// </summary>
+        /// <param name="name">name of <see cref="Type"/> to find</param>
+        /// <returns>The type if found, else throws <see cref="NullReferenceException"/></returns>
+        /// <exception cref="NullReferenceException"></exception>
         public static Type GetTypeDeep(string name)
         {
             if (name == null)
@@ -2039,6 +2495,11 @@ namespace TerraTechETCUtil
             }
             throw new NullReferenceException("type " + name + " does not exists");
         }
+        /// <summary>
+        /// Force-obtains the types of an Assembly, even if there's an error accessing it
+        /// </summary>
+        /// <param name="AEM">name of <see cref="Assembly"/> to extract Types from</param>
+        /// <returns>All <see cref="Types"/> in the assembly</returns>
         public static Type[] FORCE_GET_TYPES(Assembly AEM)
         {
             try
@@ -2056,15 +2517,26 @@ namespace TerraTechETCUtil
 
 #if !EDITOR
         private static List<AsyncLoader> asyncLoaders = new List<AsyncLoader>();
+        /// <summary>
+        /// General class for a loader which does it's job over multiple updates
+        /// </summary>
         public interface AsyncLoader
         {
+            /// <summary> </summary>
             bool IsBusy { get; }
+            /// <summary> </summary>
             void Update();
+            /// <summary> </summary>
             void Abort();
         }
+        /// <summary>
+        /// General class for a loader which does it's job over multiple updates
+        /// </summary>
         public class AsyncLoader<T> : AsyncLoader where T : UnityEngine.Object
         {
+            /// <summary> </summary>
             public static readonly AsyncLoader<T> Default = new AsyncLoader<T>("Default");
+            /// <summary> </summary>
             public bool IsBusy { get => step != arrayCache.Length; }
             private T[] arrayCache;
             private string name;
@@ -2073,6 +2545,9 @@ namespace TerraTechETCUtil
             private HashSet<T> Iterated;
             private Dictionary<string, int> names;
             private Action<T> callback;
+            /// <summary>
+            /// General class for a loader which does it's job over multiple updates
+            /// </summary>
             public AsyncLoader(string name)
             {
                 stepRate = 1;
@@ -2083,6 +2558,9 @@ namespace TerraTechETCUtil
                 this.name = name;
                 step = 0;
             }
+            /// <summary>
+            /// General class for a loader which does it's job over multiple updates
+            /// </summary>
             public AsyncLoader(T[] array, string name, Action<T> Callback, int stepRateSet)
             {
                 stepRate = stepRateSet;
@@ -2096,11 +2574,17 @@ namespace TerraTechETCUtil
                 Update();
             }
 
+            /// <summary>
+            /// Cancel the async loader immedeately
+            /// </summary>
             public void Abort()
             {
                 InvokeHelper.CancelInvoke(Update);
                 asyncLoaders.Remove(this);
             }
+            /// <summary>
+            /// Update the async loader.  Is not automatically called!
+            /// </summary>
             public void Update()
             {
                 int deltaStep = Mathf.Min(step + stepRate, arrayCache.Length);
@@ -2143,9 +2627,14 @@ namespace TerraTechETCUtil
                     InvokeHelper.Invoke(Update, 0.04f);
             }
         }
+        /// <summary>
+        /// General class for a loader which does it's job over multiple updates without a generic type
+        /// </summary>
         public class AsyncLoaderUnstable : AsyncLoader
         {
+            /// <summary> </summary>
             public static readonly AsyncLoaderUnstable Default = new AsyncLoaderUnstable("Default");
+            /// <summary> </summary>
             public bool IsBusy { get => step != arrayCache.Length; }
             private UnityEngine.Object[] arrayCache;
             private string name;
@@ -2154,6 +2643,9 @@ namespace TerraTechETCUtil
             private HashSet<UnityEngine.Object> Iterated;
             private Dictionary<string, int> names;
             private Action<UnityEngine.Object> callback;
+            /// <summary>
+            /// General class for a loader which does it's job over multiple updates without a generic type
+            /// </summary>
             public AsyncLoaderUnstable(string name)
             {
                 stepRate = 1;
@@ -2164,6 +2656,9 @@ namespace TerraTechETCUtil
                 this.name = name;
                 step = 0;
             }
+            /// <summary>
+            /// General class for a loader which does it's job over multiple updates without a generic type
+            /// </summary>
             public AsyncLoaderUnstable(UnityEngine.Object[] array, string name, Action<UnityEngine.Object> Callback, int stepRateSet)
             {
                 stepRate = stepRateSet;
@@ -2177,11 +2672,13 @@ namespace TerraTechETCUtil
                 Update();
             }
 
+            /// <summary> </summary>
             public void Abort()
             {
                 InvokeHelper.CancelInvoke(Update);
                 asyncLoaders.Remove(this);
             }
+            /// <summary> </summary>
             public void Update()
             {
                 int deltaStep = Mathf.Min(step + stepRate, arrayCache.Length);
@@ -2241,7 +2738,6 @@ namespace TerraTechETCUtil
         internal class GUIManaged : GUILayoutHelpers
         {
             private static bool controlledDisp = false;
-            private static bool controlledDisp2 = false;
             private static HashSet<string> enabledTabs = null;
             private static ResourceHelperGUITypes guiType = ResourceHelperGUITypes.ModTexture;
             public static Dictionary<ModContainer, ExtInfo> infoCache = new Dictionary<ModContainer, ExtInfo>();

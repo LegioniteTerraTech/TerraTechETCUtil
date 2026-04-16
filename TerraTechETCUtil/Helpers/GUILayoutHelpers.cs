@@ -2,19 +2,36 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Steamworks;
 using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Helpers for <see cref="GUILayout"/>
+    /// </summary>
     public class GUILayoutHelpers
     {
-        public interface SlowSortable 
+        /// <summary>
+        /// Interface for slow sortable entries managed by <see cref="ISlowSorter"/>
+        /// </summary>
+        public interface ISlowSortable 
         { 
+            /// <summary>
+            /// The display name to sort by
+            /// </summary>
             string displayName { get; }
         }
-        private interface SlowSorter { }
-        public class SlowSorter<T> : SlowSorter
+        private interface ISlowSorter { }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        public class SlowSorter<T> : ISlowSorter
         {
+            /// <summary>
+            /// The default <see cref="SlowSorter{T}"/>
+            /// </summary>
             public static readonly SlowSorter<T> Default = new SlowSorter<T>(16);
             private bool updating;
             private bool showDuplicates;
@@ -22,11 +39,29 @@ namespace TerraTechETCUtil
             private string name;
             private int step;
             private int stepRate;
-            private Func<T, bool> selector;
+            private Func<T, string, string, bool> selector;
+            private Func<T, string, string, bool> selectorFinal;
+            /// <summary>
+            /// Default <see cref="SlowSorter{T}"/> search query
+            /// </summary>
+            /// <param name="type"></param>
+            /// <param name="nameGet"></param>
+            /// <param name="curName"></param>
+            /// <returns></returns>
+            public bool DefaultSearcher(T type, string nameGet, string curName)
+            {
+                return nameGet.ToLower().Contains(curName);
+            }
             private HashSet<T> Iterated;
             private Dictionary<string, int> names;
+            /// <summary> </summary>
             public List<string> namesValid;
+            /// <summary> </summary>
             public List<T> valid;
+            /// <summary>
+            /// Creates a new <see cref="SlowSorter{T}"/> that sorts
+            /// </summary>
+            /// <param name="iterations">entries to search through with each <see cref="Update"/></param>
             public SlowSorter(int iterations)
             {
                 stepRate = iterations;
@@ -39,8 +74,16 @@ namespace TerraTechETCUtil
                 name = "";
                 step = 0;
                 selector = null;
+                selectorFinal = DefaultSearcher;
             }
-            public SlowSorter(int iterations, Func<T, bool> acceptor)
+            /// <summary>
+            /// Creates a new <see cref="SlowSorter{T}"/> that sorts
+            /// </summary>
+            /// <param name="iterations">entries to search through with each <see cref="Update"/></param>
+            /// <param name="acceptor"></param>
+            /// <param name="filter"></param>
+            public SlowSorter(int iterations, Func<T, string, string, bool> acceptor = null,
+                Func<T, string, string, bool> filter = null)
             {
                 stepRate = iterations;
                 updating = false;
@@ -52,8 +95,16 @@ namespace TerraTechETCUtil
                 name = "";
                 step = 0;
                 selector = acceptor;
+                if (filter == null)
+                    selectorFinal = DefaultSearcher;
+                else 
+                    selectorFinal = filter;
             }
-
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="query"></param>
+            /// <param name="allowDupes"></param>
             public void SetNewSearchQueryIfNeeded(string query, bool allowDupes)
             {
                 if (query.ToLower().Equals(name) && showDuplicates == allowDupes)
@@ -63,6 +114,13 @@ namespace TerraTechETCUtil
                 Abort(false);
                 StartUpdate();
             }
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="namesArray"></param>
+            /// <param name="query"></param>
+            /// <param name="allowDupes"></param>
+            /// <exception cref="NullReferenceException"></exception>
             public void SetSearchArrayAndSearchQuery(T[] namesArray, string query, bool allowDupes)
             {
                 if (namesArray == null)
@@ -83,6 +141,10 @@ namespace TerraTechETCUtil
                 }
             }
 
+            /// <summary>
+            /// Cancels the search
+            /// </summary>
+            /// <param name="clearArrayCache"></param>
             public void Abort(bool clearArrayCache = true)
             {
                 step = 0;
@@ -104,15 +166,15 @@ namespace TerraTechETCUtil
                     string nameGet;
                     if (item is UnityEngine.Object obj)
                         nameGet = obj.name;
-                    else if (item is SlowSortable sortable)
+                    else if (item is ISlowSortable sortable)
                         nameGet = sortable.displayName;
                     else
                         throw new InvalidCastException("SlowSorter must have a type that is either UnityEngine.Object or SlowSortable");
-                    if (Iterated.Add(item) && (selector == null || selector(item)))
+                    if (Iterated.Add(item) && (selector == null || selector(item, nameGet, name)))
                     {
                         if (names.TryGetValue(nameGet, out int stepName) && showDuplicates)
                         {
-                            if (nameGet.ToLower().Contains(name))
+                            if (selectorFinal(item, nameGet, name))
                             {
                                 namesValid.Add(nameGet + "(" + stepName + ")");
                                 valid.Add(item);
@@ -125,7 +187,7 @@ namespace TerraTechETCUtil
                         else
                         {
                             names.Add(nameGet, 1);
-                            if (nameGet.ToLower().Contains(name))
+                            if (selectorFinal(item, nameGet, name))
                             {
                                 namesValid.Add(nameGet);
                                 valid.Add(item);
@@ -144,15 +206,26 @@ namespace TerraTechETCUtil
                     InvokeHelper.Invoke(Update, 0);
             }
         }
-        public struct SlowSorterString : SlowSorter
+        /// <summary>
+        /// <inheritdoc/>
+        /// Slow sorter for strings
+        /// </summary>
+        public struct SlowSorterString : ISlowSorter
         {
             private bool updating;
             private string searchQuery;
             private int curStep;
             private string[] names;
+            /// <summary>
+            /// All names that this has sorted
+            /// </summary>
             public List<string> namesSorted;
             private readonly int stepSpeed;
 
+            /// <summary>
+            /// Creates a new <see cref="SlowSorterString"/> that sorts
+            /// </summary>
+            /// <param name="searchIterationsPerUpdate">entries to search through with each <see cref="Update"/></param>
             public SlowSorterString(int searchIterationsPerUpdate = 12)
             {
                 curStep = 0;
@@ -162,6 +235,10 @@ namespace TerraTechETCUtil
                 names = new string[0];
                 updating = false;
             }
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="query"></param>
             public void SetNewSearchQueryIfNeeded(string query)
             {
                 if (query.ToLower() == searchQuery)
@@ -171,6 +248,10 @@ namespace TerraTechETCUtil
                 namesSorted.Clear();
                 StartUpdate();
             }
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="namesArray"></param>
             public void SetNames(string[] namesArray)
             {
                 names = namesArray;
@@ -178,6 +259,9 @@ namespace TerraTechETCUtil
                 namesSorted.Clear(); 
                 StartUpdate();
             }
+            /// <summary>
+            /// 
+            /// </summary>
             public void Reset()
             {
                 searchQuery = "";
@@ -213,6 +297,9 @@ namespace TerraTechETCUtil
                     InvokeHelper.Invoke(Update, 0.04f);
             }
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static void GUILabelDispFast(string fieldName, int num)
         {
             GUILayout.BeginHorizontal();
@@ -221,6 +308,9 @@ namespace TerraTechETCUtil
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static void GUILabelDispFast(string fieldName, float num)
         {
             GUILayout.BeginHorizontal();
@@ -229,6 +319,9 @@ namespace TerraTechETCUtil
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static void GUITextFieldDispFast(string fieldName, ref string input)
         {
             GUILayout.BeginHorizontal();
@@ -236,6 +329,9 @@ namespace TerraTechETCUtil
             input = GUILayout.TextField(input, GUILayout.ExpandWidth(true));
             GUILayout.EndHorizontal();
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static bool GUITextFieldDisp(string fieldName, ref string input)
         {
             GUILayout.BeginHorizontal();
@@ -245,6 +341,9 @@ namespace TerraTechETCUtil
             GUILayout.EndHorizontal();
             return inputC.CompareTo(input) != 0;
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static int GUIVertToolbar(int enabledOption, string[] strings)
         {
             int posStep = 0;
@@ -258,6 +357,9 @@ namespace TerraTechETCUtil
             }
             return enabledOption;
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static int GUIVertToolbar(int enabledOption, List<string> strings)
         {
             int posStep = 0;
@@ -271,10 +373,16 @@ namespace TerraTechETCUtil
             }
             return enabledOption;
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static int GUIToolbarCategoryDisp<T>(int enabledOption) where T : Enum
         {
             return GUILayout.Toolbar(enabledOption, Enum.GetNames(typeof(T)), GUI.skin.button, buttonSize: GUI.ToolbarButtonSize.FitToContents);
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static int GUIVertToolbarCategoryDisp<T>(int enabledOption) where T : Enum
         {
             GUILayout.BeginHorizontal();
@@ -282,6 +390,9 @@ namespace TerraTechETCUtil
             GUILayout.EndHorizontal();
             return outp;
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static bool GUITabDisp(ref HashSet<string> enabledTabs, string name)
         {
             if (GUILayout.Button(name))
@@ -293,9 +404,12 @@ namespace TerraTechETCUtil
             }
             return enabledTabs.Contains(name);
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static void GUICategoryDisp<T>(ref HashSet<string> enabledTabs, string name, Action<T> enumTypeAct) where T : Enum
         {
-            if (GUILayout.Button(name + " | Total: " + Enum.GetValues(typeof(ManSFX.MiscSfxType)).Length))
+            if (GUILayout.Button(name + " | Total: " + Enum.GetValues(typeof(T)).Length))
             {
                 if (enabledTabs.Contains(name))
                     enabledTabs.Remove(name);
@@ -313,10 +427,13 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// To display in IMGUI
+        /// </summary>
         public static void GUICategoryDisp<T>(ref HashSet<string> enabledTabs, string name, Action<T> enumTypeAct, Func<T, bool> selector)
             where T : Enum
         {
-            if (GUILayout.Button(name + " | Total: " + Enum.GetValues(typeof(ManSFX.MiscSfxType)).Length))
+            if (GUILayout.Button(name + " | Total: " + Enum.GetValues(typeof(T)).Length))
             {
                 if (enabledTabs.Contains(name))
                     enabledTabs.Remove(name);

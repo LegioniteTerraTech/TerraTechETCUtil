@@ -8,13 +8,22 @@ using System.Reflection;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Manages all <see cref="ProjBase"/>
+    /// </summary>
     public class ManExtProj : MonoBehaviour
     {
         private static ManExtProj inst;
+        /// <summary>
+        /// All projectiles managed by <see cref="ManExtProj"/>
+        /// </summary>
         public static readonly List<ProjBase> projPool = new List<ProjBase>();
 
         private const float SlowUpdateTime = 0.6f;
         private float SlowUpdate = 0;
+        /// <summary>
+        /// Initiate <see cref="ManExtProj"/>, automatically activated when needed
+        /// </summary>
         public static void InsureInit()
         {
             if (inst)
@@ -22,7 +31,7 @@ namespace TerraTechETCUtil
             inst = new GameObject("ManExtProj").AddComponent<ManExtProj>();
             Debug_TTExt.Log("TerraTechModExt: Created ManExtProj.");
         }
-        public void Update()
+        internal void Update()
         {
             if (SlowUpdate < Time.time)
             {
@@ -64,11 +73,15 @@ namespace TerraTechETCUtil
 
 
     /// <summary>
-    /// Does nothing. DO NOT USE ALONE.
+    /// Does nothing. <b>DO NOT USE ALONE.</b>
+    /// <para>Automatically added when a related <see cref="ChildModule"/> is used on a <see cref="WeaponRound"/></para>
     /// </summary>
     public class ExtProj : MonoBehaviour
     {
         private ProjBase _PB;
+        /// <summary>
+        /// Our respective <see cref="ProjBase"/>
+        /// </summary>
         public ProjBase PB
         {
             get
@@ -87,6 +100,9 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// When removed from the world
+        /// </summary>
         public void Recycle()
         {
             if (PB?.project)
@@ -95,20 +111,53 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Called BEFORE pooling
+        /// </summary>
+        /// <param name="proj"></param>
         public virtual void PrePool(Projectile proj) { }
         /// <summary>
         /// Use PB (ProjBase) to access the main projectile from now on.
         /// </summary>
         public virtual void Pool() { }
+        /// <summary>
+        /// Called when it's respective <see cref="Projectile"/> is fired
+        /// </summary>
+        /// <param name="fireData"></param>
         public virtual void Fire(FireData fireData) { }
 
 
-
+        /// <summary>
+        /// Called when the <see cref="Projectile"/> is removed from the world for any reason
+        /// </summary>
         public virtual void WorldRemoval() { }
+        /// <summary>
+        /// Called when the <see cref="Projectile"/> impacts anything
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="damageable">Can be <b>null</b></param>
+        /// <param name="hitPoint">In scene space</param>
+        /// <param name="ForceDestroy">If the projectile should be removed from the world instantly</param>
         public virtual void Impact(Collider other, Damageable damageable, Vector3 hitPoint, ref bool ForceDestroy) { }
+        /// <summary>
+        /// Called when the <see cref="Projectile"/> impacts a non-<see cref="Damageable"/>
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="hitPoint">In scene space</param>
+        /// <param name="ForceDestroy">If the projectile should be removed from the world instantly</param>
         public virtual void ImpactOther(Collider other, Vector3 hitPoint, ref bool ForceDestroy) { }
+        /// <summary>
+        /// Called when the <see cref="Projectile"/> impacts a <see cref="Damageable"/>
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="damageable">Never <b>null</b></param>
+        /// <param name="hitPoint">In scene space</param>
+        /// <param name="ForceDestroy">If the projectile should be removed from the world instantly</param>
         public virtual void ImpactDamageable(Collider other, Damageable damageable, Vector3 hitPoint, ref bool ForceDestroy) { }
 
+        /// <summary>
+        /// Updated every <see cref="ManExtProj.SlowUpdateTime"/> seconds
+        /// </summary>
         public virtual void SlowUpdate() { }
     }
 
@@ -117,10 +166,25 @@ namespace TerraTechETCUtil
     /// </summary>
     public class ProjBase : MonoBehaviour
     {
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public Projectile project { get; internal set; }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public Rigidbody rbody { get; internal set; }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public ModuleWeapon launcher { get; internal set; }
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public Tank shooter { get; internal set; }
+        /// <summary>
+        /// All <see cref="ExtProj"/> attached to this projectile
+        /// </summary>
         protected ExtProj[] projTypes;
 
         /// <summary>
@@ -151,6 +215,9 @@ namespace TerraTechETCUtil
             return false;
         }
 
+        /// <summary>
+        /// Called when this <see cref="ProjBase"/> is pooled
+        /// </summary>
         public void Pool(Projectile inst)
         {
             ExtProj[] projTemp = inst.GetComponents<ExtProj>();
@@ -167,6 +234,11 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Insures <see cref="ProjBase"/> on this <see cref="Projectile"/>
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <returns></returns>
         public static ProjBase Insure(Projectile inst)
         {
             var ModuleCheck = inst.GetComponent<ProjBase>();
@@ -177,6 +249,11 @@ namespace TerraTechETCUtil
             }
             return ModuleCheck;
         }
+        /// <summary>
+        /// Pool last second - because it wasn't called when pooled
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <returns></returns>
         public ProjBase PoolEmergency(Projectile inst)
         {
             PrePoolTryApplyThis(inst);
@@ -240,6 +317,9 @@ namespace TerraTechETCUtil
 
 
         internal static FieldInfo explode = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// Explode without removing from the world
+        /// </summary>
         public void ExplodeNoRecycle()
         {
             Transform explodo = (Transform)explode.GetValue(project);
@@ -263,6 +343,10 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// Explode cosmetically, does not remove from world
+        /// </summary>
+        /// <param name="inst"></param>
         public static void ExplodeNoDamage(Projectile inst)
         {
             Transform explodo = (Transform)explode.GetValue(inst);

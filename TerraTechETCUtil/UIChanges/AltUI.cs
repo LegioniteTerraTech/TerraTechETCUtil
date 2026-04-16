@@ -7,77 +7,132 @@ using UnityEngine.UI;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Alternate vanilla-like UI for IMGUI used by mods
+    /// <para>See <seealso cref="UIHelpersExt"/> and <seealso cref="ManModGUI"/> for more UI helpers</para>
+    /// </summary>
     public static class AltUI
     {
         // INIT
+        /// <summary> Curved white UI </summary>
         public static GUISkin MenuGUI;
+        /// <summary> Sharp white UI </summary>
         public static GUISkin MenuSharpGUI;
+        /// <summary> Default title font size </summary>
         public const int TitleFontSize = 32;
 
+        /// <summary> Global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>default fixed value</b> </summary>
         public static float UIAlpha = 0.725f;
+        /// <summary> Color text tag </summary>
         public static string UIAlphaText = "<color=#454545ff>";
+        /// <summary> Color text tag </summary>
         public const string UIBlueTextHUD = "<color=#6bafe4ff>";
+        /// <summary> Color text tag </summary>
         public const string UIBlueTextMessage = "<color=#16aadeff>";
+        /// <summary> Color text tag </summary>
         public const string UIHighlightText = UIObjectiveMarkerText;//"<color=#16aadeff>";
+        /// <summary> Color text tag </summary>
         public const string UIObjectiveMarkerText = "<color=#ffff00ff>";
+        /// <summary> Color text tag </summary>
         public const string UIObjectiveText = "<color=#e4ac41ff>";
+        /// <summary> Color text tag </summary>
+        public static string UIPlayerText = "<color=#" + ColorDefaultPlayer.ToRGBA255().ToString() + ">";
+        /// <summary> Color text tag </summary>
+        public static string UIFriendlyText = "<color=#" + ColorDefaultFriendly.ToRGBA255().ToString() + ">";
+        /// <summary> Color text tag </summary>
+        public static string UINeutralText = "<color=#" + ColorDefaultNeutral.ToRGBA255().ToString() + ">";
+        /// <summary> Color text tag </summary>
         public const string UIEnemyText = "<color=#f23d3dff>";
+        /// <summary> Color text tag </summary>
         public const string UILackeyText = "<color=#308db5>";
+        /// <summary> Color text tag </summary>
         public const string UIWhisperText = "<color=#7d7d7d>";
+        /// <summary> Color text tag </summary>
         public const string UIHintText = "<color=#a3a3a3>";
+        /// <summary> Color text tag </summary>
         public const string UIThinkText = "<color=#919191>";
+        /// <summary> Color text tag </summary>
         public const string UIBuyText = "<color=#7dd7ffff>";
 
+        /// <summary> Color text tag </summary>
         public const string UITrialText = "<color=#b5b5b5>";
 
 
+        /// <summary> Color text tag </summary>
         public const string UIEndColor = "</color>";
 
+        /// <summary> Text colorer </summary>
         public static string UIHintPopupTitle(string title)
         {
             return "<color=#e4ac41ff><size=32><b><i>" + title + "</i></b></size></color>";
         }
 
+        /// <summary> Text colorer </summary>
         public static string UIString(string stringIn)
         {
             return UIAlphaText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string BlueStringHUD(string stringIn)
         {
             return UIBlueTextHUD + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string BlueStringMsg(string stringIn)
         {
             return UIBlueTextMessage + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string HighlightString(string stringIn)
         {
             return UIHighlightText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string ObjectiveString(string stringIn)
         {
             return UIObjectiveText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string EnemyString(string stringIn)
         {
             return UIEnemyText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
+        public static string PlayerString(string stringIn)
+        {
+            return ColorDefaultPlayer.ToRGBA255().ColorString(stringIn);
+        }
+        /// <summary> Text colorer </summary>
+        public static string FriendlyString(string stringIn)
+        {
+            return ColorDefaultFriendly.ToRGBA255().ColorString(stringIn);
+        }
+        /// <summary> Text colorer </summary>
+        public static string NeutralString(string stringIn)
+        {
+            return ColorDefaultNeutral.ToRGBA255().ColorString(stringIn);
+        }
+        /// <summary> Text colorer </summary>
         public static string SideCharacterString(string stringIn)
         {
             return UILackeyText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string WhisperString(string stringIn)
         {
             return UIWhisperText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string HintString(string stringIn)
         {
             return UIHintText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string ThinkString(string stringIn)
         {
             return UIThinkText + stringIn + "</color>";
         }
+        /// <summary> Text colorer </summary>
         public static string BuyString(string stringIn)
         {
             return UIBuyText + stringIn + "</color>";
@@ -85,25 +140,47 @@ namespace TerraTechETCUtil
 
 
 
+        /// <summary> Default colors </summary>
         public static Color ColorDefaultGrey = new Color(0.27f, 0.27f, 0.27f, 1);
+        /// <summary> Default colors </summary>
         public static Color ColorDefaultWhite = new Color(0.975f, 0.975f, 0.975f, 1);
+        /// <summary> Default colors </summary>
         public static Color ColorDefaultBlue = new Color(0.4196f, 0.6863f, 0.8941f, 1);
+        /// <summary> Default colors </summary>
         public static Color ColorDefaultRed = new Color(0.949f, 0.239f, 0.239f, 1);
+        /// <summary> Default colors </summary>
         public static Color ColorDefaultGold = new Color(0.894f, 0.675f, 0.255f, 1);
+
+        /// <summary> Default colors </summary>
+        public static Color ColorDefaultPlayer = new Color(0.5f, 0.75f, 0.95f, 1);
+        /// <summary> Default colors </summary>
+        public static Color ColorDefaultEnemy = new Color(0.95f, 0.1f, 0.1f, 1);
+        /// <summary> Default colors </summary>
+        public static Color ColorDefaultNeutral = new Color(0.3f, 0, 0.7f, 1);
+        /// <summary> Default colors </summary>
+        public static Color ColorDefaultFriendly = new Color(0.2f, 0.95f, 0.2f, 1);
+
+        /// <summary> Default game font </summary>
         public static Font ExoFont { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontMediumItalic { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontBold { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontSemiBold { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontSemiBoldItalic { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontBoldItalic { get; private set; }
+        /// <summary> Default game font </summary>
         public static Font ExoFontExtraBold { get; private set; }
 
 
-        private static GUIStyle NewGUIElement(GUIStyle Base, ref GUIStyleState state, Texture2D background, Color textColor)
+        private static GUIStyle NewGUIElement(GUIStyle Base, Texture2D background, Color textColor)
         {
             // Setup WindowHeader
             GUIStyle styleBatch = new GUIStyle(Base);
-            state = new GUIStyleState()
+            var state = new GUIStyleState()
             {
                 background = background,
                 textColor = textColor,
@@ -125,27 +202,34 @@ namespace TerraTechETCUtil
 
 
         // -------------- Menus --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TRANSPARENT;
         private static Texture2D TransparentTex;
         private static GUIStyleState MenuTransparentStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuCenter;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuCenterWrapText;
         private static Texture2D MenuTexRect;
         private static GUIStyleState MenuCenterStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuLeft;
         private static Texture2D MenuTexRectLeft;
         private static GUIStyleState MenuLeftStyleLeft;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuRight;
         private static Texture2D MenuTexRectRight;
         private static GUIStyleState MenuRightStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuSharp;
         private static Texture2D MenuSharpTexRect;
         private static GUIStyleState MenuSharpCenterStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle MenuBubble;
         private static Texture2D MenuBubbleTexRect;
         private static GUIStyleState MenuBubbleCenterStyle;
@@ -195,8 +279,10 @@ namespace TerraTechETCUtil
 
             MenuLeft = new GUIStyle(MenuCenter);
             MenuLeftStyleLeft = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
-            MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 16, MenuTexRectLeft.width / 16, MenuTexRectLeft.height / 18, MenuTexRectLeft.height / 18);
-            MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
+            //MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 16, MenuTexRectLeft.width / 16, MenuTexRectLeft.height / 18, MenuTexRectLeft.height / 18);
+            //MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
+            MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 32, MenuTexRectLeft.width / 32, MenuTexRectLeft.height / 36, MenuTexRectLeft.height / 36);
+            MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
             MenuLeft.normal = MenuLeftStyleLeft;
             MenuLeft.hover = MenuLeftStyleLeft;
             MenuLeft.active = MenuLeftStyleLeft;
@@ -260,31 +346,33 @@ namespace TerraTechETCUtil
 
 
         // -------------- Labels --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlack;
-        private static GUIStyleState LabelBlackStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlackNoStretch;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlackTitle;
-        private static GUIStyleState LabelBlackTitleStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlue;
-        private static GUIStyleState LabelBlueStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlueTitle;
-        private static GUIStyleState LabelBlueStyleTitle;
+        /// <summary> GUI Style present </summary>
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelWhite;
-        private static GUIStyleState LabelWhiteStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelWhiteTitle;
-        private static GUIStyleState LabelWhiteStyleTitle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelRed;
-        private static GUIStyleState LabelRedStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelRedTitle;
-        private static GUIStyleState LabelRedStyleTitle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelGold;
-        private static GUIStyleState LabelGoldStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelGoldTitle;
-        private static GUIStyleState LabelGoldStyleTitle;
         private static void MakeLabels()
         {
 
@@ -303,7 +391,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultGrey,
             };
-            LabelBlackStyle = styleStateBatch;
+            var LabelBlackStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -329,7 +417,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultGrey,
             };
-            LabelBlackTitleStyle = styleStateBatch;
+            var LabelBlackTitleStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -347,7 +435,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultBlue,
             };
-            LabelBlueStyle = styleStateBatch;
+            var LabelBlueStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -365,7 +453,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultBlue,
             };
-            LabelBlueStyleTitle = styleStateBatch;
+            var LabelBlueStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -383,7 +471,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultWhite,
             };
-            LabelWhiteStyle = styleStateBatch;
+            var LabelWhiteStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -401,7 +489,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultWhite,
             };
-            LabelWhiteStyleTitle = styleStateBatch;
+            var LabelWhiteStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -419,7 +507,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultRed,
             };
-            LabelRedStyle = styleStateBatch;
+            var LabelRedStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -437,7 +525,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultRed,
             };
-            LabelRedStyleTitle = styleStateBatch;
+            var LabelRedStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -455,7 +543,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultGold,
             };
-            LabelGoldStyle = styleStateBatch;
+            var LabelGoldStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -473,7 +561,7 @@ namespace TerraTechETCUtil
                 background = null,
                 textColor = ColorDefaultGold,
             };
-            LabelGoldStyleTitle = styleStateBatch;
+            var LabelGoldStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -486,15 +574,15 @@ namespace TerraTechETCUtil
 
 
         // -------------- Boxes --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle BoxBlack;
-        private static GUIStyleState BoxBlackStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle BoxBlackTitle;
-        private static GUIStyleState BoxBlackTitleStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle BoxBlackTextBlue;
-        private static GUIStyleState BoxBlackTextBlueStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle BoxBlackTextBlueTitle;
-        private static GUIStyleState BoxBlackTextBlueStyleTitle;
 
         private static void MakeBoxes()
         {
@@ -513,7 +601,7 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            BoxBlackStyle = styleStateBatch;
+            var BoxBlackStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -534,7 +622,7 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            BoxBlackTitleStyle = styleStateBatch;
+            var BoxBlackTitleStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -552,7 +640,7 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultBlue,
             };
-            BoxBlackTextBlueStyle = styleStateBatch;
+            var BoxBlackTextBlueStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -570,7 +658,7 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultBlue,
             };
-            BoxBlackTextBlueStyleTitle = styleStateBatch;
+            var BoxBlackTextBlueStyleTitle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -583,69 +671,63 @@ namespace TerraTechETCUtil
 
 
         // -------------- Buttons --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonBlue;
         private static Texture2D ButtonTexMain;
         private static Texture2D ButtonTexHover;
-        private static GUIStyleState ButtonStyle;
-        private static GUIStyleState ButtonStyleHover;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonGreen;
         private static Texture2D ButtonTexAccept;
         private static Texture2D ButtonTexAcceptHover;
-        private static GUIStyleState ButtonStyleAccept;
-        private static GUIStyleState ButtonStyleAcceptHover;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonRed;
         private static Texture2D ButtonTexDisabled;
         private static Texture2D ButtonTexDisabledHover;
-        private static GUIStyleState ButtonStyleDisabled;
-        private static GUIStyleState ButtonStyleDisabledHover;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonBlueLarge;
         private static Texture2D ButtonSTexMain;
         private static Texture2D ButtonSTexHover;
-        private static GUIStyleState ButtonSStyle;
-        private static GUIStyleState ButtonSStyleHover;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonOrangeLarge;
         private static Texture2D ButtonOTexMain;
         private static Texture2D ButtonOTexHover;
-        private static GUIStyleState ButtonOStyle;
-        private static GUIStyleState ButtonOStyleHover;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonGreyLarge;
         private static Texture2D ButtonSDTexMain;
         private static Texture2D ButtonSDTexHover;
-        private static GUIStyleState ButtonSDStyle;
-        private static GUIStyleState ButtonSDStyleHover;
 
         // ----------------------------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonGrey;
         private static Texture2D ButtonTexInactive;
-        private static GUIStyleState ButtonStyleInactive;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonBlueActive;
-        private static GUIStyleState ButtonStyleActive;
         private static Texture2D ButtonTexSelect;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonGreenActive;
-        private static GUIStyleState ButtonStyleGActive;
         private static Texture2D ButtonTexSelectGreen;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonRedActive;
-        private static GUIStyleState ButtonStyleRActive;
         private static Texture2D ButtonTexSelectRed;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonBlueLargeActive;
-        private static GUIStyleState ButtonSStyleActive;
         private static Texture2D ButtonSTexSelect;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonOrangeLargeActive;
-        private static GUIStyleState ButtonOStyleActive;
         private static Texture2D ButtonOTexSelect;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ButtonGreyLargeActive;
-        private static GUIStyleState ButtonSDStyleActive;
         private static Texture2D ButtonSDTexSelect;
 
         private static void MakeButtons()
@@ -674,8 +756,8 @@ namespace TerraTechETCUtil
             ButtonBlueLarge.stretchHeight = true;
             ButtonBlueLarge.overflow = new RectOffset(20, 20, 6, 30);
             ButtonBlueLarge.border = new RectOffset(30, 50, 20, 60);
-            ButtonSStyle = new GUIStyleState() { background = ButtonSTexMain, textColor = ColorDefaultWhite, };
-            ButtonSStyleHover = new GUIStyleState() { background = ButtonSTexHover, textColor = ColorDefaultWhite, };
+            var ButtonSStyle = new GUIStyleState() { background = ButtonSTexMain, textColor = ColorDefaultWhite, };
+            var ButtonSStyleHover = new GUIStyleState() { background = ButtonSTexHover, textColor = ColorDefaultWhite, };
             ButtonBlueLarge.normal = ButtonSStyle;
             ButtonBlueLarge.hover = ButtonSStyleHover;
             ButtonBlueLarge.active = ButtonSStyle;
@@ -688,7 +770,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Sharp Active
             ButtonBlueLargeActive = new GUIStyle(ButtonBlueLarge);
-            ButtonSStyleActive = new GUIStyleState() { background = ButtonSTexSelect, textColor = ColorDefaultWhite, };
+            var ButtonSStyleActive = new GUIStyleState() { background = ButtonSTexSelect, textColor = ColorDefaultWhite, };
             ButtonBlueLargeActive.normal = ButtonSStyleActive;
             ButtonBlueLargeActive.hover = ButtonSStyleActive;
             ButtonBlueLargeActive.active = ButtonSStyleActive;
@@ -704,8 +786,8 @@ namespace TerraTechETCUtil
 
             // Setup Button Orange
             ButtonOrangeLarge = new GUIStyle(ButtonBlueLarge);
-            ButtonOStyle = new GUIStyleState() { background = ButtonOTexMain, textColor = ColorDefaultWhite, };
-            ButtonOStyleHover = new GUIStyleState() { background = ButtonOTexHover, textColor = ColorDefaultWhite, };
+            var ButtonOStyle = new GUIStyleState() { background = ButtonOTexMain, textColor = ColorDefaultWhite, };
+            var ButtonOStyleHover = new GUIStyleState() { background = ButtonOTexHover, textColor = ColorDefaultWhite, };
             ButtonOrangeLarge.normal = ButtonOStyle;
             ButtonOrangeLarge.hover = ButtonOStyleHover;
             ButtonOrangeLarge.active = ButtonOStyle;
@@ -717,7 +799,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Orange Active
             ButtonOrangeLargeActive = new GUIStyle(ButtonOrangeLarge);
-            ButtonOStyleActive = new GUIStyleState() { background = ButtonOTexSelect, textColor = ColorDefaultWhite, };
+            var ButtonOStyleActive = new GUIStyleState() { background = ButtonOTexSelect, textColor = ColorDefaultWhite, };
             ButtonOrangeLargeActive.normal = ButtonOStyleActive;
             ButtonOrangeLargeActive.hover = ButtonOStyleActive;
             ButtonOrangeLargeActive.active = ButtonOStyleActive;
@@ -733,8 +815,8 @@ namespace TerraTechETCUtil
 
             // Setup Button Grey Sharp
             ButtonGreyLarge = new GUIStyle(ButtonBlueLarge);
-            ButtonSDStyle = new GUIStyleState() { background = ButtonSDTexMain, textColor = ColorDefaultWhite, };
-            ButtonSDStyleHover = new GUIStyleState() { background = ButtonSDTexHover, textColor = ColorDefaultWhite, };
+            var ButtonSDStyle = new GUIStyleState() { background = ButtonSDTexMain, textColor = ColorDefaultWhite, };
+            var ButtonSDStyleHover = new GUIStyleState() { background = ButtonSDTexHover, textColor = ColorDefaultWhite, };
             ButtonGreyLarge.normal = ButtonSDStyle;
             ButtonGreyLarge.hover = ButtonSDStyleHover;
             ButtonGreyLarge.active = ButtonSDStyle;
@@ -746,7 +828,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Grey Sharp Active
             ButtonGreyLargeActive = new GUIStyle(ButtonGreyLarge);
-            ButtonSDStyleActive = new GUIStyleState() { background = ButtonSDTexSelect, textColor = ColorDefaultWhite, };
+            var ButtonSDStyleActive = new GUIStyleState() { background = ButtonSDTexSelect, textColor = ColorDefaultWhite, };
             ButtonGreyLargeActive.normal = ButtonSDStyleActive;
             ButtonGreyLargeActive.hover = ButtonSDStyleActive;
             ButtonGreyLargeActive.active = ButtonSDStyleActive;
@@ -762,8 +844,8 @@ namespace TerraTechETCUtil
 
             // Setup Button Default
             ButtonBlue = new GUIStyle(ButtonBase);
-            ButtonStyle = new GUIStyleState() { background = ButtonTexMain, textColor = ColorDefaultWhite, };
-            ButtonStyleHover = new GUIStyleState() { background = ButtonTexHover, textColor = ColorDefaultWhite, };
+            var ButtonStyle = new GUIStyleState() { background = ButtonTexMain, textColor = ColorDefaultWhite, };
+            var ButtonStyleHover = new GUIStyleState() { background = ButtonTexHover, textColor = ColorDefaultWhite, };
             ButtonBlue.normal = ButtonStyle;
             ButtonBlue.hover = ButtonStyleHover;
             ButtonBlue.active = ButtonStyle;
@@ -775,7 +857,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Active
             ButtonBlueActive = new GUIStyle(ButtonBase);
-            ButtonStyleActive = new GUIStyleState() { background = ButtonTexSelect, textColor = ColorDefaultWhite, };
+            var ButtonStyleActive = new GUIStyleState() { background = ButtonTexSelect, textColor = ColorDefaultWhite, };
             ButtonBlueActive.normal = ButtonStyleActive;
             ButtonBlueActive.hover = ButtonStyleActive;
             ButtonBlueActive.active = ButtonStyleActive;
@@ -791,8 +873,8 @@ namespace TerraTechETCUtil
 
             // Setup Button Accept
             ButtonGreen = new GUIStyle(ButtonBase);
-            ButtonStyleAccept = new GUIStyleState() { background = ButtonTexAccept, textColor = ColorDefaultWhite, };
-            ButtonStyleAcceptHover = new GUIStyleState() { background = ButtonTexAcceptHover, textColor = ColorDefaultWhite, };
+            var ButtonStyleAccept = new GUIStyleState() { background = ButtonTexAccept, textColor = ColorDefaultWhite, };
+            var ButtonStyleAcceptHover = new GUIStyleState() { background = ButtonTexAcceptHover, textColor = ColorDefaultWhite, };
             ButtonGreen.normal = ButtonStyleAccept;
             ButtonGreen.hover = ButtonStyleAcceptHover;
             ButtonGreen.active = ButtonStyleAccept;
@@ -804,7 +886,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Green Active
             ButtonGreenActive = new GUIStyle(ButtonBase);
-            ButtonStyleGActive = new GUIStyleState() { background = ButtonTexSelectGreen, textColor = ColorDefaultWhite, };
+            var ButtonStyleGActive = new GUIStyleState() { background = ButtonTexSelectGreen, textColor = ColorDefaultWhite, };
             ButtonGreenActive.normal = ButtonStyleGActive;
             ButtonGreenActive.hover = ButtonStyleGActive;
             ButtonGreenActive.active = ButtonStyleGActive;
@@ -820,8 +902,8 @@ namespace TerraTechETCUtil
 
             // Setup Button Disabled
             ButtonRed = new GUIStyle(ButtonBase);
-            ButtonStyleDisabled = new GUIStyleState() { background = ButtonTexDisabled, textColor = ColorDefaultWhite, };
-            ButtonStyleDisabledHover = new GUIStyleState() { background = ButtonTexDisabledHover, textColor = ColorDefaultWhite, };
+            var ButtonStyleDisabled = new GUIStyleState() { background = ButtonTexDisabled, textColor = ColorDefaultWhite, };
+            var ButtonStyleDisabledHover = new GUIStyleState() { background = ButtonTexDisabledHover, textColor = ColorDefaultWhite, };
             ButtonRed.normal = ButtonStyleDisabled;
             ButtonRed.hover = ButtonStyleDisabledHover;
             ButtonRed.active = ButtonStyleDisabled;
@@ -833,7 +915,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Red Active
             ButtonRedActive = new GUIStyle(ButtonBase);
-            ButtonStyleRActive = new GUIStyleState() { background = ButtonTexSelectRed, textColor = ColorDefaultWhite, };
+            var ButtonStyleRActive = new GUIStyleState() { background = ButtonTexSelectRed, textColor = ColorDefaultWhite, };
             ButtonRedActive.normal = ButtonStyleRActive;
             ButtonRedActive.hover = ButtonStyleRActive;
             ButtonRedActive.active = ButtonStyleRActive;
@@ -849,7 +931,7 @@ namespace TerraTechETCUtil
 
             // Setup Button Not Active
             ButtonGrey = new GUIStyle(ButtonBase);
-            ButtonStyleInactive = new GUIStyleState() { background = ButtonTexInactive, textColor = ColorDefaultWhite, };
+            var ButtonStyleInactive = new GUIStyleState() { background = ButtonTexInactive, textColor = ColorDefaultWhite, };
             ButtonGrey.normal = ButtonStyleInactive;
             ButtonGrey.hover = ButtonStyleInactive;
             ButtonGrey.active = ButtonStyleInactive;
@@ -868,43 +950,43 @@ namespace TerraTechETCUtil
         /// </summary>
         public static GUIStyle TextfieldBlue;
         private static Texture2D TextfieldUTexMain;
-        private static GUIStyleState TextfieldUStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlack;
         private static Texture2D TextfieldTexMain;
-        private static GUIStyleState TextfieldStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackAdjusted;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBordered;
         private static Texture2D TextfieldBTexMain;
-        private static GUIStyleState TextfieldBStyle;
 
         /// <summary>
         /// STD_Text_Box_01
         /// </summary>
         public static GUIStyle TextfieldBorderedBlue;
         private static Texture2D TextfieldBBTexMain;
-        private static GUIStyleState TextfieldBBStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackHuge;
         private static Texture2D TextfieldHTexMain;
-        private static GUIStyleState TextfieldHStyle;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackBlueText;
-        private static GUIStyleState TextfieldHBStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldWhiteHuge;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldWhiteMenu;
-        private static GUIStyleState TextfieldWhiteMenuStyle;
 
         // ----------------------------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackSearch;
         private static Texture2D TextfieldSTexMain;
-        private static GUIStyleState TextfieldSStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackLeft;
         private static Texture2D TextfieldLTexMain;
-        private static GUIStyleState TextfieldLStyle;
 
         private static void MakeTextBoxes()
         {
@@ -930,7 +1012,6 @@ namespace TerraTechETCUtil
                 background = TextfieldUTexMain,
                 textColor = ColorDefaultWhite,
             };
-            TextfieldUStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -951,7 +1032,6 @@ namespace TerraTechETCUtil
                 background = TextfieldTexMain,
                 textColor = ColorDefaultGrey,
             };
-            TextfieldStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -975,7 +1055,6 @@ namespace TerraTechETCUtil
                 background = TextfieldLTexMain,
                 textColor = ColorDefaultGrey,
             };
-            TextfieldLStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -999,7 +1078,6 @@ namespace TerraTechETCUtil
                 background = TextfieldSTexMain,
                 textColor = ColorDefaultGrey,
             };
-            TextfieldSStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -1024,7 +1102,6 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            TextfieldHStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -1043,7 +1120,6 @@ namespace TerraTechETCUtil
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            TextfieldHBStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -1086,7 +1162,6 @@ namespace TerraTechETCUtil
                 background = TextfieldBTexMain,
                 textColor = ColorDefaultGrey,
             };
-            TextfieldBStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -1107,7 +1182,6 @@ namespace TerraTechETCUtil
                 background = TextfieldBBTexMain,
                 textColor = ColorDefaultWhite,
             };
-            TextfieldBBStyle = styleStateBatch;
             styleBatch.normal = styleStateBatch;
             styleBatch.hover = styleStateBatch;
             styleBatch.active = styleStateBatch;
@@ -1120,7 +1194,7 @@ namespace TerraTechETCUtil
 
             TextfieldWhiteMenu = new GUIStyle(TextBase);
             TextfieldWhiteMenu.wordWrap = true;
-            TextfieldWhiteMenuStyle = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
+            var TextfieldWhiteMenuStyle = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
             TextfieldWhiteMenu.padding = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
             TextfieldWhiteMenu.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
             TextfieldWhiteMenu.normal = TextfieldWhiteMenuStyle;
@@ -1136,25 +1210,23 @@ namespace TerraTechETCUtil
 
 
         // -------------- Switches --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle SwitchDefault;
         private static Texture2D SwitchTexOff;
         private static Texture2D SwitchTexOn;
-        private static GUIStyleState SwitchStyleOff;
-        private static GUIStyleState SwitchStyleOn;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle SwitchSlider;
         private static Texture2D SwitchSTexMain;
         private static Texture2D SwitchSTexMainInv;
         private static Texture2D SwitchSTexMainAlt;
-        private static GUIStyleState SwitchSStyleOff;
-        private static GUIStyleState SwitchSStyleOn;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle SwitchClose;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle SwitchCloseInv;
         private static Texture2D SwitchCTexOff;
         private static Texture2D SwitchCTexOn;
-        private static GUIStyleState SwitchCStyleOff;
-        private static GUIStyleState SwitchCStyleOn;
 
         private static void MakeSwitches()
         {
@@ -1179,13 +1251,11 @@ namespace TerraTechETCUtil
                 background = SwitchTexOff,
                 textColor = ColorDefaultWhite,
             };
-            SwitchStyleOff = styleOffBatch;
             GUIStyleState styleOnBatch = new GUIStyleState()
             {
                 background = SwitchTexOn,
                 textColor = ColorDefaultWhite,
             };
-            SwitchStyleOn = styleOnBatch;
             styleBatch.normal = styleOffBatch;
             styleBatch.hover = styleOffBatch;
             styleBatch.active = styleOffBatch;
@@ -1204,13 +1274,11 @@ namespace TerraTechETCUtil
                 background = SwitchSTexMain,
                 textColor = ColorDefaultWhite,
             };
-            SwitchSStyleOff = styleOffBatch;
             styleOnBatch = new GUIStyleState()
             {
                 background = SwitchSTexMainAlt,
                 textColor = ColorDefaultWhite,
             };
-            SwitchSStyleOn = styleOnBatch;
             styleBatch.normal = styleOffBatch;
             styleBatch.hover = styleOffBatch;
             styleBatch.active = styleOffBatch;
@@ -1231,13 +1299,11 @@ namespace TerraTechETCUtil
                 background = SwitchCTexOff,
                 textColor = ColorDefaultWhite,
             };
-            SwitchCStyleOff = styleOffBatch;
             styleOnBatch = new GUIStyleState()
             {
                 background = SwitchCTexOn,
                 textColor = ColorDefaultWhite,
             };
-            SwitchCStyleOn = styleOnBatch;
             styleBatch.normal = styleOffBatch;
             styleBatch.hover = styleOnBatch;
             styleBatch.active = styleOffBatch;
@@ -1261,16 +1327,22 @@ namespace TerraTechETCUtil
 
 
         // -------------- Scrollbars --------------
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollThumb;
         private static Texture2D ScrollThumbTex;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollThumbTransparent;
         private static Texture2D ScrollThumbTransparentTex;
 
 
         private static Texture2D ScrollBarTex;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollVertical;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollHorizontal;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollVerticalTransparent;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ScrollHorizontalTransparent;
 
         private static void MakeScrollers()
@@ -1296,14 +1368,7 @@ namespace TerraTechETCUtil
                 background = ScrollThumbTex,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
 
             // Setup Scroll Thumb Trans
             styleBatch = new GUIStyle(TextBase);
@@ -1313,14 +1378,7 @@ namespace TerraTechETCUtil
                 background = ScrollThumbTransparentTex,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
             
 
             // Setup ScrollBar Vertical
@@ -1334,14 +1392,7 @@ namespace TerraTechETCUtil
                 background = ScrollBarTex,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
 
             // Setup ScrollBar Horizontal
             styleBatch = new GUIStyle(ScrollThumb);
@@ -1354,14 +1405,7 @@ namespace TerraTechETCUtil
                 background = ScrollBarTex,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
 
 
             // Setup ScrollBar Vertical
@@ -1375,14 +1419,7 @@ namespace TerraTechETCUtil
                 background = TransparentTex,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
 
             // Setup ScrollBar Horizontal
             styleBatch = new GUIStyle(ScrollThumb);
@@ -1395,42 +1432,68 @@ namespace TerraTechETCUtil
                 background = TransparentTex,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
         }
 
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle WindowHeaderBlue;
         private static Texture2D WindowHeaderBlueTex;
-        private static GUIStyleState WindowHeaderBlueStyle;
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle WindowRightBlue;
         private static Texture2D WindowRightBlueTex;
-        private static GUIStyleState WindowRightBlueStyle;
 
 
+        /// <summary> GUI Style present </summary>
         public static GUIStyle ElementShadow;
         private static Texture2D ElementShadowTex;
-        private static GUIStyleState ElementShadowStyle;
         private static Texture2D ElementShadowSelectedTex;
-        private static GUIStyleState ElementShadowSelectedStyle;
 
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle ListBG_DBlue;
+        private static Texture2D ListBG_DBlueTex;
+
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle Dropdown;
+        private static Texture2D DropdownTex;
+        private static Texture2D DropdownActiveTex;
+
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle DropdownLight;
+        private static Texture2D Dropdown2Tex;
+        private static Texture2D Dropdown2ActiveTex;
+
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle DropdownArrow;
+        private static Texture2D DropdownArrowTex;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle DropdownArrowFill;
+        private static Texture2D DropdownArrowFillTex;
         private static bool GetExtraTextures(Texture2D resCase, string name)
         {
             if (name == "SIDE_PANELS_TITLE_BAR")
                 WindowHeaderBlueTex = resCase;
             else if (name == "SIDE_PANELS_SHELF_BLUE01")
                 WindowRightBlueTex = resCase;
-            else if (name == "POP_UPS_SCROLLING_ELEMENT_BKG")
+            else if (name == "POP_UPS_SCROLLING_ELEMENT_BKG")//POP_UPS_BUTTON_PANEL
                 ElementShadowTex = resCase;
             else if (name == "DROPDOWN_LIST_WHITE_BLUE")
                 ElementShadowSelectedTex = resCase;
+            else if (name == "Dropdown_BG")
+                DropdownTex = resCase;
+            else if (name == "Dropdown_Active_BG")
+                DropdownActiveTex = resCase;
+            else if (name == "Profile_Dropdown_BG")
+                Dropdown2Tex = resCase;
+            else if (name == "Profile_Dropdown_Highlight_BG")
+                Dropdown2ActiveTex = resCase;
+            else if (name == "List_BG")
+                ListBG_DBlueTex = resCase;
+            else if (name == "DropdownArrow")
+                DropdownArrowTex = resCase;
+            else if (name == "DROPDOWN_ARROW")
+                DropdownArrowFillTex = resCase;
             else 
                 return false;
             return true;
@@ -1451,13 +1514,13 @@ namespace TerraTechETCUtil
 
             // Setup WindowHeader
             ExtrasBase.clipping = TextClipping.Overflow;
-            WindowHeaderBlue = NewGUIElement(ExtrasBase, ref WindowHeaderBlueStyle, WindowHeaderBlueTex, ColorDefaultGrey);
+            WindowHeaderBlue = NewGUIElement(ExtrasBase, WindowHeaderBlueTex, ColorDefaultGrey);
             ExtrasBase.overflow = new RectOffset(100, 4, 4, 4);
             ExtrasBase.border = new RectOffset(100, 4, 4, 4);
             ExtrasBase.margin = new RectOffset(4, 0, 0, 0);
             ExtrasBase.stretchWidth = false;
             ExtrasBase.stretchHeight = true;
-            WindowRightBlue = NewGUIElement(ExtrasBase, ref WindowRightBlueStyle, WindowRightBlueTex, ColorDefaultGrey);
+            WindowRightBlue = NewGUIElement(ExtrasBase, WindowRightBlueTex, ColorDefaultGrey);
             ExtrasBase.stretchHeight = false;
             ExtrasBase.margin = new RectOffset(0, 0, 0, 4);
 
@@ -1469,13 +1532,28 @@ namespace TerraTechETCUtil
                 background = ElementShadowTex,
                 textColor = ColorDefaultGrey,
             };
-            ElementShadowStyle = styleOffBatch;
             GUIStyleState styleOnBatch = new GUIStyleState()
             {
                 background = ElementShadowSelectedTex,
                 textColor = ColorDefaultGrey,
             };
-            ElementShadowSelectedStyle = styleOffBatch;
+            AssignStyleOnOffQuick(styleBatch, styleOffBatch, styleOnBatch);
+        }
+
+        private static void AssignStyleQuick(GUIStyle styleBatch, GUIStyleState state)
+        {
+            styleBatch.normal = state;
+            styleBatch.hover = state;
+            styleBatch.active = state;
+            styleBatch.focused = state;
+            styleBatch.onNormal = state;
+            styleBatch.onHover = state;
+            styleBatch.onActive = state;
+            styleBatch.onFocused = state;
+        }
+        private static void AssignStyleOnOffQuick(GUIStyle styleBatch, GUIStyleState styleOffBatch,
+            GUIStyleState styleOnBatch)
+        {
             styleBatch.normal = styleOffBatch;
             styleBatch.hover = styleOffBatch;
             styleBatch.active = styleOnBatch;
@@ -1487,6 +1565,12 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary>
+        /// Flood color-changes the given <see cref="Texture2D"/> to a specific flat color based on alpha.
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="output"></param>
+        /// <param name="color"></param>
         public static void ComesInColor(Texture2D target, ref Texture2D output, Color color)
         {
             var temp = new RenderTexture(target.width, target.height, 0, RenderTextureFormat.ARGBInt,
@@ -1509,10 +1593,21 @@ namespace TerraTechETCUtil
             output.Apply();
             RenderTexture.active = act;
         }
+        /// <summary>
+        /// Flood color-changes the given <see cref="Texture2D"/> to <see cref="ColorDefaultGrey"/> based on alpha.
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="output"></param>
         public static void ComesInBlack(Texture2D target, ref Texture2D output)
         {
             ComesInColor(target, ref output, ColorDefaultGrey);
         }
+        /// <summary>
+        /// Flood color-changes the given <see cref="Texture2D"/> to <see cref="ColorDefaultGrey"/> 
+        /// based on 25% of the original alpha.
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="output"></param>
         public static void ComesInBlackTrans(Texture2D target, ref Texture2D output)
         {
             var temp = new RenderTexture(target.width, target.height, 0, RenderTextureFormat.ARGBInt,  
@@ -1832,6 +1927,13 @@ namespace TerraTechETCUtil
         private static Color GUIColorSolid = new Color(1, 1, 1, 1);
         private static bool UIRunning = false;
         private static bool UIErrored = false;
+        /// <summary>
+        /// Change the UI to a softer hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUI()
         {
             if (UIRunning)
@@ -1851,6 +1953,13 @@ namespace TerraTechETCUtil
             GUI.skin = MenuGUI;
             GUI.color = GUIColor;
         }
+        /// <summary>
+        /// Change the UI to a softer hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <param name="UIAlpha">Transparency of the window itself</param>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUI(float UIAlpha)
         {
             if (UIRunning)
@@ -1870,6 +1979,14 @@ namespace TerraTechETCUtil
             GUI.skin = MenuGUI;
             GUI.color = new Color(1, 1, 1, UIAlpha);
         }
+        /// <summary>
+        /// Change the UI to a softer hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <param name="UIAlpha">Transparency of the window itself</param>
+        /// <param name="UIContentAlpha">Transparency of content INSIDE the window</param>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUI(float UIAlpha, float UIContentAlpha)
         {
             if (UIRunning)
@@ -1894,6 +2011,12 @@ namespace TerraTechETCUtil
             GUI.contentColor = new Color(1, 1, 1, UIContentAlpha);
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
         }
+        /// <summary>
+        /// Change the UI to a non-transparancy, softer hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUIOpaque()
         {
             if (UIRunning)
@@ -1916,6 +2039,12 @@ namespace TerraTechETCUtil
             GUI.color = GUIColorSolid;
         }
 
+        /// <summary>
+        /// Change the UI to a hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUISharp()
         {
             if (UIRunning)
@@ -1938,6 +2067,13 @@ namespace TerraTechETCUtil
             GUI.skin = MenuSharpGUI;
             GUI.color = GUIColor;
         }
+        /// <summary>
+        /// Change the UI to a hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <param name="UIAlpha">Transparency of the window itself</param>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUISharp(float UIAlpha)
         {
             if (UIRunning)
@@ -1960,6 +2096,14 @@ namespace TerraTechETCUtil
             GUI.skin = MenuSharpGUI;
             GUI.color = new Color(1, 1, 1, UIAlpha);
         }
+        /// <summary>
+        /// Change the UI to a hybrid style of mostly current and some old.
+        /// <para><b>Make sure to finish it with </b><c>EndUI()</c>.</para>
+        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
+        /// </summary>
+        /// <param name="UIAlpha">Transparency of the window itself</param>
+        /// <param name="UIContentAlpha">Transparency of content INSIDE the window</param>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void StartUISharp(float UIAlpha, float UIContentAlpha)
         {
             if (UIRunning)
@@ -1985,6 +2129,10 @@ namespace TerraTechETCUtil
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
         }
 
+        /// <summary>
+        /// Returns the custom UI back to a standard format.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
         public static void EndUI()
         {
             if (!UIRunning)
@@ -2016,7 +2164,16 @@ namespace TerraTechETCUtil
             canvas = typeof(FloatingTextPanel).GetField("m_CanvasGroup", BindingFlags.NonPublic | BindingFlags.Instance),
             CaseThis = typeof(ManOverlay).GetField("m_ConsumptionAddMoneyOverlayData", BindingFlags.NonPublic | BindingFlags.Instance);
 
-
+        /// <summary>
+        /// Create a new instance of <see cref="FloatingTextOverlay"/> to show in the world like the BB earn effect.
+        /// <para><b>This is an instance of which to call <see cref="PopupCustomInfo(string, WorldPosition, FloatingTextOverlayData)"/></b>
+        /// with, not the actual popup effect itself!</para>
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="colorToSet"></param>
+        /// <param name="CallToShow">Cache this somewhere to call <see cref="PopupCustomInfo(string, WorldPosition, FloatingTextOverlayData)"/>
+        ///  with later</param>
+        /// <returns></returns>
         public static GameObject CreateCustomPopupInfo(string name, Color colorToSet, out FloatingTextOverlayData CallToShow)
         {
             GameObject TextStor = new GameObject(name, typeof(RectTransform));
@@ -2079,6 +2236,14 @@ namespace TerraTechETCUtil
             return TextStor;
         }
 
+        /// <summary>
+        /// Display floating text in the world like the BB earn effect.
+        /// <para>To use, call <see cref="CreateCustomPopupInfo(string, Color, out FloatingTextOverlayData)"/> first to make a 
+        /// <see cref="FloatingTextOverlayData"/> to use with this</para>
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="pos"></param>
+        /// <param name="FTOD">Get this and cache it from <see cref="CreateCustomPopupInfo(string, Color, out FloatingTextOverlayData)"/></param>
         public static void PopupCustomInfo(string text, WorldPosition pos, FloatingTextOverlayData FTOD)
         {
             FloatingTextOverlay fOverlay = new FloatingTextOverlay(FTOD);
@@ -2094,62 +2259,80 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary> The current global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>automatically changes with mouse hovering</b> </summary>
         public static float UIAlphaAuto { get; internal set; } = 1f;
 
         // SFX adders
-        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, Action closeCallback = null, params GUILayoutOption[] options)
+        /// <summary>
+        /// Create a UI window complete with SFX and vanilla-like styling.
+        /// </summary>
+        /// <param name="id">Unique window ID</param>
+        /// <param name="screenRect">The rect of the window, stored as a field somewhere</param>
+        /// <param name="func">Window IMGUI contents call</param>
+        /// <param name="title">Header title for the page</param>
+        /// <param name="alpha">Transparency multiplier.  Multiplied by <see cref="UIAlphaAuto"/></param>
+        /// <param name="closeCallback">Optional Action for a close UI button</param>
+        /// <param name="topBarExtraGUI">Extra IMGUI contents call for the top blue bar</param>
+        /// <param name="options">Additional UI options for this</param>
+        /// <returns>The rect of the window adjusted with window dragging</returns>
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, 
+            float alpha, Action closeCallback, Action topBarExtraGUI, params GUILayoutOption[] options)
         {
             if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
                 return screenRect;
-            StartUISharp(UIAlphaAuto, UIAlphaAuto);
-            var rect = GUILayout.Window(id, screenRect, x => {
-                GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
-                GUILayout.Label(title, LabelBlackTitle);
-                GUILayout.FlexibleSpace();
-                bool callClose = false;
-                if (closeCallback != null)
-                    callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
-                GUILayout.EndHorizontal();
-                func(id);
-                tooltipOverMenu.EndDisplayGUIToolTip();
-                if (callClose)
-                {
-                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
-                    closeCallback.Invoke();
-                }
-            }, string.Empty, options);
-            if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
-                ManModGUI.IsMouseOverAnyModGUI = 2;
-            EndUI();
-            return rect;
-        }
-        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, float alpha, Action closeCallback = null, params GUILayoutOption[] options)
-        {
-            if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
-                return screenRect;
-            alpha *= UIAlphaAuto;
             StartUISharp(alpha, alpha);
-            var rect = GUILayout.Window(id, screenRect, x => {
-                GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
-                GUILayout.Label(title, LabelBlackTitle);
-                GUILayout.FlexibleSpace();
-                bool callClose = false;
-                if (closeCallback != null)
-                    callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
-                GUILayout.EndHorizontal();
-                func(id);
-                tooltipOverMenu.EndDisplayGUIToolTip();
-                if (callClose)
-                {
-                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
-                    closeCallback.Invoke();
-                }
-            }, string.Empty, options);
-            if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
-                ManModGUI.IsMouseOverAnyModGUI = 4;
-            EndUI();
-            return rect;
+            try
+            {
+                alpha *= UIAlphaAuto;
+                screenRect = GUILayout.Window(id, screenRect, x => {
+                    GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
+                    GUILayout.Label(title, LabelBlackTitle);
+                    GUILayout.FlexibleSpace();
+                    topBarExtraGUI?.Invoke();
+                    bool callClose = false;
+                    if (closeCallback != null)
+                        callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
+                    GUILayout.EndHorizontal();
+                    func(id);
+                    tooltipOverMenu.EndDisplayGUIToolTip();
+                    if (callClose)
+                    {
+                        ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
+                        closeCallback.Invoke();
+                    }
+                }, string.Empty, options);
+                if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
+                    ManModGUI.IsMouseOverAnyModGUI = 4;
+            }
+            finally
+            {
+                EndUI();
+            }
+            return screenRect;
         }
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
+            Action closeCallback, Action topBarExtraGUI, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, closeCallback, topBarExtraGUI, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
+            float alpha, Action closeCallback, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, alpha, closeCallback, null, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, 
+            Action closeCallback, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, closeCallback, null, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
+            params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, null, null, options);
+
+        /// <summary>
+        /// Displays an 'X' close button for use with <see cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        /// </summary>
+        /// <param name="sfx">Type of UI SFX to use on activation</param>
+        /// <param name="options">Additional UI options for this</param>
+        /// <returns>True if it was pressed</returns>
         public static bool CloseButton(ManSFX.UISfxType sfx = ManSFX.UISfxType.Close, params GUILayoutOption[] options)
         {
             bool closed = GUILayout.Toggle(false, string.Empty, SwitchCloseInv, options);
@@ -2158,15 +2341,14 @@ namespace TerraTechETCUtil
             return closed;
         }
 
-        public static bool Button(string text, ManSFX.UISfxType clickNoise, params GUILayoutOption[] options)
-        {
-            if (GUILayout.Button(text, options))
-            {
-                ManSFX.inst.PlayUISFX(clickNoise);
-                return true;
-            }
-            return false;
-        }
+        /// <summary>
+        /// A Vanilla-like button for use similar to <see cref="GUILayout.Button(GUIContent, GUILayoutOption[])"/> but with added sfx
+        /// </summary>
+        /// <param name="text">Button content</param>
+        /// <param name="clickNoise">Type of UI SFX to use on activation</param>
+        /// <param name="style">Override GUIStyle</param>
+        /// <param name="options">Additional UI options for this</param>
+        /// <returns>True if it was pressed</returns>
         public static bool Button(string text, ManSFX.UISfxType clickNoise, GUIStyle style, params GUILayoutOption[] options)
         {
             if (GUILayout.Button(text, style, options))
@@ -2176,6 +2358,17 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+        /// <inheritdoc cref="Button(string, ManSFX.UISfxType, GUIStyle, GUILayoutOption[])"/>
+        public static bool Button(string text, ManSFX.UISfxType clickNoise, params GUILayoutOption[] options)
+        {
+            if (GUILayout.Button(text, options))
+            {
+                ManSFX.inst.PlayUISFX(clickNoise);
+                return true;
+            }
+            return false;
+        }
+        /// <inheritdoc cref="Button(string, ManSFX.UISfxType, GUIStyle, GUILayoutOption[])"/>
         public static bool Button(Texture2D text, ManSFX.UISfxType clickNoise, params GUILayoutOption[] options)
         {
             if (GUILayout.Button(text, options))
@@ -2185,6 +2378,7 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+        /// <inheritdoc cref="Button(string, ManSFX.UISfxType, GUIStyle, GUILayoutOption[])"/>
         public static bool Button(Texture2D text, ManSFX.UISfxType clickNoise, GUIStyle style, params GUILayoutOption[] options)
         {
             if (GUILayout.Button(text, style, options))
@@ -2194,6 +2388,37 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+
+
+        /// <inheritdoc cref="Button(string, ManSFX.UISfxType, GUIStyle, GUILayoutOption[])"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sprite">Sprite to use on the button</param>
+        /// <param name="clickNoise"></param>
+        /// <param name="style"></param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, GUIStyle style,
+            bool alphaBlend, params GUILayoutOption[] options)
+        {
+            bool pressed = GUILayout.Button(string.Empty, style, options);
+            DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
+            if (pressed)
+                ManSFX.inst.PlayUISFX(clickNoise);
+            return pressed;
+        }
+        /// <inheritdoc cref="Button(UnityEngine.Sprite, ManSFX.UISfxType, GUIStyle, bool, GUILayoutOption[])"/>
+        public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, bool alphaBlend, params GUILayoutOption[] options)
+        {
+            bool pressed = GUILayout.Button(string.Empty, options);
+            DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
+            if (pressed)
+                ManSFX.inst.PlayUISFX(clickNoise);
+            return pressed;
+        }
+        /// <inheritdoc cref="Button(UnityEngine.Sprite, ManSFX.UISfxType, GUIStyle, bool, GUILayoutOption[])"/>
         public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, params GUILayoutOption[] options)
         {
             bool pressed = GUILayout.Button(string.Empty, options);
@@ -2202,6 +2427,7 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(clickNoise);
             return pressed;
         }
+        /// <inheritdoc cref="Button(UnityEngine.Sprite, ManSFX.UISfxType, GUIStyle, bool, GUILayoutOption[])"/>
         public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, GUIStyle style, params GUILayoutOption[] options)
         {
             bool pressed = GUILayout.Button(string.Empty, style, options);
@@ -2211,24 +2437,8 @@ namespace TerraTechETCUtil
             return pressed;
         }
 
-        public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, bool alphaBlend, params GUILayoutOption[] options)
-        {
-            bool pressed = GUILayout.Button(string.Empty, options);
-            DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
-            if (pressed)
-                ManSFX.inst.PlayUISFX(clickNoise);
-            return pressed;
-        }
-        public static bool Button(Sprite sprite, ManSFX.UISfxType clickNoise, GUIStyle style, bool alphaBlend, params GUILayoutOption[] options)
-        {
-            bool pressed = GUILayout.Button(string.Empty, style, options);
-            DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
-            if (pressed)
-                ManSFX.inst.PlayUISFX(clickNoise);
-            return pressed;
-        }
 
-
+        /// <inheritdoc cref=" ToggleLone(bool, GUIStyle, GUILayoutOption[])"/>
         public static bool ToggleLone(bool value, params GUILayoutOption[] options)
         {
             bool outP = GUILayout.Toggle(value, string.Empty, options);
@@ -2236,6 +2446,14 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
         }
+        /// <inheritdoc cref=" Toggle(bool, string, GUIStyle, GUILayoutOption[])"/>
+        /// <summary>
+        /// <para>This is the lone version without text to the side</para>
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="style"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
         public static bool ToggleLone(bool value, GUIStyle style, params GUILayoutOption[] options)
         {
             bool outP = GUILayout.Toggle(value, string.Empty, style, options);
@@ -2243,6 +2461,7 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
         }
+        /// <inheritdoc cref="Toggle(bool, string, GUIStyle, GUILayoutOption[])"/>
         public static bool Toggle(bool value, string text, params GUILayoutOption[] options)
         {
             GUILayout.BeginHorizontal();
@@ -2254,6 +2473,15 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
         }
+
+        /// <summary>
+        /// A Vanilla-like toggle for use similar to <see cref="GUILayout.Toggle(bool, GUIContent, GUILayoutOption[])"/> but with added sfx
+        /// </summary>
+        /// <param name="value">The current state of the toggle, from a field somewhere</param>
+        /// <param name="text">The text to display to the left of this, with flexable space in-between</param>
+        /// <param name="style">Override GUIStyle</param>
+        /// <param name="options">Additional UI options for this</param>
+        /// <returns>The new state of the toggle after user interaction</returns>
         public static bool Toggle(bool value, string text, GUIStyle style, params GUILayoutOption[] options)
         {
             GUILayout.BeginHorizontal();
@@ -2265,6 +2493,7 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
         }
+        /// <inheritdoc cref=" Toggle(bool, string, GUIStyle, GUILayoutOption[])"/>
         public static bool ToggleNoFormat(bool value, string text, params GUILayoutOption[] options)
         {
             GUILayout.Label(text);
@@ -2273,6 +2502,7 @@ namespace TerraTechETCUtil
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
             return outP;
         }
+        /// <inheritdoc cref=" Toggle(bool, string, GUIStyle, GUILayoutOption[])"/>
         public static bool ToggleNoFormat(bool value, string text, GUIStyle style, params GUILayoutOption[] options)
         {
             GUILayout.Label(text);
@@ -2282,6 +2512,14 @@ namespace TerraTechETCUtil
             return outP;
         }
 
+        /// <inheritdoc cref="SpriteButton(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
+        /// <summary>
+        /// <para>For putting a sprite over other content</para>
+        /// </summary>
+        /// <param name="sprite"></param>
+        /// <param name="pos">Position on the UI</param>
+        /// <param name="scale">Scale of the sprite</param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
         public static void AttachIcon(Sprite sprite, Vector2 pos, Vector2 scale, bool alphaBlend = false)
         {
             pos.Clamp(Vector2.zero, Vector2.one);
@@ -2296,53 +2534,94 @@ namespace TerraTechETCUtil
             revised.height = anonHeight;
             DrawSprite(revised, sprite, alphaBlend);
         }
+        /// <summary>
+        /// For putting that mod wrench sprite over some other UI elements
+        /// </summary>
         public static void AttachModWrenchIcon() =>
             AttachIcon(UIHelpersExt.ModContentIcon, Vector2.zero, new Vector2(0.35f, 0.35f));
+
+
+        /// <inheritdoc cref="Sprite(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static void Sprite(Sprite sprite, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, options);
             DrawSprite(GUILayoutUtility.GetLastRect(), sprite, true);
         }
+
+        /// <inheritdoc cref="Sprite(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static void Sprite(Sprite sprite, bool alphaBlend, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, options);
             DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
         }
+        /// <inheritdoc cref="Sprite(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static void Sprite(Sprite sprite, GUIStyle style, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, style, options);
             DrawSprite(GUILayoutUtility.GetLastRect(), sprite, true);
         }
+
+        /// <summary>
+        /// Attach a sprite to somewhere on the UI like <see cref="GUILayout.Label(GUIContent, GUILayoutOption[])"/>
+        /// </summary>
+        /// <param name="sprite">Sprite to use</param>
+        /// <param name="style">Scale of the sprite</param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
+        /// <param name="options">Additional UI options for this</param>
         public static void Sprite(Sprite sprite, GUIStyle style, bool alphaBlend, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, style, options);
             DrawSprite(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
         }
+
+        /// <summary>
+        /// Attach a sprite to somewhere on the UI like <see cref="GUI.DrawTexture(Rect, Texture)"/>
+        /// </summary>
+        /// <param name="pos">UI positioning of the sprite</param>
+        /// <param name="sprite">Sprite to use</param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
         public static void DrawSprite(Rect pos, Sprite sprite, bool alphaBlend = true)
         {
             GUI.DrawTextureWithTexCoords(pos, sprite.texture, new Rect(sprite.rect.position.x / sprite.texture.width, sprite.rect.position.y / 
                 sprite.texture.height, sprite.rect.width / sprite.texture.width, sprite.rect.height / sprite.texture.height), alphaBlend);
         }
+        /// <inheritdoc cref="SpriteButton(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static bool SpriteButton(Sprite sprite, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, options);
             return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, true);
         }
+        /// <inheritdoc cref="SpriteButton(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static bool SpriteButton(Sprite sprite, bool alphaBlend, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, options);
             return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
         }
+        /// <inheritdoc cref="SpriteButton(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
         public static bool SpriteButton(Sprite sprite, GUIStyle style, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, style, options);
             return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, true);
         }
+        /// <summary>
+        /// Attach a clickable sprite button to somewhere on the UI like <see cref="GUILayout.Button(GUIContent, GUILayoutOption[])"/>
+        /// </summary>
+        /// <param name="sprite">Sprite to use</param>
+        /// <param name="style">Scale of the sprite</param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
+        /// <param name="options">Additional UI options for this</param>
+        /// <returns>True if it was pressed</returns>
         public static bool SpriteButton(Sprite sprite, GUIStyle style, bool alphaBlend, params GUILayoutOption[] options)
         {
             GUILayout.Box(string.Empty, style, options);
             return DrawSpriteButton(GUILayoutUtility.GetLastRect(), sprite, alphaBlend);
         }
+        /// <summary>
+        /// Attach a clickable sprite button to somewhere on the UI like <see cref="GUI.Button(Rect, GUIContent)"/>
+        /// </summary>
+        /// <param name="pos">UI positioning of the sprite</param>
+        /// <param name="sprite">Sprite to use</param>
+        /// <param name="alphaBlend">Set to true to change the sprite transparancy relative to <see cref="UIAlphaAuto"/></param>
         public static bool DrawSpriteButton(Rect pos, Sprite sprite, bool alphaBlend = true)
         {
             GUI.DrawTextureWithTexCoords(pos, sprite.texture, new Rect(sprite.rect.position.x, sprite.rect.position.y,
@@ -2359,6 +2638,13 @@ namespace TerraTechETCUtil
             tooltipOverMenu.GUITooltip(displayString, fixate);
             tooltipFrame = true;
         }*/
+        /// <summary>
+        /// Advise using <see cref="Tooltip"/> -> <see cref="GUIToolTip.GUITooltip(string, bool)"/> instead
+        /// <para>Display a tooltip in the world space UI relative to the <b>last UI <see cref="Rect"/></b> made and used by IMGUI</para>
+        /// </summary>
+        /// <param name="Title">Title of the tooltip.  Not likely to be seen</param>
+        /// <param name="displayString">The description of the tooltip</param>
+        /// <param name="fixate"><b>[BROKEN]</b> Lock it below the content hovered instead of the cursor</param>
         public static void TooltipWorld(string Title, string displayString, bool fixate = false)
         {
             if (tooltipFrame)
@@ -2372,6 +2658,7 @@ namespace TerraTechETCUtil
                 tooltipWorld.Text = displayString;
             tooltipFrame = true;
         }
+        /// <inheritdoc cref="TooltipWorld(string, string, bool)"/>
         public static void TooltipWorld(string displayString, bool fixate = false)
         {
             if (tooltipQueued)
@@ -2386,6 +2673,9 @@ namespace TerraTechETCUtil
             tooltipQueued = true;
         }
 
+        /// <summary>
+        /// The general use tooltip. Use this for additional context when hovering
+        /// </summary>
         public static GUIToolTip Tooltip => tooltipOverMenu;
         private static GUIToolTip tooltipOverMenu = new GUIToolTip();
         private static GUIToolTipAuto tooltipWorld;
@@ -2393,11 +2683,16 @@ namespace TerraTechETCUtil
         private static bool tooltipFrame = false;
         private static bool tooltipFrameGUI = false;
 
+        /// <summary>
+        /// Automatic tooltip.
+        /// <para>Would advise using <see cref="Tooltip"/> -> <see cref="GUIToolTip.GUITooltip(string, bool)"/> instead</para>
+        /// </summary>
         public class GUIToolTipAuto : MonoBehaviour
         {
             internal string Title = "Unset";
             internal string Text = "Unset";
             internal Rect toolWindow = new Rect(0, 0, 100, 60);   // the "window"
+            /// <summary> </summary>
             public void OnGUI()
             {
                 if (tooltipFrame)
@@ -2422,10 +2717,12 @@ namespace TerraTechETCUtil
                     EndUI();
                 }
             }
+            /// <summary> </summary>
             public void GUIHandlerInfo(int ID)
             {
                 GUILayout.Label(Text, LabelBlackNoStretch);
             }
+            /// <summary> </summary>
             public void Update()
             {
                 if (GUIUtility.hotControl == 0 || tooltipFrameGUI)
@@ -2438,6 +2735,9 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// The large expandable mod GUI Tooltip that can be displayed on IMGUI <see cref="Rect"/> hovering
+        /// </summary>
         public class GUIToolTip
         {
             private string Text = "Unset";
@@ -2452,6 +2752,9 @@ namespace TerraTechETCUtil
             {
                 doShowFakeTooltip = fakeTooltipShown;
             }
+            /// <summary>
+            /// Call this at the end of every IMGUI window call you want to use <see cref="GUITooltip(string, bool)"/> in
+            /// </summary>
             public void EndDisplayGUIToolTip()
             {
                 if (!ScanWindow.Contains(Event.current.mousePosition))
@@ -2489,6 +2792,11 @@ namespace TerraTechETCUtil
                     throw e;
                 }
             }
+            /// <summary>
+            /// <para>Display a tooltip in the world space UI relative to the <b>last UI <see cref="Rect"/></b> made and used by IMGUI</para>
+            /// </summary>
+            /// <param name="displayString">The description of the tooltip</param>
+            /// <param name="fixate"><b>[BROKEN]</b> Lock it below the content hovered instead of the cursor</param>
             public void GUITooltip(string displayString, bool fixate = false)
             {
                 if (Event.current.type == EventType.Repaint)
@@ -2519,5 +2827,84 @@ namespace TerraTechETCUtil
             }
 
         }
+
+        // --------------------------------------------------------------------
+
+        private static bool SavedPopup = false;
+        private static FloatingTextOverlayData debugOverEdit;
+        private static GameObject debugTextStor;
+        //private static CanvasGroup enemyCanGroup;
+        /// <summary>
+        /// Displays a BLUE popup in the world like the BB sell popup
+        /// </summary>
+        /// <param name="text">Text to display</param>
+        /// <param name="pos">Position in the world</param>
+        public static void PopupDebugInfo(string text, WorldPosition pos)
+        {
+            if (!SavedPopup)
+            {
+                debugTextStor = CreateCustomPopupInfo("DebugPopup", Color.blue, out debugOverEdit);
+                SavedPopup = true;
+            }
+            PopupCustomInfo(text, pos, debugOverEdit);
+        }
+        /// <inheritdoc cref="PopupDebugInfo(string, WorldPosition)"/>
+        /// <summary>
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="scenePos">Position in Scene space</param>
+        public static void PopupDebugInfo(string text, Vector3 scenePos) =>
+            PopupDebugInfo(text, WorldPosition.FromScenePosition(scenePos));
+
+        private static bool SavedPopupW = false;
+        private static FloatingTextOverlayData debugOverEditW;
+        private static GameObject debugTextStorW;
+        /// <summary>
+        /// Displays a WHITE popup in the world like the BB sell popup
+        /// </summary>
+        /// <param name="text">Text to display</param>
+        /// <param name="pos">Position in the world</param>
+        public static void PopupDebugInfoWhite(string text, WorldPosition pos)
+        {
+            if (!SavedPopupW)
+            {
+                debugTextStorW = CreateCustomPopupInfo("DebugPopup", Color.white, out debugOverEditW);
+                SavedPopupW = true;
+            }
+            PopupCustomInfo(text, pos, debugOverEditW);
+        }
+        /// <inheritdoc cref="PopupDebugInfoWhite(string, WorldPosition)"/>
+        /// <summary>
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="scenePos">Position in Scene space</param>
+        public static void PopupDebugInfoWhite(string text, Vector3 scenePos) =>
+            PopupDebugInfoWhite(text, WorldPosition.FromScenePosition(scenePos));
+
+        private static bool SavedPopupB = false;
+        private static FloatingTextOverlayData debugOverEditB;
+        private static GameObject debugTextStorB;
+        /// <summary>
+        /// Displays a BLACK popup in the world like the BB sell popup
+        /// </summary>
+        /// <param name="text">Text to display</param>
+        /// <param name="pos">Position in the world</param>
+        public static void PopupDebugInfoBlack(string text, WorldPosition pos)
+        {
+            if (!SavedPopupB)
+            {
+                debugTextStorB = CreateCustomPopupInfo("DebugPopup", Color.black, out debugOverEditB);
+                SavedPopupB = true;
+            }
+            PopupCustomInfo(text, pos, debugOverEditB);
+        }
+        /// <inheritdoc cref="PopupDebugInfoBlack(string, WorldPosition)"/>
+        /// <summary>
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="scenePos">Position in Scene space</param>
+        public static void PopupDebugInfoBlack(string text, Vector3 scenePos) =>
+            PopupDebugInfoBlack(text, WorldPosition.FromScenePosition(scenePos));
+
     }
 }

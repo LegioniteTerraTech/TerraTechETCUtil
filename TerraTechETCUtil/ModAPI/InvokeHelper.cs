@@ -15,6 +15,9 @@ namespace TerraTechETCUtil
     public class InvokeHelper : MonoBehaviour
     {
         private static InvokeHelper inst;
+        /// <summary>
+        /// The direct instance of <see cref="InvokeHelper"/>
+        /// </summary>
         public static InvokeHelper Inst => inst;
         internal struct InvokeRepeater
         {
@@ -36,17 +39,27 @@ namespace TerraTechETCUtil
             logMan.SetActive(true);
             ResourcesHelper.ModsUpdateEvent.Subscribe(inst.UpdateModSync);
         }
-
+        /// <summary>
+        /// Start invoking a coroutine
+        /// </summary>
+        /// <param name="coroutine"></param>
         public static void InvokeCoroutine(IEnumerator coroutine)
         {
             InsureInit();
             inst.StartCoroutine(coroutine);
         }
+        /// <summary>
+        /// Stop invoking a coroutine
+        /// </summary>
+        /// <param name="coroutine"></param>
         public static void CancelCoroutine(IEnumerator coroutine)
         {
             InsureInit();
             inst.StopCoroutine(coroutine);
         }
+        /// <summary>
+        /// Stop invoking ALL coroutines managed by <see cref="InvokeHelper"/>
+        /// </summary>
         public static void CancelALLCoroutines()
         {
             InsureInit();
@@ -423,6 +436,9 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log("-------- END --------");
         }
 
+        /// <summary>
+        /// Cancel ALL invokes managed by <see cref="InvokeHelper"/>
+        /// </summary>
         public static void CancelALL()
         {
             if (!inst)
@@ -556,6 +572,9 @@ namespace TerraTechETCUtil
             public Action tryFix;
         }
 
+        /// <summary>
+        /// Error window ID for <see cref="ShowErrorPopup(string, bool, Action)"/>
+        /// </summary>
         public const int IDErrorWindow = 253254;
         private static Vector2 Scroll = Vector2.zero;
         private static bool WarningPopup = false;

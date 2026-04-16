@@ -12,13 +12,21 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// A quick-access low memory use struct for coloring things
+    /// </summary>
     public struct ColorBytes
     {
+        /// <summary> Red </summary>
         public byte r;
+        /// <summary> Green </summary>
         public byte g;
+        /// <summary> Blue </summary>
         public byte b;
+        /// <summary> Alpha </summary>
         public byte a;
 
+        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
         public ColorBytes(byte R, byte G, byte B)
         {
             r = R;
@@ -26,6 +34,13 @@ namespace TerraTechETCUtil
             b = B;
             a = byte.MaxValue;
         }
+        /// <summary>
+        /// Setup <see cref="ColorBytes"/> to use
+        /// </summary>
+        /// <param name="R">Red</param>
+        /// <param name="G">Green</param>
+        /// <param name="B">Blue</param>
+        /// <param name="A">Alpha</param>
         public ColorBytes(byte R, byte G, byte B, byte A)
         {
             r = R;
@@ -33,6 +48,12 @@ namespace TerraTechETCUtil
             b = B;
             a = A;
         }
+
+        /// <summary>
+        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
+        /// <para><b>Lossy</b></para>
+        /// </summary>
+        /// <param name="color">The color to copy from.</param>
         public ColorBytes(Color color)
         {
             r = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.r) * byte.MaxValue);
@@ -40,6 +61,7 @@ namespace TerraTechETCUtil
             b = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.b) * byte.MaxValue);
             a = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.a) * byte.MaxValue);
         }
+        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
         public ColorBytes(float R, float G, float B)
         {
             r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
@@ -47,6 +69,7 @@ namespace TerraTechETCUtil
             b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
             a = byte.MaxValue;
         }
+        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
         public ColorBytes(float R, float G, float B, float A)
         {
             r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
@@ -54,6 +77,10 @@ namespace TerraTechETCUtil
             b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
             a = (byte)Mathf.RoundToInt(Mathf.Clamp01(A) * byte.MaxValue);
         }
+        /// <summary>
+        /// To <see cref="Color"/> type. Still lossy
+        /// </summary>
+        /// <returns></returns>
         public Color ToRGBAFloat()
         {
             return new Color(
@@ -63,10 +90,16 @@ namespace TerraTechETCUtil
                 Mathf.Clamp01(a / (float)byte.MaxValue)
             );
         }
+        /// <inheritdoc/>
         public override string ToString()
         {
             return r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2");
         }
+        /// <summary>
+        /// Color the given string
+        /// </summary>
+        /// <param name="ToColor">string to color</param>
+        /// <returns>the given string with the color formatting around it</returns>
         public string ColorString(string ToColor)
         {
             return "<color=#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2") + ">" + ToColor + "</color>";
@@ -78,10 +111,19 @@ namespace TerraTechETCUtil
     /// </summary>
     public static class Utilities
     {
+        /// <summary>
+        /// To <see cref="ColorBytes"/> type.
+        /// <para><b>Lossy</b></para>
+        /// </summary>
+        /// <returns></returns>
         public static ColorBytes ToRGBA255(this Color toNum)
         {
             return new ColorBytes(toNum);
         }
+        /// <summary>
+        /// To hex color string.
+        /// </summary>
+        /// <returns></returns>
         public static string ToHex(this Color toHex)
         {
             return new ColorBytes(toHex).ToString();
@@ -262,7 +304,12 @@ namespace TerraTechETCUtil
         }
 
 
-
+        /// <summary>
+        /// Iterate a grid in terms of circular volume
+        /// </summary>
+        /// <param name="iVec2">Origin</param>
+        /// <param name="radius">Radius outwards</param>
+        /// <returns>Iterator for every element the the circle, iterating from <paramref name="iVec2"/> outwards</returns>
         public static IEnumerable<IntVector2> IterateCircleVolume(this IntVector2 iVec2, float radius)
         {
             //tan = sin/cos
@@ -297,6 +344,13 @@ namespace TerraTechETCUtil
             }*/
         }
         private static List<IntVector2> circleElements = new List<IntVector2>();
+        /// <inheritdoc cref=" IterateCircleVolume(IntVector2, float)"/>
+        /// <summary>
+        /// <para>This legacy version uses caching and is more memory heavy, but may act differently</para>
+        /// </summary>
+        /// <param name="iVec2"></param>
+        /// <param name="radius"></param>
+        /// <returns></returns>
         public static IEnumerable<IntVector2> IterateCircleVolume_LEGACY(this IntVector2 iVec2, float radius)
         {
             //tan = sin/cos
@@ -332,6 +386,12 @@ namespace TerraTechETCUtil
             }*/
             return circleElements;
         }
+        /// <summary>
+        /// Iterate a grid in terms of filling a rectangle from the <b>corner</b> given start <paramref name="iVec2"/>
+        /// </summary>
+        /// <param name="iVec2">Origin</param>
+        /// <param name="Dimensions">extents x and y positive only</param>
+        /// <returns>Iterator for every element of the rect, iterating from <paramref name="iVec2"/> outwards</returns>
         public static IEnumerable<IntVector2> IterateRectVolume(this IntVector2 iVec2, IntVector2 Dimensions)
         {
             for (int x = 0; x < Dimensions.x; x++)
@@ -342,11 +402,24 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary>
+        /// <para>CHECK THIS LEGIONITE THE CODE DOESN'T MAKE SENSE!!!</para>
+        /// Iterate a grid in terms of filling a rectangle from the <b>center</b> given start <paramref name="iVec2"/>
+        /// </summary>
+        /// <param name="iVec2">Origin</param>
+        /// <param name="Dimensions">extents x and y positive only</param>
+        /// <returns>Iterator for every element of the rect, iterating from <paramref name="iVec2"/> outwards</returns>
         public static IEnumerable<IntVector2> IterateRectVolumeCentered(this IntVector2 iVec2, IntVector2 Dimensions)
         {
             return IterateRectVolume(new IntVector2(iVec2.x + (Dimensions.x / 2), iVec2.y + (Dimensions.y / 2)), Dimensions);
         }
 
+        /// <summary>
+        /// Log the contents of the target <see cref="GameObject"/>
+        /// </summary>
+        /// <param name="GO"></param>
+        /// <param name="Maxdepth"></param>
+        /// <exception cref="Exception"></exception>
         public static void LogGameObjectHierachy(GameObject GO, int Maxdepth = 16)
         {
             try
@@ -374,16 +447,12 @@ namespace TerraTechETCUtil
             else
                 Debug_TTExt.Log(depthParse + "Parent:   <NONE>");
             foreach (var item in GO.GetComponents<Component>())
-            {
                 Debug_TTExt.Log(depthParse + "Component: " + item.GetType());
-            }
             if (leftoverDepth > 0)
             {
                 depth++;
                 for (int i = 0; i < trans.childCount; i++)
-                {
                     ExtractGameObjectHierachy_Internal(trans.GetChild(i).gameObject, depth, leftoverDepth);
-                }
             }
             Debug_TTExt.Log(depthParse + "}");
         }
@@ -542,6 +611,7 @@ namespace TerraTechETCUtil
         /// <typeparam name="A">Within IDictionary</typeparam>
         /// <param name="dict">Dictionary instance</param>
         /// <param name="key">Key to look up in the Dictionary</param>
+        /// <param name="keyNested">The nested key to look up in the Dictionary</param>
         /// <param name="typeToAdd">The element to add to the dictionary nested in the dictionary.</param>
         /// <exception cref="ArgumentNullException"></exception>
         public static void AddInlined<T, V, E, A>(this IDictionary<T, V> dict, T key, E keyNested, A typeToAdd) where V : IDictionary<E,A>

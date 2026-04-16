@@ -398,7 +398,7 @@ namespace TerraTechETCUtil
 
     /// <summary>
     /// This provides a simple class to connect two Rigidbodies together in a rough, but understandable way.
-    ///   Does not support breaking forces of infinity since that will cause unstability
+    /// <para><b>Does not support breaking forces of infinity since that will cause unstability</b></para>
     /// </summary>
     public class PhysicsLock
     {
@@ -410,14 +410,31 @@ namespace TerraTechETCUtil
         internal PhysicsLockMain main { get; private set; } = null;
         internal PhysicsLockOther other { get; private set; } = null;
 
+        /// <summary>
+        /// Attached to a main physics lock
+        /// </summary>
         public bool IsAttached => main;
+        /// <summary>
+        /// What to use as a visual
+        /// </summary>
         public GameObject visualPrefab;
+        /// <summary>
+        /// add all vector values together
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public float AddAll(Vector3 input)
         {
             return input.x + input.y + input.z;
         }
 
+        /// <summary>
+        /// Our upwards axis
+        /// </summary>
         public Vector3 UpAxis => main ? main.headMount.up : throw new InvalidOperationException("UpAxis was called with no main assigned");
+        /// <summary>
+        /// Our forwards axis
+        /// </summary>
         public Vector3 FwdAxis => main ? main.headMount.forward : throw new InvalidOperationException("FwdAxis was called with no main assigned");
 
 
@@ -471,26 +488,64 @@ namespace TerraTechETCUtil
                     joint.targetRotation = Quaternion.AngleAxis(value, FwdAxis);
             }
         }
-
+        /// <summary>
+        /// Sent when this is attached to a transform
+        /// </summary>
         public Event<Transform> AttachedEvent = new Event<Transform>();
+        /// <summary>
+        /// Sent when this is detached from a transform
+        /// </summary>
         public EventNoParams DetachedEvent = new EventNoParams();
 
 
         //internal EventNoParams updatedEventHook;
         //internal EventNoParams detachedEventHook;
+        /// <summary>
+        /// Will collide with GameObjects attached to itself
+        /// </summary>
         public bool selfCollision = true;
+        /// <summary>
+        /// The offset distance of which attached objects will pivot off of
+        /// </summary>
         public float offsetSpacer = 0.5f;
+        /// <summary>
+        /// Limit of the joint
+        /// </summary>
         public SoftJointLimit posLimit;
+        /// <summary>
+        /// Limit of the joint
+        /// </summary>
         public SoftJointLimitSpring posSpring;
+        /// <summary>
+        /// Forwards axis
+        /// </summary>
         public Vector3 axis = Vector3.forward;
+        /// <summary>
+        /// Upwards axis
+        /// </summary>
         public Vector3 axis2 = Vector3.up;
 
+        /// <summary>
+        /// The Z-directional drive to and from the coupler
+        /// </summary>
         public JointDrive zPiston;
+        /// <summary>
+        /// The linear breaking force to detach attached transforms
+        /// </summary>
         public float PistonBreak = 10000;
 
+        /// <summary>
+        /// The Z-axis drive to and from the coupler
+        /// </summary>
         public JointDrive zRotor;
+        /// <summary>
+        /// The rotational breaking force to detach attached transforms
+        /// </summary>
         public float RotorBreak = 10000;
 
+        /// <summary>
+        /// The target lock values
+        /// </summary>
         public PhysicsLock()
         {
             var defaults = new JointDrive()
@@ -514,6 +569,15 @@ namespace TerraTechETCUtil
             };
         }
 
+        /// <summary>
+        /// Something attached to our <see cref="PhysicsLockMain"/>
+        /// </summary>
+        /// <param name="worldPos"></param>
+        /// <param name="col"></param>
+        /// <param name="worldPosOther"></param>
+        /// <param name="colOther"></param>
+        /// <exception cref="NullReferenceException"></exception>
+        /// <exception cref="Exception"></exception>
         public void Attach(WorldPosition worldPos, Collider col, WorldPosition worldPosOther, Collider colOther)
         {
             if (col == null || col.transform == null)
@@ -557,7 +621,14 @@ namespace TerraTechETCUtil
                 throw new Exception("PhysicsLock failed on Attach() - " + e);
             }
         }
+        /// <summary>
+        /// We are still reattaching
+        /// </summary>
         public static bool inProgress = false;
+        /// <summary>
+        /// Detached <see cref="PhysicsLockMain"/>
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         public void Detach()
         {
             int level = 0;
@@ -582,6 +653,10 @@ namespace TerraTechETCUtil
             }
             inProgress = false;
         }
+        /// <summary>
+        /// Try reattach our target
+        /// </summary>
+        /// <exception cref="Exception"></exception>
         public void TryReAttach()
         {
             int error = 0;

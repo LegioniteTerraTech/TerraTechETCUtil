@@ -1,44 +1,104 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Text;
 using UnityEngine;
 using static LocalisationEnums;
+using static TerraTechETCUtil.ManIngameWiki;
 
 namespace TerraTechETCUtil
 {
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
+    /// <summary>
+    /// <para>Wiki page for scenery data information</para>
+    /// </summary>
     public class WikiPageScenery : ManIngameWiki.WikiPage
     {
+        /// <summary>
+        /// An additional event displayer for mods to add their own wiki data
+        /// </summary>
+        public static Event<ResourceDispenser> AdditionalDisplayOnUI = new Event<ResourceDispenser>();
+        /// <summary>
+        /// page, stringSection, searchText - 
+        /// Invoke the Action as true if the filter was triggered and true, or false if the filter failed to cancel the search target.
+        /// Do not invoke if the filter was not triggered!
+        /// <para>Use ManIngameWiki.WikiPage.FilterBlockPass for quick text filtering.  Be sure to end it with '<b>:</b>'!</para>
+        /// <para>Also add the annotation to AdditionalSearchFiltersPopup with a newline call</para>
+        /// </summary>
+        public static Event<WikiPageScenery, string, string, Action<bool>> AdditionalSearchFilters = new Event<WikiPageScenery, string, string, Action<bool>>();
+        /// <summary>
+        /// Use the stringbuilder given to AppendLine() new search filters for the user
+        /// </summary>
+        public static Event<StringBuilder> AdditionalSearchFiltersPopup = new Event<StringBuilder>();
+
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeData"/>
         public static Func<ResourceDispenser, string> GetSceneryData = null;
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeModName"/>
         public static Func<int, string> GetSceneryModName = GetSceneryModNameDefault;
+        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
         public int sceneryID;
+        /// <summary>
+        /// Get the prefab
+        /// </summary>
         public Dictionary<string, List<TerrainObject>> prefabBase => 
             SpawnHelper.GetSceneryByType((SceneryTypes)sceneryID);
+        /// <summary>
+        /// Get the main prefab component
+        /// </summary>
         public TerrainObject prefabMain => prefabBase?.Values?.First()?.First();
+        /// <summary>
+        /// Get the resource spawner component
+        /// </summary>
         public ResourceDispenser prefab => prefabMain?.GetComponent<ResourceDispenser>();
+
+        /// <inheritdoc cref="WikiPageBiome.desc"/>
         public string desc = "unset";
         internal SceneryDataInfo mainInfo;
         internal SceneryDataInfo damage;
         internal SceneryDataInfo damageable;
         internal SceneryDataInfo[] modules;
+
+        /// <inheritdoc cref="WikiPageInfo.WikiPageInfo(string, LocExtString, Sprite, Action, ManIngameWiki.WikiPageGroup)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SceneryID">The scenery ID to target</param>
         public WikiPageScenery(int SceneryID) :
-            base(GetSceneryModName(SceneryID), new LocExtStringVanilla(StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
-                LocalisationEnums.StringBanks.SceneryName, SceneryID),
+            base(GetSceneryModName(SceneryID), GetSceneryName(SceneryID),
             null, ManIngameWiki.LOC_Scenery, ManIngameWiki.ScenerySprite)
         {
             sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
 
+        /// <inheritdoc cref="WikiPageScenery.WikiPageScenery(int)"/>
         public WikiPageScenery(int SceneryID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetSceneryModName(SceneryID), new LocExtStringVanilla(StringLookup.GetItemName(ObjectTypes.Scenery, SceneryID),
-                LocalisationEnums.StringBanks.SceneryName, SceneryID),
-            null, group)
+            base(GetSceneryModName(SceneryID), GetSceneryName(SceneryID), null, group)
         {
             sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null) =>
+            InsureSceneryWikiGroup(ModID);
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null) =>
+            InsureSceneryWikiGroup(ModID);
+        /// <inheritdoc cref="WikiPageChunk.GetChunkName(int)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SceneryID"></param>
+        /// <returns></returns>
+        public static LocExtStringVanillaOT GetSceneryName(int SceneryID)
+        {
+            return new LocExtStringVanillaOT(ObjectTypes.Scenery, SceneryID);
+        }
+        /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDispLateIcon();
         private bool TriedGetIcon = false;
+        /// <inheritdoc/>
         public override void GetIcon()
         {
             if (TriedGetIcon)
@@ -92,6 +152,126 @@ namespace TerraTechETCUtil
                 }
             }
         }
+
+        internal static void ValidScenerySearchQueryPopup()
+        {
+            try
+            {
+                AdditionalSearchFiltersPopup.Send(additionalFilters);
+                AltUI.Tooltip.GUITooltip("Supports searching in english with no spaces for:\n" +
+                    "type:[scenery type name]\n" +
+                    "chunk:[resource name(s)]\n" +
+                    "module:[scenery module name(s)]\n" +
+                    "dmg:[scenery main damageable type]\n" +
+                    "hp[g/l]:[max health greater/less than]\n" +
+                    additionalFilters.ToString());
+            }
+            finally
+            {
+                additionalFilters.Clear();
+            }
+        }
+        internal static bool ValidScenerySearchQueryPost(ManIngameWiki.WikiPage page, string pageName, string searchText)
+        {
+            if (page is WikiPageScenery WPS)
+            {
+                ResourceDispenser resdisp = WPS.prefab;
+                int ignoreExtra = 0;
+                var stringSections = searchText.Split(' ');
+                foreach (var stringSection in stringSections)
+                {
+                    string[] queries = null;
+                    if (FilterPass(stringSection, "type:", ref queries))
+                    {
+                        if (!queries.Any(x => ((SceneryTypes)WPS.sceneryID).
+                            ToString().ToLower().Contains(x)))
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "chunk:", ref queries))
+                    {
+                        try
+                        {
+                            if (!queries.All(x => resdisp.AllDispensableItems().Any(y =>
+                                StringLookup.GetItemName(new ItemTypeInfo(ObjectTypes.Chunk, (int)y)).
+                                Replace(" ", string.Empty).ToLower().Contains(x))))
+                                return false;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
+                    else if (FilterPass(stringSection, "module:", ref queries))
+                    {
+                        if (resdisp != null)
+                        {
+                            foreach (var x in queries)
+                            {
+                                if (!resdisp.GetComponents<Module>()?.
+                                    FirstOrDefault(y => y.GetType().ToString().ToLower().Contains(x)) &&
+                                    !resdisp.GetComponents<ExtModule>()?.
+                                    FirstOrDefault(y => y.GetType().ToString().ToLower().Contains(x)))
+                                    return false;
+                            }
+                        }
+                        else
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "dmg:", ref queries))
+                    {
+                        if (resdisp?.GetComponent<Damageable>() == null ||
+                            !queries.Any(x => StringLookup.GetDamageableTypeName(
+                                resdisp.GetComponent<Damageable>().
+                             DamageableType).Replace(" ", string.Empty).ToLower().Contains(x)))
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "hpg:", ref queries))
+                    {
+                        if (!float.TryParse(queries[0], out float num) ||
+                            resdisp?.GetComponent<Damageable>() == null ||
+                            resdisp.GetComponent<Damageable>().MaxHealth <= num)
+                            return false;
+                    }
+                    else if (FilterPass(stringSection, "hpl:", ref queries))
+                    {
+                        if (!float.TryParse(queries[0], out float num) ||
+                            resdisp?.GetComponent<Damageable>() == null ||
+                            resdisp.GetComponent<Damageable>().MaxHealth >= num)
+                            return false;
+                    }
+                    else
+                    {
+                        bool filteredAtLeastOnce = false;
+                        bool cancel = false;
+                        AdditionalSearchFilters.Send(WPS, stringSection, searchText, (state) =>
+                        {
+                            filteredAtLeastOnce = true;
+                            if (!state)
+                                cancel = true;
+                        });
+                        if (cancel)
+                            return false;
+                        if (!filteredAtLeastOnce)
+                            break;
+                    }
+                    ignoreExtra = stringSection.Length + 1;
+                }
+                if (searchText.Length <= ignoreExtra)
+                    return true;
+                string leftOverText = searchText.Substring(ignoreExtra);
+                if (int.TryParse(leftOverText, out int potID) &&
+                    potID == WPS.sceneryID)
+                    return true;
+                if (Enum.TryParse(leftOverText, out SceneryTypes potIDEnum) &&
+                    ((int)potIDEnum) == WPS.sceneryID)
+                    return true;
+                return pageName.ToLower().Contains(searchText.Substring(ignoreExtra));
+            }
+            return false;
+        }
+
+
+        /// <inheritdoc/>
         public override bool OnWikiClosed()
         {
             if (mainInfo != null)
@@ -108,12 +288,14 @@ namespace TerraTechETCUtil
             return false;
         }
         private static List<SceneryDataInfo> Combiler = new List<SceneryDataInfo>();
+        /// <inheritdoc/>
         public override void OnBeforeDisplay()
         {
             //GetIcon();
             if (icon == null)
                 GetIcon();
         }
+        /// <inheritdoc/>
         protected override void DisplayGUI()
         {
             if (modules == null)
@@ -185,6 +367,9 @@ namespace TerraTechETCUtil
             if (desc != null)
                 GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
 
+            if (AdditionalDisplayOnUI.HasSubscribers())
+                AdditionalDisplayOnUI.Send(prefab);
+
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (modules != null && modules.Any())
             {
@@ -226,7 +411,13 @@ namespace TerraTechETCUtil
             }
         }
 
-        public static string GetSceneryModNameDefault(int chunkType)
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeModNameDefault(Biome)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sceneryType">The scenery type type this is for</param>
+        /// <returns></returns>
+        public static string GetSceneryModNameDefault(int sceneryType)
         {
             return ManIngameWiki.VanillaGameName;
         }

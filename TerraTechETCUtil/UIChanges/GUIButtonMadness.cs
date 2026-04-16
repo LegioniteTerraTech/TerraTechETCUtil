@@ -12,6 +12,17 @@ namespace TerraTechETCUtil
     /// </summary>
     public class GUIButtonMadness : MonoBehaviour
     {
+        /// <summary>
+        /// Create <see cref="GUIButtonMadness"/>.
+        /// <para>Use the instance provided in the output and call 
+        /// <see cref="ReInitiate(int, string, GUI_BM_Element[], Func{bool})"/> to change as needed</para>
+        /// <para><b>Do not call this frequently and reuse the output!</b></para>
+        /// </summary>
+        /// <param name="ID">IMGUI window ID, make sure this doesn't conflict!</param>
+        /// <param name="Name">Name of the window displayed if there are more buttons than vanilla supports</param>
+        /// <param name="elementsToUse">The UI elements to use</param>
+        /// <param name="CanDisplay">Function to determine if this is displayed or not</param>
+        /// <returns>New instance that should be stored in a field for later use</returns>
         public static GUIButtonMadness Initiate(int ID, string Name, GUI_BM_Element[] elementsToUse, Func<bool> CanDisplay = null)
         {
             var GUIWindow = new GameObject();
@@ -26,6 +37,14 @@ namespace TerraTechETCUtil
             GUIWindow.SetActive(false);
             return madness;
         }
+        /// <summary>
+        /// Change the settings of <see cref="GUIButtonMadness"/>.
+        /// </summary>
+        /// <param name="ID">IMGUI window ID, make sure this doesn't conflict!</param>
+        /// <param name="Name">Name of the window displayed if there are more buttons than vanilla supports</param>
+        /// <param name="elementsToUse">The UI elements to use</param>
+        /// <param name="CanDisplay">Function to determine if this is displayed or not</param>
+        /// <returns>New instance that should be stored in a field for later use</returns>
         public GUIButtonMadness ReInitiate(int ID, string Name, GUI_BM_Element[] elementsToUse, Func<bool> CanDisplay = null)
         {
             CloseGUI();
@@ -38,6 +57,9 @@ namespace TerraTechETCUtil
             elements = elementsToUse;
             return this;
         }
+        /// <summary>
+        /// Remove and destroy this immedeately
+        /// </summary>
         public void DeInit()
         {
             Destroy(gameObject);
@@ -49,15 +71,26 @@ namespace TerraTechETCUtil
         private int setID;
         private Func<bool> displayRules;
         private GUI_BM_Element[] elements;
+        /// <summary>
+        /// Regenerate the modal menu UI
+        /// </summary>
         public void SetDirty()
         {
             if (UseRadialMode)
                 GUIModModal.SetDirty(elements.Length);
         }
+        /// <summary>
+        /// See if this is permitted to display
+        /// </summary>
+        /// <returns>True if this can display</returns>
         public bool DefaultCanDisplay()
         {
             return UIHelpersExt.IsIngame;
         }
+        /// <summary>
+        /// See if this is permitted to continue displaying
+        /// </summary>
+        /// <returns>True if this can continue displaying</returns>
         public bool DefaultCanContinueDisplay()
         {
             return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow));
@@ -134,6 +167,10 @@ namespace TerraTechETCUtil
             GUI.DragWindow();
         }
 
+        /// <summary>
+        /// Call this to check if the multi-button non-vanilla modal is open
+        /// </summary>
+        /// <returns>True if this is open, and not the vanilla modal</returns>
         public bool GUIIsOpen()
         {
             if (UseRadialMode)
@@ -147,6 +184,10 @@ namespace TerraTechETCUtil
                 return gameObject.activeSelf;
             }
         }
+        /// <summary>
+        /// Open the GUI for a block
+        /// </summary>
+        /// <param name="opener">Target block</param>
         public void OpenGUI(TankBlock opener)
         {
             openTime = 1f;
@@ -159,6 +200,9 @@ namespace TerraTechETCUtil
                 gameObject.SetActive(true);
             }
         }
+        /// <summary>
+        /// Close this
+        /// </summary>
         public void CloseGUI()
         {
             if (UseRadialMode)
@@ -173,19 +217,49 @@ namespace TerraTechETCUtil
         }
 
     }
+    /// <summary>
+    /// Interface for elements displayed by <see cref="GUIButtonMadness"/>
+    /// </summary>
     public interface GUI_BM_Element
     {
+        /// <summary>
+        /// Name of the element to use
+        /// </summary>
         string GetName { get; }
+        /// <summary>
+        /// Should this element request a slider on the UI?
+        /// </summary>
         bool GetSlider { get; }
+        /// <summary>
+        /// If this has a slider, the text name for the slider
+        /// </summary>
         string GetSliderDescName { get; }
+        /// <summary>
+        /// Icon to use for this element
+        /// </summary>
         Sprite GetIcon { get; }
+        /// <summary>
+        /// If this has a slider, the clamp step for the slider value
+        /// </summary>
         int GetClampSteps { get; }
+        /// <summary>
+        /// Get the last slider value if this is a slider
+        /// </summary>
         float GetLastVal { get; set; }
+        /// <summary>
+        /// Get the value of the element directly from the target
+        /// </summary>
         float GetSet { get; set; }
     }
+    /// <inheritdoc cref="GUI_BM_Element"/>
+    /// <summary>
+    /// <para>This is for simple elements</para>
+    /// </summary>
     public class GUI_BM_Element_Simple : GUI_BM_Element
     {
+        /// <inheritdoc/>
         public string GetName { get { return Name; } }
+        /// <inheritdoc/>
         public Sprite GetIcon
         {
             get
@@ -195,21 +269,39 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <inheritdoc/>
         public bool GetSlider { get { return OnDesc != null; } }
+        /// <inheritdoc/>
         public string GetSliderDescName { get { return OnDesc.Invoke(); } }
+        /// <inheritdoc/>
         public int GetClampSteps { get { return ClampSteps; } }
+        /// <inheritdoc/>
         public float GetLastVal { get { return LastVal; } set { LastVal = value; } }
+        /// <inheritdoc/>
         public float GetSet { get { return OnSet(float.NaN); } set { OnSet.Invoke(value); } }
+
+        /// <inheritdoc cref="GetName"/>
         public string Name;
+        /// <inheritdoc cref="GetSliderDescName"/>
         public Func<string> OnDesc;
+        /// <inheritdoc cref="GetIcon"/>
         public Func<Sprite> OnIcon;
+        /// <inheritdoc cref="GetClampSteps"/>
         public int ClampSteps;
+        /// <inheritdoc cref="GetLastVal"/>
         public float LastVal;
+        /// <inheritdoc cref="GetSet"/>
         public Func<float, float> OnSet;
     }
+    /// <inheritdoc cref="GUI_BM_Element"/>
+    /// <summary>
+    /// <para>This is for advanced elements</para>
+    /// </summary>
     public class GUI_BM_Element_Complex : GUI_BM_Element
     {
+        /// <inheritdoc/>
         public string GetName { get { return Name.Invoke(); } }
+        /// <inheritdoc/>
         public Sprite GetIcon
         {
             get
@@ -219,10 +311,15 @@ namespace TerraTechETCUtil
                 return null;
             }
         }
+        /// <inheritdoc/>
         public bool GetSlider { get { return OnDesc != null; } }
+        /// <inheritdoc/>
         public string GetSliderDescName { get { return OnDesc.Invoke(); } }
+        /// <inheritdoc/>
         public int GetClampSteps { get { return ClampSteps; } }
+        /// <inheritdoc/>
         public float GetLastVal { get { return LastVal; } set { LastVal = value; } }
+        /// <inheritdoc/>
         public float GetSet
         {
             get
@@ -234,11 +331,17 @@ namespace TerraTechETCUtil
                 OnSet.Invoke(value);
             }
         }
+        /// <inheritdoc cref="GetName"/>
         public Func<string> Name;
+        /// <inheritdoc cref="GetSliderDescName"/>
         public Func<string> OnDesc;
+        /// <inheritdoc cref="GetIcon"/>
         public Func<Sprite> OnIcon;
+        /// <inheritdoc cref="GetClampSteps"/>
         public int ClampSteps;
+        /// <inheritdoc cref="GetLastVal"/>
         public float LastVal;
+        /// <inheritdoc cref="GetSet"/>
         public Func<float, float> OnSet;
     }
 }

@@ -8,9 +8,15 @@ using FMOD;
 namespace TerraTechETCUtil
 {
 #if !EDITOR
+    /// <summary>
+    /// The modded audio player manager for TerraTech
+    /// </summary>
     public class ManAudioExt : MonoBehaviour
     {
         private static ManAudioExt inst;
+        /// <summary>
+        /// The SFX volume of the game
+        /// </summary>
         public static float SFXVolume
         {
             get => _SFXVolume;
@@ -28,10 +34,25 @@ namespace TerraTechETCUtil
 
         private static FMOD.System sys = RuntimeManager.LowlevelSystem;
         internal static FMOD.ChannelGroup ModSoundGroup = default;
+        /// <summary>
+        /// All registered non-vanilla sounds.  
+        /// <para>For vanilla sounds see:
+        /// <list type="bullet">
+        /// <item><see cref="ManMusic"/> for all vanilla music</item>
+        /// <item><see cref="ManSFX"/> for vanilla non-Tech specific SFX</item>
+        /// <item><see cref="TechAudio"/> for vanilla Tech specific SFX</item>
+        /// </list></para>
+        /// </summary>
         public static Dictionary<ModContainer, Dictionary<string, AudioGroup>> AllSounds =
             new Dictionary<ModContainer, Dictionary<string, AudioGroup>>();
+        /// <summary>
+        /// Called after <see cref="ManAudioExt"/> rebuilds all sounds
+        /// </summary>
         public static EventNoParams OnRebuildSounds = new EventNoParams();
 
+        /// <summary>
+        /// Force <see cref="ManAudioExt"/> to rebuild sounds immedeately.  <b>Very slow.</b>
+        /// </summary>
         public static void RebuildAllSounds()
         {
             ClearAllSounds();
@@ -245,18 +266,40 @@ namespace TerraTechETCUtil
             { }
         }
 
-
+        /// <summary>
+        /// Audio grouped together based on name
+        /// </summary>
         public struct AudioGroup
         {
+            /// <summary>
+            /// The main audio to play
+            /// </summary>
             public AudioInst[] main;
+            /// <summary>
+            /// Played when the group starts
+            /// </summary>
             public AudioInst startup;
+            /// <summary>
+            /// Played when the group started
+            /// </summary>
             public AudioInst engage;
+            /// <summary>
+            /// Played when the group stops playing
+            /// </summary>
             public AudioInst stop;
         }
     }
-
+    /// <summary>
+    /// External extnesion class for <see cref="FMOD.Sound"/>
+    /// </summary>
     public static class FMODExt
     {
+        /// <summary>
+        /// Convert the <see cref="FMOD.Sound"/> to a compatable <see cref="AudioInst"/>
+        /// </summary>
+        /// <param name="sound"></param>
+        /// <param name="setChannel"></param>
+        /// <returns></returns>
         public static AudioInst GetAudio(this FMOD.Sound sound, Channel setChannel = default)
             => new AudioInst(ref sound, setChannel);
     }

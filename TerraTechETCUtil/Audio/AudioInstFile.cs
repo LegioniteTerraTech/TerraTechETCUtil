@@ -13,11 +13,18 @@ namespace TerraTechETCUtil
     [Serializable]
     public class AudioInstFile
     {
+        /// <summary>
+        /// The prefix filename of the <see cref="AudioInstFile"/> in the AssetBundle
+        /// </summary>
         public const string leadingFileName = "AudioInst_";
 
+        /// <summary> </summary>
         public float[] data;
+        /// <summary> </summary>
         public uint lengthBytes;
+        /// <summary> </summary>
         public int channels;
+        /// <summary> </summary>
         public int frequency;
 
         /// <summary>
@@ -25,6 +32,10 @@ namespace TerraTechETCUtil
         /// </summary>
         public AudioInstFile() { }
 
+        /// <summary>
+        /// Convert a Unity <see cref="AudioClip"/> to a <b>FMOD</b> compatable <see cref="AudioInstFile"/>
+        /// </summary>
+        /// <param name="AC"></param>
         public AudioInstFile(AudioClip AC)
         {
             try

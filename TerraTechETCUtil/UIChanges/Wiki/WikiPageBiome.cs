@@ -4,24 +4,66 @@ using System.Linq;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using UnityEngine;
+using static LocalisationEnums;
+using static TerraTechETCUtil.ManIngameWiki;
 
 namespace TerraTechETCUtil
 {
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
+    /// <summary>
+    /// <para>Wiki page for biome information</para>
+    /// </summary>
     public class WikiPageBiome : ManIngameWiki.WikiPage
     {
+        /// <summary>
+        /// An additional event displayer for mods to add their own wiki data
+        /// </summary>
+        public static Event<Biome> AdditionalDisplayOnUI = new Event<Biome>();
+
+        /// <summary>
+        /// Attach a function here to get generated data for JSON serialization
+        /// </summary>
         public static Func<Biome, string> GetBiomeData = null;
+        /// <summary>
+        /// Attach a function here to set the display name for the page in the GUI
+        /// </summary>
         public static Func<Biome, string> GetBiomeName = GetBiomeNameDefault;
+        /// <summary>
+        /// Attach a function here to set the mod name for the page in the GUI
+        /// </summary>
         public static Func<Biome, string> GetBiomeModName = GetBiomeModNameDefault;
+        /// <summary>
+        /// Attach a function here to set the custom description for this
+        /// </summary>
         public static Func<Biome, string> GetBiomeDescription = GetBiomeDescriptionDefault;
+        /// <summary>
+        /// The default subject name determining function. 
+        /// <para>Be sure to integrate this in your own if you plan on replacing it</para>
+        /// </summary>
+        /// <param name="biomeInst">The biome this is for</param>
+        /// <returns>The display name for this</returns>
         public static string GetBiomeNameDefault(Biome biomeInst)
         {
             //new LocExtString(LocalisationEnums.StringBanks., corpID)
-            return CleanupName(biomeInst.name.ToString());
+            return CleanupBiomeName(biomeInst.name.ToString());
         }
+        /// <summary>
+        /// The default mod name determining function. 
+        /// <para>Be sure to integrate this in your own if you plan on replacing it</para>
+        /// </summary>
+        /// <param name="biomeInst">The biome this is for</param>
+        /// <returns>The ModID this is affiliated with</returns>
         public static string GetBiomeModNameDefault(Biome biomeInst)
         {
             return ManIngameWiki.VanillaGameName;
         }
+
+        /// <summary>
+        /// The default description display function. 
+        /// <para>Be sure to integrate this in your own if you plan on replacing it</para>
+        /// </summary>
+        /// <param name="biomeInst">The biome this is for</param>
+        /// <returns>The description</returns>
         public static string GetBiomeDescriptionDefault(Biome biomeInst)
         {
             //LocalisationEnums.GetLocalisedString()
@@ -46,12 +88,24 @@ namespace TerraTechETCUtil
                     return "Nothing is known about this place, enter at your own risk.";
             }
         }
+        /// <summary>
+        /// The main identification the game uses for this
+        /// </summary>
         public Biome biomeInst;
+        /// <summary>
+        /// Displayed description
+        /// </summary>
         public string desc = "unset";
         internal BiomeDataInfo mainInfo;
         internal BiomeDataInfo damage;
         internal BiomeDataInfo damageable;
         internal BiomeDataInfo[] modules;
+
+        /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="BiomeInst">The biome instance to affiliate with this page</param>
         public WikiPageBiome(Biome BiomeInst) :
             base(GetBiomeModName(BiomeInst), GetBiomeName(BiomeInst),
             null, ManIngameWiki.LOC_Biomes, null)
@@ -62,6 +116,7 @@ namespace TerraTechETCUtil
             desc = GetBiomeDescription(BiomeInst);
         }
 
+        /// <inheritdoc cref=" WikiPageBiome.WikiPageBiome(Biome)"/>
         public WikiPageBiome(Biome BiomeInst, ManIngameWiki.WikiPageGroup group) : 
             base(GetBiomeModName(BiomeInst), GetBiomeName(BiomeInst), null, group)
         {
@@ -70,15 +125,30 @@ namespace TerraTechETCUtil
             biomeInst = BiomeInst;
             desc = GetBiomeDescription(BiomeInst);
         }
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null) =>
+            InsureBiomesWikiGroup(ModID);
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null) =>
+            InsureBiomesWikiGroup(ModID);
+
+        /// <inheritdoc/>
         public override void GetIcon() { }
-        public static string CleanupName(string name)
+        /// <summary>
+        /// Cleanup the biome name of other unnesseary words
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static string CleanupBiomeName(string name)
         {
             if (name.NullOrEmpty())
                 return "<NULL>";
             return name.Replace("SubBiome", string.Empty).Replace("Biome", string.Empty).
                 Replace("Basic", string.Empty).Replace("_", string.Empty).SplitCamelCase();
         }
+        /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
+        /// <inheritdoc/>
         public override bool OnWikiClosed()
         {
             if (mainInfo != null)
@@ -94,11 +164,13 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+        /// <inheritdoc/>
         public override void OnBeforeDisplay()
         {
 
         }
         private static List<BiomeDataInfo> Combiler = new List<BiomeDataInfo>();
+        /// <inheritdoc/>
         protected override void DisplayGUI()
         {
             if (modules == null)
@@ -160,12 +232,14 @@ namespace TerraTechETCUtil
                 damage.DisplayGUI();
             if (damageable != null)
                 damageable.DisplayGUI();
+            if (AdditionalDisplayOnUI.HasSubscribers())
+                AdditionalDisplayOnUI.Send(biomeInst);
             GUILayout.EndVertical();
             if (desc != null)
                 GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
             if (ManIngameWiki.ShowJSONExport && GetBiomeData != null && biomeInst != null)
             {
-                if (AltUI.Button("ENTIRE CORP JSON to system clipboard", ManSFX.UISfxType.Craft))
+                if (AltUI.Button("ENTIRE BIOME JSON to system clipboard", ManSFX.UISfxType.Craft))
                 {
                     AutoDataExtractor.clipboard.Clear();
                     AutoDataExtractor.clipboard.Append(GetBiomeData.Invoke(biomeInst));

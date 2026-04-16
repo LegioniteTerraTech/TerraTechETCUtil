@@ -2,17 +2,37 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
+using static TerraTechETCUtil.ManIngameWiki;
 
 namespace TerraTechETCUtil
 {
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
+    /// <summary>
+    /// <para>Wiki page for corp information</para>
+    /// </summary>
     public class WikiPageCorp : ManIngameWiki.WikiPage
     {
+        /// <summary>
+        /// An additional event displayer for mods to add their own wiki data
+        /// </summary>
+        public static Event<FactionSubTypes> AdditionalDisplayOnUI = new Event<FactionSubTypes>();
+
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeData"/>
         public static Func<FactionSubTypes, string> GetCorpData = null;
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeDescription"/>
         public static Func<FactionSubTypes, string> GetCorpDescription = GetDescriptionDefault;
+        /// <summary>
+        /// Called whenever a <see cref="WikiPageCorp"/> is made
+        /// </summary>
         public static Event<WikiPageCorp> OnWikiPageMade = new Event<WikiPageCorp>();
+        /// <inheritdoc cref="WikiPageBiome.GetBiomeDescriptionDefault(Biome)"/>
+        /// <summary>
+        /// </summary>
+        /// <param name="faction">The faction page this is displaying for</param>
+        /// <returns></returns>
         public static string GetDescriptionDefault(FactionSubTypes faction)
         {
             switch (faction)
@@ -82,14 +102,24 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
         public int corpID;
         private ModdedCorpDefinition MCD;
         private FactionLicense FL;
+        /// <summary>
+        /// The corp abbreviated name
+        /// </summary>
         public string corpShortName;
+        /// <inheritdoc cref="WikiPageBiome.desc"/>
         public string corpDesc;
+        /// <summary>
+        /// The block categories the player has open
+        /// </summary>
         public HashSet<BlockCategories> openCategories = new HashSet<BlockCategories>();
+        /// <summary>
+        /// The blocks within their respective categories displayed for this faction
+        /// </summary>
         public Dictionary<BlockCategories, List<WikiPageBlock>> categories = new Dictionary<BlockCategories, List<WikiPageBlock>>();
-        public Action infoExtra = null;
         internal GatheredInfo info = null;
 
         internal static string GetShortName(int corpID)
@@ -99,8 +129,15 @@ namespace TerraTechETCUtil
             else
                 return ((FactionSubTypes)corpID).ToString();
         }
-        public WikiPageCorp(string modID, int corpID) : 
-            base(modID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
+
+        /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="ModID"></param>
+        /// <param name="corpID">The corp ID (<see cref="FactionSubTypes"/>) to affiliate with this page</param>
+        public WikiPageCorp(string ModID, int corpID) : 
+            base(ModID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
                 () => { return StringLookup.GetCorporationName((FactionSubTypes)corpID); }),
             ManUI.inst.GetModernCorpIcon((FactionSubTypes)corpID), ManIngameWiki.LOC_Corps, ManIngameWiki.CorpsSprite)
         {
@@ -108,8 +145,9 @@ namespace TerraTechETCUtil
             corpShortName = GetShortName(corpID);
             OnWikiPageMade.Send(this);
         }
-        public WikiPageCorp(string modID, int corpID, ManIngameWiki.WikiPageGroup grouper) :
-            base(modID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
+        /// <inheritdoc cref=" WikiPageCorp.WikiPageCorp(string, int)"/>
+        public WikiPageCorp(string ModID, int corpID, ManIngameWiki.WikiPageGroup grouper) :
+            base(ModID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
                 () => { return StringLookup.GetCorporationName((FactionSubTypes)corpID); }),
             ManUI.inst.GetModernCorpIcon((FactionSubTypes)corpID), grouper)
         {
@@ -117,8 +155,17 @@ namespace TerraTechETCUtil
             corpShortName = GetShortName(corpID);
             OnWikiPageMade.Send(this);
         }
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, LocExtString WikiGroupName, Sprite Icon = null) =>
+            InsureCorpWikiGroup(ModID);
+        /// <inheritdoc/>
+        protected override WikiPageGroup InsureWikiGroup(string ModID, string WikiGroupName, Sprite Icon = null) =>
+            InsureCorpWikiGroup(ModID);
+        /// <inheritdoc/>
         public override void GetIcon() { }
+        /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
+        /// <inheritdoc/>
         protected override void DisplayGUI()
         {
             GUILayout.BeginHorizontal();
@@ -183,8 +230,8 @@ namespace TerraTechETCUtil
             if (corpDesc != null)
                 GUILayout.Label(corpDesc, AltUI.TextfieldBlackHuge);
 
-            if (infoExtra != null)
-                infoExtra();
+            if (AdditionalDisplayOnUI.HasSubscribers())
+                AdditionalDisplayOnUI.Send((FactionSubTypes)corpID);
 
 
             for (int i = 1; i < Enum.GetValues(typeof(BlockCategories)).Length; i++)
@@ -287,6 +334,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <inheritdoc/>
         public override bool OnWikiClosed()
         {
             if (info != null)

@@ -12,17 +12,26 @@ using System.Collections;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Deforms world terrain at runtime.  Does not save the deformations though!
+    /// </summary>
     public class ManWorldDeformerExt : MonoBehaviour
     {
         private static readonly string DataDirectory = "DeformerToolsDev";
-
+        /// <summary>
+        /// Main instance of <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static ManWorldDeformerExt inst;
 
+        /// <inheritdoc/>
         [JsonIgnore]
         public string DirectoryInExtModSettings => DataDirectory;
 
         internal static HashSet<IntVector2> terrainsDeformed = new HashSet<IntVector2>();
         internal static HashSet<IntVector2> terrainsByDeformed = new HashSet<IntVector2>();
+        /// <summary>
+        /// Event sent whenever a <see cref="WorldTile"/> is altered by <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static Event<WorldTile> OnTerrainDeformed = new Event<WorldTile>();
 
 
@@ -30,15 +39,27 @@ namespace TerraTechETCUtil
         private Dictionary<string, int> ModsToDynamicTerrainModPriority = new Dictionary<string, int>();
         internal List<KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>> TerrainModsByPriority = new List<KeyValuePair<int, Dictionary<IntVector2, TerrainModifier>>>();
 
+        /// <summary>
+        /// The defaults settings for the terrain tool
+        /// </summary>
         public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaults;
 
+        /// <summary>
+        /// The terrain tool settings for small alterations
+        /// </summary>
         public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsSmall;
+        /// <summary>
+        /// The terrain tool settings for large alterations
+        /// </summary>
         public static Dictionary<TerraformerType, TerrainModifier> TerrainDefaultsLarge;
 
 
         //private static bool SetupSaveSystem = false;
         private static int ToolSize = 8;
 
+        /// <summary>
+        /// Activate <see cref="ManWorldDeformerExt"/>, safe to call multiple times
+        /// </summary>
         public static void InsureInit()
         {
             if (inst == null)
@@ -136,6 +157,11 @@ namespace TerraTechETCUtil
 
 
         // TOOL
+        /// <summary>
+        /// Get the position of the cursor relative to the terrain
+        /// </summary>
+        /// <param name="posScene">Position on the terrain</param>
+        /// <returns>True it it hit terrain</returns>
         public static bool GrabTerrainCursorPos(out Vector3 posScene)
         {
             if (!Singleton.camera)
@@ -159,6 +185,12 @@ namespace TerraTechETCUtil
                 return false;
             }
         }
+        /// <summary>
+        /// Get the position of the cursor relative to the terrain
+        /// </summary>
+        /// <param name="posScene">Position on the terrain</param>
+        /// <param name="height">Height on the terrain relivtive to the scene origin</param>
+        /// <returns>True it it hit terrain</returns>
         public static bool GrabTerrainCursorPos(out Vector3 posScene, out float height)
         {
             if (!Singleton.camera)
@@ -192,17 +224,46 @@ namespace TerraTechETCUtil
             File.WriteAllText(path, JsonConvert.SerializeObject(inst));
         }
 
+        /// <summary>
+        /// The Terraform Tool shape presets
+        /// </summary>
         public enum TerraformerType
         {
+            /// <summary>
+            /// Circular deformation
+            /// </summary>
             Circle,
+            /// <summary>
+            /// Square aligned with the world
+            /// </summary>
             Square,
+            /// <summary>
+            /// <b>OBSOLETE</b>
+            /// <para>Circle but flatten terrain in relation to origin</para>
+            /// </summary>
+            [Obsolete("Now all shapes have \"level\" intgrated within themselves")]
             Level,
+            /// <summary>
+            /// Change terrain back to the natural heights
+            /// </summary>
             Reset,
+            /// <summary>
+            /// Two points to make a ramp
+            /// </summary>
             Slope
         }
 
+        /// <summary>
+        /// Iterate all <see cref="WorldTile"/> coordinates altered by <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static IEnumerable<IntVector2> IterateModifiedCoords() => terrainsDeformed;
+        /// <summary>
+        /// Iterate all <see cref="WorldTile"/> coordinates altered by <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static IEnumerable<IntVector2> IterateModifiedCoordsAndBordering() => terrainsDeformed;
+        /// <summary>
+        /// Iterate all <see cref="WorldTile"/>s directly altered by <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static IEnumerable<WorldTile> IterateModifiedWorldTiles()
         {
             foreach (var item in terrainsDeformed)
@@ -212,6 +273,9 @@ namespace TerraTechETCUtil
                     yield return tile;
             }
         }
+        /// <summary>
+        /// Iterate all <see cref="WorldTile"/>s directly altered and their neighboors by <see cref="ManWorldDeformerExt"/>
+        /// </summary>
         public static IEnumerable<WorldTile> IterateModifiedAndBorderingWorldTiles()
         {
             foreach (var item in terrainsByDeformed)
@@ -348,6 +412,12 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Reloads the terrrain to reapply the Terrain Mods
+        /// </summary>
+        /// <param name="mods"></param>
+        /// <param name="coordOffset"></param>
+        /// <exception cref="NullReferenceException"></exception>
         public static void ReloadTerrainMods(Dictionary<IntVector2, TerrainModifier> mods, IntVector2 coordOffset)
         {
             if (mods == null)
@@ -420,7 +490,11 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// Applies <see cref="ManWorldDeformerExt"/> changes immedeately to the given <see cref="WorldTile"/>
+        /// </summary>
+        /// <param name="tile">Tile to apply to</param>
+        /// <exception cref="NullReferenceException"></exception>
         public static void ApplyRegisteredTerrainModsAtTile(WorldTile tile)
         {
             if (tile == null)
@@ -477,6 +551,12 @@ namespace TerraTechETCUtil
                 TerrainModifier.PushFlush(tile);
             }
         }
+        /// <summary>
+        /// Calculate the height of the <see cref="WorldTile"/> at the position based off of the Scene Position
+        /// </summary>
+        /// <param name="initialHeight"></param>
+        /// <param name="posScene"></param>
+        /// <returns></returns>
         public static float CalcPointHeightAtTile(float initialHeight, Vector3 posScene)
         {
             WorldPosition wp = WorldPosition.FromScenePosition(posScene);
@@ -525,6 +605,11 @@ namespace TerraTechETCUtil
             return newHeight;
         }
 
+        /// <summary>
+        /// Iterate all overlapping <see cref="TerrainModifier"/>s by the given <see cref="WorldTile"/> coordinate
+        /// </summary>
+        /// <param name="vec"></param>
+        /// <returns></returns>
         public static IEnumerable<TerrainModifier> GetOverlappingTerrain(IntVector2 vec)
         {
             WorldTile tile = ManWorld.inst.TileManager.LookupTile(vec);

@@ -34,6 +34,9 @@ namespace TerraTechETCUtil
 
         private bool SnapSlider = true;
 
+        /// <summary>
+        /// This radial menu is open
+        /// </summary>
         public bool IsOpen => radMenu.enabled;
         private bool single = false;
         private bool dirty = false;
@@ -42,6 +45,11 @@ namespace TerraTechETCUtil
         private Image backG;
         private GUI_BM_Element sliderSelected = null;
 
+        /// <summary>
+        /// Show this <see cref="PlaceholderRadialMenu"/>
+        /// </summary>
+        /// <param name="targ">Target context</param>
+        /// <param name="elements"></param>
         public void ShowThis(TankBlock targ, GUI_BM_Element[] elements)
         {
             OpenMenuEventData OMED = new OpenMenuEventData
@@ -58,6 +66,10 @@ namespace TerraTechETCUtil
             //Debug_TTExt.Log("PlaceholderRadialMenu.ShowThis() - " + Time.time);
             Show(OMED);
         }
+        /// <summary>
+        /// Show this <see cref="PlaceholderRadialMenu"/> without block context
+        /// </summary>
+        /// <param name="elements"></param>
         public void ShowThisNoBlock(GUI_BM_Element[] elements)
         {
             OpenMenuEventData OMED = new OpenMenuEventData
@@ -74,6 +86,11 @@ namespace TerraTechETCUtil
             //Debug_TTExt.Log("PlaceholderRadialMenu.ShowThisNoBlock() - " + Time.time);
             Show(OMED);
         }
+        /// <summary>
+        /// Show this on UI to the player
+        /// </summary>
+        /// <param name="context"></param>
+        /// <exception cref="NullReferenceException"></exception>
         public override void Show(object context)
         {
             if (context == null)
@@ -102,6 +119,10 @@ namespace TerraTechETCUtil
             gameObject.SetActive(true);
         }
 
+        /// <summary>
+        /// Hide this from the player
+        /// </summary>
+        /// <param name="context"></param>
         public override void Hide(object context)
         {
             gameObject.SetActive(false);
@@ -112,6 +133,9 @@ namespace TerraTechETCUtil
             radMenu.enabled = false;
         }
 
+        /// <summary>
+        /// Set this so it should rebuild next <see cref="Update()"/>
+        /// </summary>
         public void SetDirty()
         {
             dirty = true;

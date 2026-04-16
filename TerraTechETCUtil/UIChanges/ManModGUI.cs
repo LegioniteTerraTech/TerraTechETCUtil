@@ -2,55 +2,102 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
+using FMOD;
 using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// The global mod popup manager
+    /// <para>See <seealso cref="UIHelpersExt"/> and <seealso cref="AltUI"/> for more UI helpers</para>
+    /// </summary>
     public class ManModGUI : MonoBehaviour
     {   // Global popup manager
+        /// <summary>
+        /// The main manager instance
+        /// </summary>
         public static ManModGUI inst;
 
+        /// <summary>
+        /// <see cref="ManModGUI"/> starts windows at this ID and increments upwards with each new one
+        /// </summary>
         public const int IDOffset = 136000;
         private const int MaxPopups = 48;
         private const int MaxPopupsActive = 32;
 
+        /// <summary>
+        /// Window scale preset width
+        /// </summary>
         public const int LargeWindowWidth = 1000;
+        /// <summary> Window dimension preset </summary>
         public static Rect DefaultWindow = new Rect(0, 0, 300, 300);   // the "window"
+        /// <summary> Window dimension preset </summary>
         public static Rect LargeWindow = new Rect(0, 0, 1000, 600);
+        /// <summary> Window dimension preset </summary>
         public static Rect WideWindow = new Rect(0, 0, 700, 180);
+        /// <summary> Window dimension preset </summary>
         public static Rect SmallWideWindow = new Rect(0, 0, 600, 140);
+        /// <summary> Window dimension preset </summary>
         public static Rect SmallHalfWideWindow = new Rect(0, 0, 350, 140);
+        /// <summary> Window dimension preset </summary>
         public static Rect SideWindow = new Rect(0, 0, 200, 125);
+        /// <summary> Window dimension preset </summary>
         public static Rect TinyWindow = new Rect(0, 0, 160, 75);
+        /// <summary> Window dimension preset </summary>
         public static Rect MicroWindow = new Rect(0, 0, 110, 40);
+        /// <summary> Window dimension preset </summary>
         public static Rect TinyWideWindow = new Rect(0, 0, 260, 100);
+        /// <summary> Window dimension preset </summary>
         public static Rect SmallWindow = new Rect(0, 0, 160, 120);
 
         //public static GUIStyle styleSmallFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleDescFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleDescLargeFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleDescLargeFontScroll;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleLargeFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleHugeFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleGinormusFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleBlueFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleBorderedFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styledFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleBlackLargeFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleScrollFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleLabelLargerFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleButtonHugeFont;
+        /// <summary> Special font used for window </summary>
         public static GUIStyle styleButtonGinormusFont;
 
-
+        /// <summary>
+        /// All popups managed by <see cref="ManModGUI"/>
+        /// </summary>
         public static List<GUIPopupDisplay> AllPopups = new List<GUIPopupDisplay>();
-        public static Vector3 PlayerLoc = Vector3.zero;
-        public static bool isCurrentlyOpen = false;
-        public static bool IndexesChanged = false;
+        /// <summary>
+        /// Hide all windows managed by <see cref="ManModGUI"/> when the player is dragging a block or the camera
+        /// </summary>
         public static bool HideGUICompletelyWhenDragging = true;
 
+        /// <summary>
+        /// Number of active popups managed
+        /// </summary>
         public static int numActivePopups;
+        /// <summary>
+        /// Bool to tell if the custom GUI is ready to go
+        /// </summary>
         public static bool SetupAltWins = false;
 
 
@@ -64,26 +111,34 @@ namespace TerraTechETCUtil
         private static List<Action> EscHoldupPre = new List<Action>();
 
 
+        /// <summary>
+        /// Mod request to use <see cref="ManModGUI"/>
+        /// </summary>
+        /// <param name="modRequestor"></param>
         public static void RequestInit(ModBase modRequestor)
         {
             if (!inst)
             {
                 inst = new GameObject("ManModGUI").AddComponent<ManModGUI>();
                 Debug_TTExt.Log("TerraTechETCUtil: ManModGUI initated");
-                inst.InvokeRepeating("LateInitiate", 0.75f, 0.5f);
+                InvokeHelper.InvokeSingleRepeat(inst.LateInitiate, 0.5f);
             }
             if (!registered.Contains(modRequestor))
                 registered.Add(modRequestor);
         }
-        public void LateInitiate()
+        private void LateInitiate()
         {
             try
             {
                 ManPauseGame.inst.PauseEvent.Subscribe(SetVisibilityOfAllPopups);
-                inst.CancelInvoke("LateInitiate");
+                InvokeHelper.CancelInvokeSingleRepeat(inst.LateInitiate);
             }
             catch { }
         }
+        /// <summary>
+        /// Mod request to stop using <see cref="ManModGUI"/>
+        /// </summary>
+        /// <param name="modRequestor"></param>
         public static void DeInit(ModBase modRequestor)
         {
             if (registered.Contains(modRequestor))
@@ -101,7 +156,12 @@ namespace TerraTechETCUtil
             }
         }
 
-
+        /// <summary>
+        /// Inserts an event QUEUE-wise that will trigger and then disconnect after an ESC keypress.
+        /// <b>MAKE SURE TO CATCH THE ACTION!</b>
+        /// </summary>
+        /// <param name="action">The event to trigger once on ESC keypess</param>
+        /// <param name="beforeAllGUI">True to trigger BEFORE closing vanilla UI</param>
         public static void AddEscapeableCallback(Action action, bool beforeAllGUI)
         {
             if (beforeAllGUI)
@@ -109,6 +169,23 @@ namespace TerraTechETCUtil
             else
                 EscHoldup.Add(action);
         }
+        /// <summary>
+        /// Inserts an event STACK-wise an event that will trigger and then disconnect after an ESC keypress
+        /// </summary>
+        /// <param name="action">The event to trigger once on ESC keypess</param>
+        /// <param name="beforeAllGUI">True to trigger BEFORE closing vanilla UI</param>
+        public static void AddEscapeableCallbackStack(Action action, bool beforeAllGUI)
+        {
+            if (beforeAllGUI)
+                EscHoldupPre.Insert(0, action);
+            else
+                EscHoldup.Insert(0, action);
+        }
+        /// <summary>
+        /// Removes an ESC keypress event from ANYWHERE in the event list
+        /// </summary>
+        /// <param name="action">The event that is currently triggering once on ESC keypess</param>
+        /// <param name="beforeAllGUI">True if the trigger is BEFORE closing vanilla UI</param>
         public static void RemoveEscapeableCallback(Action action, bool beforeAllGUI)
         {
             if (beforeAllGUI)
@@ -126,7 +203,14 @@ namespace TerraTechETCUtil
                     EscHoldupPre.RemoveAt(0);
                     if (act != null)
                     {
-                        act();
+                        try
+                        {
+                            act();
+                        }
+                        catch (Exception e)
+                        {
+                            ShowErrorPopup("Unhandled error whilist processing EscapeableCallbacks(Pre) in ManModGUI:\n" + e);
+                        }
                         return true;
                     }
                 }
@@ -143,7 +227,14 @@ namespace TerraTechETCUtil
                     EscHoldup.RemoveAt(0);
                     if (act != null)
                     {
-                        act();
+                        try
+                        {
+                            act();
+                        }
+                        catch (Exception e)
+                        {
+                            ShowErrorPopup("Unhandled error whilist processing EscapeableCallbacks(Post) in ManModGUI:\n" + e);
+                        }
                         return true;
                     }
                 }
@@ -151,27 +242,55 @@ namespace TerraTechETCUtil
             return false;
         }
 
-
+        /// <summary>
+        /// Set the current focussed popup
+        /// </summary>
+        /// <param name="disp"></param>
         public static void SetCurrentPopup(GUIPopupDisplay disp)
         {
             if (AllPopups.Contains(disp))
             {
                 currentGUIWindow = disp;
+                GUI.FocusWindow(disp.ID);
             }
             else
             {
-                Debug_TTExt.Log("TerraTechETCUtil: GUIPopupDisplay \"" + disp.context + "\" is not in the AllPopups list!");
+                ShowErrorPopup("TerraTechETCUtil: GUIPopupDisplay \"" + disp.Header + "\" is not in the AllPopups list!");
             }
         }
+        /// <summary>
+        /// Set the current focussed popup
+        /// </summary>
+        /// <param name="menu"></param>
+        public static void SetCurrentPopup(GUIMiniMenu menu)
+        {
+            var disp = menu.Display;
+            if (disp == null)
+                throw new NullReferenceException("GUIMiniMenu is not assigned to a GUIPopupDisplay. " +
+                    "Register it first in ManModGUI.RegisterPopupSingle() or create it using " +
+                    "ManModGUI.AddPopupSingle() or ManModGUI.AddPopupStackable()");
+            SetCurrentPopup(disp);
+        }
+        /// <summary>
+        /// Get the current focussed popup
+        /// </summary>
         public static GUIPopupDisplay GetCurrentPopup()
         {
             return currentGUIWindow;
         }
+        /// <summary>
+        /// Keep the popup <b>ENTIRELY</b> within screen bounds
+        /// </summary>
+        /// <param name="disp"></param>
         public static void KeepWithinScreenBounds(GUIPopupDisplay disp)
         {
             disp.Window.x = Mathf.Clamp(disp.Window.x, 0, Display.main.renderingWidth - disp.Window.width);
             disp.Window.y = Mathf.Clamp(disp.Window.y, 0, Display.main.renderingHeight - disp.Window.height);
         }
+        /// <summary>
+        /// Keep the popup at least partially within screen bounds
+        /// </summary>
+        /// <param name="disp"></param>
         public static void KeepWithinScreenBoundsNonStrict(GUIPopupDisplay disp)
         {
             disp.Window.x = Mathf.Clamp(disp.Window.x, 10 - disp.Window.width, Display.main.renderingWidth - 10);
@@ -180,41 +299,59 @@ namespace TerraTechETCUtil
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
         /// </summary>
-        /// <param name="screenPos"></param>
+        /// <param name="screenPosPercent"></param>
         /// <param name="disp"></param>
-        public static void ChangePopupPositioning(Vector2 screenPos, GUIPopupDisplay disp)
+        public static void ChangePopupPositioning(Vector2 screenPosPercent, GUIPopupDisplay disp)
         {
-            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPos.x;
-            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPos.y;
+            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPosPercent.x;
+            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPosPercent.y;
         }
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
         /// </summary>
-        /// <param name="screenPos"></param>
         /// <param name="disp"></param>
+        /// <param name="squareDelta"></param>
         public static bool PopupPositioningApprox(GUIPopupDisplay disp, float squareDelta = 0.1f)
         {
             float valX = disp.Window.x / (Display.main.renderingWidth - disp.Window.width);
             float valY = disp.Window.y / (Display.main.renderingHeight - disp.Window.height);
             return valX > -squareDelta && valX < squareDelta && valY > -squareDelta && valY < squareDelta;
         }
+        /// <summary>
+        /// Check to see if the popup is still registered with <see cref="ManModGUI"/>
+        /// </summary>
+        /// <param name="title"></param>
+        /// <param name="typeHash"></param>
+        /// <param name="exists"></param>
+        /// <returns>True if it exists and is registered</returns>
         public static bool DoesPopupExist(string title, int typeHash, out GUIPopupDisplay exists)
         {
             exists = AllPopups.Find(delegate (GUIPopupDisplay cand)
             {
-                return cand.typeHash == typeHash && cand.context.CompareTo(title) == 0;
+                return cand.typeHash == typeHash && cand.Header.CompareTo(title) == 0;
             }
             );
             return exists;
         }
+        /// <summary>
+        /// Get a popup based on title and type hash
+        /// </summary>
+        /// <param name="title"></param>
+        /// <param name="typeHash"></param>
+        /// <returns>The popup if found</returns>
         public static GUIPopupDisplay GetPopup(string title, int typeHash)
         {
             return AllPopups.Find(delegate (GUIPopupDisplay cand)
             {
-                return cand.typeHash == typeHash && cand.context.CompareTo(title) == 0;
+                return cand.typeHash == typeHash && cand.Header.CompareTo(title) == 0;
             }
             );
         }
+        /// <summary>
+        /// Get all popups based on a type hash
+        /// </summary>
+        /// <param name="typeHash"></param>
+        /// <returns>The popup if found</returns>
         public static List<GUIPopupDisplay> GetAllPopups(int typeHash)
         {
             return AllPopups.FindAll(delegate (GUIPopupDisplay cand)
@@ -223,20 +360,44 @@ namespace TerraTechETCUtil
             }
             );
         }
-        public static List<GUIPopupDisplay> GetAllActivePopups(int typeHash, bool active = true)
+        /// <summary>
+        /// Get all <b>active</b> popups based on a type hash
+        /// </summary>
+        /// <param name="typeHash"></param>
+        /// <param name="open">If this is true, get all open popups, otherwise all closed</param>
+        /// <returns>The popup if found</returns>
+        public static List<GUIPopupDisplay> GetAllActivePopups(int typeHash, bool open = true)
         {
             return AllPopups.FindAll(delegate (GUIPopupDisplay cand)
             {
-                return cand.isOpen == active && cand.typeHash == typeHash;
+                return cand.isOpen == open && cand.typeHash == typeHash;
             }
             );
         }
 
+        /// <summary>
+        /// True if the local player's mouse is hovering over any IMGUI managed by <see cref="ManModGUI"/>
+        /// </summary>
         public static bool IsMouseOverModGUI { get; private set; } = false;
-        private static bool UIKickoffState = false;
+        /// <summary>
+        /// True if the <see cref="ManModGUI"/> is reserving the mouse and keyboard controls for use on the UI elements
+        /// </summary>
+        public static bool UIKickoffState { get; private set; } = false;
+        /// <summary>
+        /// True if the <see cref="ManModGUI"/> managed UI is not being hovered over and thus should be faded out to reduce obscurity
+        /// </summary>
         public static bool UIFadeState { get; private set; } = false;
+        /// <summary>
+        /// This value will increase based on the number of GUIs the mouse is hovering over
+        /// </summary>
         public static int IsMouseOverAnyModGUI = 0;
+        /// <summary>
+        /// Is the interaction with the world blocked?
+        /// </summary>
         public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked || IsMouseOverModGUI;
+        /// <summary>
+        /// Is the UI interaction blocked? (EG. Dragging block)
+        /// </summary>
         public static bool IsUIInteractionBlocked => ManPointer.inst.DraggingItem;
         private static Dictionary<ManHUD.HUDElementType, object> TempHidden = 
             new Dictionary<ManHUD.HUDElementType, object>();
@@ -247,6 +408,10 @@ namespace TerraTechETCUtil
         {
             TempHidden.Clear();
         }
+        /// <summary>
+        /// Hide the target Vanilla <see cref="ManHUD.HUDElementType"/>
+        /// </summary>
+        /// <param name="type"></param>
         public static void HideGUI(ManHUD.HUDElementType type)
         {
             object context = null;
@@ -272,13 +437,15 @@ namespace TerraTechETCUtil
                     break;
                 default:
                     // Unsupported!!!
+                    //ShowErrorPopup("ManModGUI.HideGUI() does not support type \"" + type.ToString() + "\"");
                     break;
             }
             if (wasVisible && !TempHidden.ContainsKey(type))
                 TempHidden.Add(type, context);
         }
         /// <summary>
-        /// DO NOT ITERATE TempHidden WHEN CALLING THIS
+        /// Show the target Vanilla <see cref="ManHUD.HUDElementType"/>
+        /// <para><b>DO NOT ITERATE TempHidden WHEN CALLING THIS</b></para>
         /// </summary>
         /// <param name="type"></param>
         public static void ShowGUI(ManHUD.HUDElementType type)
@@ -312,6 +479,9 @@ namespace TerraTechETCUtil
                     break;
             }
         }
+        /// <summary>
+        /// Hide all of the Vanilla <see cref="ManHUD.HUDElementType"/>s which may be displaying 
+        /// </summary>
         public static void HideAllObstructingUI()
         {
             HideGUI(ManHUD.HUDElementType.BlockControl);
@@ -349,8 +519,17 @@ namespace TerraTechETCUtil
         private static FieldInfo rmb = typeof(ManPointer).GetField("m_RMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
         private static FieldInfo mmb = typeof(ManPointer).GetField("m_MMBDownPos", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        /// <summary>
+        /// Right mouse is down
+        /// </summary>
         public static bool ManPointerMouseRightDown => ((Vector3)rmb.GetValue(ManPointer.inst)).x != -1;
+        /// <summary>
+        /// Middle mouse is down
+        /// </summary>
         public static bool ManPointerMouseMiddleDown => ((Vector3)mmb.GetValue(ManPointer.inst)).x != -1;
+        /// <summary>
+        /// Left mouse is down
+        /// </summary>
         public static bool ManPointerMouseLeftDown => ((Vector3)lmb.GetValue(ManPointer.inst)).x != -1;
 
         /// <summary>
@@ -436,9 +615,11 @@ namespace TerraTechETCUtil
                         HideAllObstructingUI();
                         //ForceReleaseRightMouse();
                         //ForceReleaseMiddleMouse();
+                        //TankCamera.inst.SetMouseControlEnabled(false); // Already patched in AllUIPatches
                     }
                     else
                     {
+                        //TankCamera.inst.SetMouseControlEnabled(true); // Already patched in AllUIPatches
                         UIHelpersExt.ReleaseControl();
                         TryReopenPreviouslyClosedUI();
                     }
@@ -457,8 +638,14 @@ namespace TerraTechETCUtil
             }
         }
 
-
-        public static bool AddPopupStackable<T>(string menuName, GUIDisplayStats windowOverride = null)
+        /// <summary>
+        /// Add a popup of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Header"></param>
+        /// <param name="windowOverride"></param>
+        /// <returns>True if it was added</returns>
+        public static bool AddPopupStackable<T>(string Header, GUIDisplayStats windowOverride = null)
             where T : GUIMiniMenu<T>, new()
         {
             if (MaxPopups <= AllPopups.Count)
@@ -466,20 +653,21 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: Too many popups!!!  Aborting AddPopup!");
                 return false;
             }
-            var gameObj = new GameObject(menuName);
-            currentGUIWindow = gameObj.AddComponent<GUIPopupDisplay>();
-            currentGUIWindow.obj = gameObj;
-            currentGUIWindow.context = menuName;
-            currentGUIWindow.Window = new Rect(DefaultWindow);
+            currentGUIWindow = CreateNewPopupSingle(Header);
             currentGUIWindow.SetupGUI<T>(windowOverride, IDCur);
             IDCur++;
-            gameObj.SetActive(false);
-            currentGUIWindow.isOpen = false;
 
             AllPopups.Add(currentGUIWindow);
             return true;
         }
 
+        /// <summary>
+        /// Add a popup of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Header"></param>
+        /// <param name="windowOverride"></param>
+        /// <returns>True if it was added</returns>
         public static bool AddPopupSingle<T>(string Header, GUIDisplayStats windowOverride = null)
             where T : GUIMiniMenu<T>, new()
         {
@@ -494,19 +682,21 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: Too many popups!!!  Aborting AddPopup!");
                 return false;
             }
-            var gameObj = new GameObject(Header);
-            currentGUIWindow = gameObj.AddComponent<GUIPopupDisplay>();
-            currentGUIWindow.obj = gameObj;
-            currentGUIWindow.context = Header;
-            currentGUIWindow.Window = new Rect(DefaultWindow);
+            currentGUIWindow = CreateNewPopupSingle(Header);
             currentGUIWindow.SetupGUI<T>(windowOverride, IDCur);
             IDCur++;
-            gameObj.SetActive(false);
-            currentGUIWindow.isOpen = false;
 
             AllPopups.Add(currentGUIWindow);
             return true;
         }
+        /// <summary>
+        /// Add a popup of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="instance"></param>
+        /// <param name="Header"></param>
+        /// <param name="windowOverride"></param>
+        /// <returns>True if it was added</returns>
         public static bool RegisterPopupSingle<T>(T instance, string Header, GUIDisplayStats windowOverride = null)
             where T : GUIMiniMenu<T>, new()
         {
@@ -523,24 +713,38 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: Too many popups!!!  Aborting AddPopup!");
                 return false;
             }
-            var gameObj = new GameObject(Header);
-            currentGUIWindow = gameObj.AddComponent<GUIPopupDisplay>();
-            currentGUIWindow.obj = gameObj;
-            currentGUIWindow.context = Header;
-            currentGUIWindow.Window = new Rect(DefaultWindow);
+            currentGUIWindow = CreateNewPopupSingle(Header);
             currentGUIWindow.SetupExistingGUI(instance, windowOverride, IDCur);
             IDCur++;
-            gameObj.SetActive(false);
-            currentGUIWindow.isOpen = false;
 
             AllPopups.Add(currentGUIWindow);
             return true;
+        }
+        /// <summary>
+        /// Creates a new hidden GUIPopupDisplay. 
+        /// DOES NOT NULL CHECK!!!  DOES NOT ADD TO MANAGED POPUP LIST
+        /// </summary>
+        private static GUIPopupDisplay CreateNewPopupSingle(string Header)
+        {
+            var gameObj = new GameObject(Header);
+            GUIPopupDisplay newDisp = gameObj.AddComponent<GUIPopupDisplay>();
+            newDisp.obj = gameObj;
+            newDisp.Header = Header;
+            newDisp.Window = new Rect(DefaultWindow);
+            gameObj.SetActive(false);
+            newDisp.isOpen = false;
+            return newDisp;
         }
         private static void RefreshPopup<T>(GUIPopupDisplay disp, GUIDisplayStats windowOverride = null)
             where T : GUIMiniMenu<T>, new()
         {
             disp.SetupGUI<T>(windowOverride, disp.ID);
         }
+        /// <summary>
+        /// Removes and deletes the popup
+        /// </summary>
+        /// <param name="disp"></param>
+        /// <returns>True if it was deleted</returns>
         public static bool RemovePopup(GUIPopupDisplay disp)
         {
             try
@@ -560,7 +764,25 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("TerraTechETCUtil: RemoveCurrentPopup - Exception: " + e);
                 return false;
             }
+        }/// <summary>
+         /// Removes and deletes the popup
+         /// </summary>
+         /// <param name="menu"></param>
+         /// <returns>True if it was deleted</returns>
+        public static bool RemovePopup(GUIMiniMenu menu)
+        {
+            var disp = menu.Display;
+            if (disp == null)
+                throw new NullReferenceException("GUIMiniMenu is not assigned to a GUIPopupDisplay. " +
+                    "Register it first in ManModGUI.RegisterPopupSingle() or create it using " +
+                    "ManModGUI.AddPopupSingle() or ManModGUI.AddPopupStackable()");
+            return RemovePopup(disp);
         }
+        /// <summary>
+        /// Removes and deletes ALL popups.
+        /// <para><b>Do not use unless absolutely nesseary!</b></para>
+        /// </summary>
+        /// <returns>True if any were deleted</returns>
         public static bool RemoveALLPopups()
         {
             int FireTimes = AllPopups.Count;
@@ -577,57 +799,40 @@ namespace TerraTechETCUtil
             return worked;
         }
 
-
+        /// <summary>
+        /// Show an error popup screen. Has the same modified effect as <see cref="ManUI.ShowErrorPopup(string)"/>
+        /// </summary>
+        /// <param name="Warning"></param>
+        /// <param name="IsSeriousError">The error is in a loop and will spam.  Set this to true to prevent spamming</param>
+        /// <param name="OnFixRequested">Show a "Fix" button that the user can press to fix then issue.
+        /// <para>Use this for issues that might affect things negatively like crashes</para></param>
         public static void ShowErrorPopup(string Warning, bool IsSeriousError = false, Action OnFixRequested = null) =>
             InvokeHelper.ShowErrorPopup(Warning, IsSeriousError, OnFixRequested);
 
 
         /// <summary>
-        /// Position in percent of the max screen width and length
+        /// Show a specific popup
         /// </summary>
-        /// <param name="screenPos"></param>
-        /// <returns></returns>
-        public static bool ShowPopup(Vector2 screenPos, GUIPopupDisplay disp)
+        /// <param name="disp">Specific window instance target</param>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        /// <returns>True if successful</returns>
+        public static bool ShowPopup(GUIPopupDisplay disp, bool focusImmediately = false)
         {
-            bool shown = ShowPopup(disp);
-            if (screenPos.x > 1)
-                screenPos.x = 1;
-            if (screenPos.y > 1)
-                screenPos.y = 1;
-            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPos.x;
-            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPos.y;
-
-            return shown;
-        }
-        /// <summary>
-        /// Position in percent of the max screen width and length. 
-        ///  Controls the currentGUIWindow
-        /// </summary>
-        public static bool ShowPopup(Vector2 screenPos)
-        {
-            bool shown = ShowPopup();
-            if (screenPos.x > 1)
-                screenPos.x = 1;
-            if (screenPos.y > 1)
-                screenPos.y = 1;
-            currentGUIWindow.Window.x = (Display.main.renderingWidth - currentGUIWindow.Window.width) * screenPos.x;
-            currentGUIWindow.Window.y = (Display.main.renderingHeight - currentGUIWindow.Window.height) * screenPos.y;
-
-            return shown;
-        }
-        public static bool ShowPopup(GUIPopupDisplay disp)
-        {
+            if (disp == null)
+                throw new ArgumentNullException(nameof(disp));
+            if (disp.isOpen)
+            {
+                //Debug_TTExt.Log("TerraTechETCUtil: ShowPopup - Window is already open");
+                if (focusImmediately)
+                    GUI.FocusWindow(disp.ID);
+                return false;
+            }
             if (MaxPopupsActive <= numActivePopups)
             {
                 Debug_TTExt.Assert(false, "Too many popups active!!!  Limit is " + MaxPopupsActive + ".  Aborting ShowPopup!");
                 return false;
             }
-            if (disp.isOpen)
-            {
-                //Debug_TTExt.Log("TerraTechETCUtil: ShowPopup - Window is already open");
-                return false;
-            }
-            Debug_TTExt.Log("TerraTechETCUtil: Popup " + disp.context + " active");
+            Debug_TTExt.Info("TerraTechETCUtil: Popup " + disp.Header + " active");
             disp.GUIFormat.OnOpen();
             disp.obj.SetActive(true);
             disp.isOpen = true;
@@ -636,29 +841,90 @@ namespace TerraTechETCUtil
             return true;
         }
         /// <summary>
-        /// Controls the currentGUIWindow
+        /// Show a specific popup
         /// </summary>
-        public static bool ShowPopup()
+        /// <param name="disp">Specific window instance target</param>
+        /// <param name="screenPosPercent">Position relative to the entire main screen [0 ~ 1]</param>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        /// <returns>True if successful</returns>
+        public static bool ShowPopup(GUIPopupDisplay disp, Vector2 screenPosPercent, bool focusImmediately = false)
         {
-            if (MaxPopupsActive <= numActivePopups)
-            {
-                Debug_TTExt.Assert(false, "Too many popups active!!!  Limit is " + MaxPopupsActive + ".  Aborting ShowPopup!");
-                return false;
-            }
-            if (currentGUIWindow.isOpen)
-            {
-                //Debug_TTExt.Log("TerraTechETCUtil: ShowPopup - Window is already open");
-                return false;
-            }
-            numActivePopups++;
-            Debug_TTExt.Log("TerraTechETCUtil: Popup " + currentGUIWindow.context + " active");
-            currentGUIWindow.GUIFormat.OnOpen();
-            currentGUIWindow.obj.SetActive(true);
-            currentGUIWindow.isOpen = true;
-            Singleton.Manager<ManSFX>.inst.PlayUISFX(ManSFX.UISfxType.InfoOpen);
-            return true;
+            bool shown = ShowPopup(disp, focusImmediately);
+            if (screenPosPercent.x > 1)
+                screenPosPercent.x = 1;
+            if (screenPosPercent.y > 1)
+                screenPosPercent.y = 1;
+            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPosPercent.x;
+            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPosPercent.y;
+
+            return shown;
+        }
+        /// <summary>
+        /// Show a specific popup
+        /// </summary>
+        /// <param name="menu">Specific window menu target</param>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        /// <returns>True if successful</returns>
+        public static bool ShowPopup(GUIMiniMenu menu, bool focusImmediately = false)
+        {
+            var disp = menu.Display;
+            if (disp == null)
+                throw new NullReferenceException("GUIMiniMenu is not assigned to a GUIPopupDisplay. " +
+                    "Register it first in ManModGUI.RegisterPopupSingle() or create it using " +
+                    "ManModGUI.AddPopupSingle() or ManModGUI.AddPopupStackable()");
+            return ShowPopup(disp, focusImmediately);
+        }
+        /// <summary>
+        /// Show a specific popup
+        /// </summary>
+        /// <param name="menu">Specific window menu target</param>
+        /// <param name="screenPosPercent">Position relative to the entire main screen [0 ~ 1]</param>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        /// <returns>True if successful</returns>
+        public static bool ShowPopup(GUIMiniMenu menu, Vector2 screenPosPercent, bool focusImmediately = false)
+        {
+            var disp = menu.Display;
+            if (disp == null)
+                throw new NullReferenceException("GUIMiniMenu is not assigned to a GUIPopupDisplay. " +
+                    "Register it first in ManModGUI.RegisterPopupSingle() or create it using " +
+                    "ManModGUI.AddPopupSingle() or ManModGUI.AddPopupStackable()");
+            return ShowPopup(disp, screenPosPercent, focusImmediately);
         }
 
+
+        /// <summary>
+        /// Show the currently focussed popup
+        /// </summary>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        public static bool ShowPopup(bool focusImmediately = false)
+        {
+            if (currentGUIWindow == null)
+                throw new NullReferenceException("currentGUIWindow is null.  There is no displayued window!");
+            return ShowPopup(currentGUIWindow, focusImmediately);
+        }
+        /// <summary> 
+        /// Show the currently focussed popup
+        /// </summary>
+        /// <param name="screenPosPercent">Position relative to the entire main screen [0 ~ 1]</param>
+        /// <param name="focusImmediately">Rise this window to the top of all menus</param>
+        public static bool ShowPopup(Vector2 screenPosPercent, bool focusImmediately = false)
+        {
+            bool shown = ShowPopup(focusImmediately);
+            if (screenPosPercent.x > 1)
+                screenPosPercent.x = 1;
+            if (screenPosPercent.y > 1)
+                screenPosPercent.y = 1;
+            currentGUIWindow.Window.x = (Display.main.renderingWidth - currentGUIWindow.Window.width) * screenPosPercent.x;
+            currentGUIWindow.Window.y = (Display.main.renderingHeight - currentGUIWindow.Window.height) * screenPosPercent.y;
+
+            return shown;
+        }
+
+        /// <summary>
+        /// Hide a specific popup
+        /// </summary>
+        /// <param name="disp">Specific window instance target</param>
+        /// <returns>True if successful</returns>
         public static bool HidePopup(GUIPopupDisplay disp)
         {
             if (disp == null)
@@ -677,9 +943,27 @@ namespace TerraTechETCUtil
             Singleton.Manager<ManSFX>.inst.PlayUISFX(ManSFX.UISfxType.InfoClose);
             return true;
         }
+        /// <summary>
+        /// Hide a specific popup
+        /// </summary>
+        /// <param name="menu">Specific window menu target</param>
+        /// <returns>True if successful</returns>
+        public static bool HidePopup(GUIMiniMenu menu)
+        {
+            var disp = menu.Display;
+            if (disp == null)
+                throw new NullReferenceException("GUIMiniMenu is not assigned to a GUIPopupDisplay. " +
+                    "Register it first in ManModGUI.RegisterPopupSingle() or create it using " +
+                    "ManModGUI.AddPopupSingle() or ManModGUI.AddPopupStackable()");
+            return HidePopup(disp);
+        }
 
         private static bool allPopupsOpen = true;
         private static List<GUIPopupDisplay> PopupsClosed = new List<GUIPopupDisplay>();
+        /// <summary>
+        /// Set the visiblity of all popups managed by <see cref="ManModGUI"/>
+        /// </summary>
+        /// <param name="Closed"></param>
         public static void SetVisibilityOfAllPopups(bool Closed)
         {
             bool isOpen = !Closed;
@@ -730,7 +1014,10 @@ namespace TerraTechETCUtil
             updateClock++;
         }
 
-        public static void UpdateAllPopups()
+        /// <summary>
+        /// Once every 50 visual frames
+        /// </summary>
+        private static void UpdateAllPopups()
         {
             int FireTimes = AllPopups.Count;
             for (int step = 0; step < FireTimes; step++)
@@ -760,21 +1047,74 @@ namespace TerraTechETCUtil
 
     }
 
+    /// <summary>
+    /// This manages the window that HOLDS the GUIMiniMenu.
+    /// <b>Use GUIMiniMenu for the window contents!</b>
+    /// </summary>
     public class GUIPopupDisplay : MonoBehaviour
     {
         internal int ID = ManModGUI.IDOffset;
+        /// <summary>
+        /// The gameobject hosting this
+        /// </summary>
         public GameObject obj;
-        public string context = "error";
+        /// <summary>
+        /// The title of the display
+        /// </summary>
+        public string Header = "error";
+        /// <summary>
+        /// The popup is being displayed to the player
+        /// </summary>
         public bool isOpen { get; internal set; } = false;
+        /// <summary>
+        /// The transparancy of the window [0 ~ 1]
+        /// </summary>
         public float alpha = 0.65f;
+        /// <summary>
+        /// The dimensions of the window
+        /// </summary>
         public Rect Window = new Rect(ManModGUI.DefaultWindow);   // the "window"
+        /// <summary>
+        /// The assigned typeHash of the window which is <b>typeof(<c>T</c>).GetHashCode()</b>
+        /// </summary>
         public int typeHash = 0;
+        /// <summary>
+        /// The local player has their cursor hovering over this window.
+        /// <para>Does not check if this is the foremost window they are hovering over!</para>
+        /// </summary>
         public bool CursorWithinWindow => UIHelpersExt.MouseIsOverSubMenu(Window);
+        /// <summary>
+        /// The GUI menu assigned to this display
+        /// </summary>
         public GUIMiniMenu GUIFormat { get; private set; }
 
+        /// <summary>
+        /// Show this popup
+        /// </summary>
         public void Show() => ManModGUI.ShowPopup(this);
+        /// <summary>
+        /// Hide this popup
+        /// </summary>
         public void Hide() => ManModGUI.HidePopup(this);
+        /// <summary>
+        /// Remove and DELETE this popup. Does not remove external references to attached GUIMiniMenu.
+        /// </summary>
         public void Remove() => ManModGUI.RemovePopup(this);
+        /// <summary>
+        /// Rise this to the top and focus it
+        /// </summary>
+        public void FocusOnMe() => ManModGUI.SetCurrentPopup(this);
+
+        /// <summary>
+        /// Make sure the WHOLE POPUP is in view of the player
+        /// </summary>
+        public void MoveMeWithinScreenBoundsStrict() => ManModGUI.KeepWithinScreenBounds(this);
+        /// <summary>
+        /// Make sure at least a small section of the popup is in view of the player
+        /// </summary>
+        public void MoveMeWithinScreenBoundsNonStrict() => ManModGUI.KeepWithinScreenBoundsNonStrict(this);
+
+
         private void OnGUI()
         {
             if (isOpen)
@@ -844,12 +1184,12 @@ namespace TerraTechETCUtil
                 }
                 if (Window.height > 400)
                 {
-                    Window = AltUI.Window(ID, Window, GUIFormat.RunGUI, context, alpha, Hide);
+                    Window = AltUI.Window(ID, Window, GUIFormat.RunGUI, Header, alpha, Hide);
                 }
                 else
                 {
                     AltUI.StartUI(alpha, alpha);
-                    Window = GUI.Window(ID, Window, GUIFormat.RunGUI, context);
+                    Window = GUI.Window(ID, Window, GUIFormat.RunGUI, Header);
                     AltUI.EndUI();
                 }
             }
@@ -908,73 +1248,18 @@ namespace TerraTechETCUtil
         }
     }
 
+    /// <summary>
+    /// Additional information when creating the window
+    /// </summary>
     public class GUIDisplayStats
     {
+        /// <summary>
+        /// Size of the window
+        /// </summary>
         public Rect windowSize = new Rect(ManModGUI.DefaultWindow);
+        /// <summary>
+        /// Transparancy of the window
+        /// </summary>
         public float alpha = -1;
-    }
-    public abstract class GUIMiniMenu
-    {
-        internal int typeHash => GetType().GetHashCode();
-        public GUIPopupDisplay Display { get; internal set; }
-
-        public bool ShowPopup()
-        {
-            return ManModGUI.ShowPopup(Display);
-        }
-        public bool ShowPopup(Vector2 screenPosPercent)
-        {
-            return ManModGUI.ShowPopup(screenPosPercent, Display);
-        }
-        public bool HidePopup()
-        {
-            return ManModGUI.HidePopup(Display);
-        }
-        public void MovePopup(Vector2 screenPosPercent)
-        {
-            ManModGUI.ChangePopupPositioning(screenPosPercent, Display);
-        }
-        public bool RemovePopup()
-        {
-            return ManModGUI.RemovePopup(Display);
-        }
-
-
-        public abstract void Setup(GUIDisplayStats stats);
-
-        public abstract void RunGUI(int ID);
-
-        public abstract void DelayedUpdate();
-        public abstract void FastUpdate();
-        public abstract void OnRemoval();
-
-        public virtual void OnOpen() { }
-    }
-
-    /// <summary>
-    /// A universal menu for use
-    /// </summary>
-    public abstract class GUIMiniMenu<T> : GUIMiniMenu where T : GUIMiniMenu<T>, new()
-    {
-        public static bool RegisterMenuToManager(string name, GUIDisplayStats stats = null)
-        {
-            return ManModGUI.AddPopupSingle<T>(name, stats);
-        }
-        public static bool Register1StackableMenuToManager(string name, GUIDisplayStats stats = null)
-        {
-            return ManModGUI.AddPopupStackable<T>(name, stats);
-        }
-    }
-    public class GUIMiniMenuBasic : GUIMiniMenu<GUIMiniMenuBasic>
-    {
-        public override void Setup(GUIDisplayStats stats) { }
-
-        public override void RunGUI(int ID)
-        {
-        }
-
-        public override void DelayedUpdate() { }
-        public override void FastUpdate() { }
-        public override void OnRemoval() { }
     }
 }

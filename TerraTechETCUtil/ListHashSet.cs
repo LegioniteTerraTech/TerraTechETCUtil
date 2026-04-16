@@ -20,6 +20,7 @@ namespace TerraTechETCUtil
     {
         private List<T> List = new List<T>();
         private HashSet<T> Hash = new HashSet<T>();
+        /// <inheritdoc/>
         public T this[int index]
         {
             get => List[index];
@@ -44,19 +45,27 @@ namespace TerraTechETCUtil
                 Hash.Add(value2);
             }
         }
+        /// <inheritdoc/>
         public bool this[T value]
         {
             get => Hash.Contains(value);
         }
+        /// <inheritdoc/>
         public int Count => List.Count;
+        /// <inheritdoc/>
         public bool IsFixedSize => false;
+        /// <inheritdoc/>
         public bool IsReadOnly => ((ICollection<T>)List).IsReadOnly;
+        /// <inheritdoc/>
         public bool IsSynchronized => ((ICollection)List).IsSynchronized;
+        /// <inheritdoc/>
         public object SyncRoot => ((ICollection)List).SyncRoot;
 
+        /// <inheritdoc/>
         public IEnumerator<T> GetEnumerator() => List.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => List.GetEnumerator();
 
+        /// <inheritdoc/>
         public bool Contains(T value) => Hash.Contains(value);
         bool IList.Contains(object value)
         {
@@ -64,6 +73,7 @@ namespace TerraTechETCUtil
                 throw new ArgumentException("value is not of correct type " + typeof(T).FullName);
             return Hash.Contains(value2);
         }
+        /// <inheritdoc/>
         public int IndexOf(T value) => List.IndexOf(value);
         int IList.IndexOf(object value)
         {
@@ -72,6 +82,7 @@ namespace TerraTechETCUtil
             return List.IndexOf(value2);
         }
 
+        /// <inheritdoc/>
         public bool Add(T value)
         {
             if (Hash.Add(value))
@@ -95,6 +106,7 @@ namespace TerraTechETCUtil
             return Count -1;
         }
 
+        /// <inheritdoc/>
         public bool Insert(int index, T value)
         {
             if (Hash.Add(value))
@@ -119,6 +131,7 @@ namespace TerraTechETCUtil
                 List.Insert(index, value2);
             throw new InvalidOperationException("value was already assigned");
         }
+        /// <inheritdoc/>
         public bool RemoveAt(int index)
         {
             if (Hash.Remove(List[index]))
@@ -138,6 +151,7 @@ namespace TerraTechETCUtil
             Hash.Remove(List[index]);
             List.RemoveAt(index);
         }
+        /// <inheritdoc/>
         public bool Remove(T value)
         {
             if (Hash.Remove(value))
@@ -154,6 +168,7 @@ namespace TerraTechETCUtil
             if (Hash.Remove(value2))
                 List.Remove(value2);
         }
+        /// <inheritdoc/>
         public void CopyTo(T[] value, int arrayIndex) => List.CopyTo(value, arrayIndex);
         void ICollection.CopyTo(Array value, int arrayIndex)
         {
@@ -161,6 +176,7 @@ namespace TerraTechETCUtil
                 throw new ArgumentException("value is not of correct type " + typeof(T[]).FullName);
             List.CopyTo(value2, arrayIndex);
         }
+        /// <inheritdoc/>
         public void Clear()
         {
             Hash.Clear();
@@ -168,23 +184,36 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <inheritdoc/>
         public void GetObjectData(SerializationInfo info, StreamingContext context) => Hash.GetObjectData(info, context);
+        /// <inheritdoc/>
         public void OnDeserialization(object sender) => Hash.OnDeserialization(sender);
 
 
+        /// <inheritdoc/>
         public void UnionWith(IEnumerable<T> other) => Hash.UnionWith(other);
+        /// <inheritdoc/>
         public void SymmetricExceptWith(IEnumerable<T> other) => Hash.SymmetricExceptWith(other);
+        /// <inheritdoc/>
         public void IntersectWith(IEnumerable<T> other) => Hash.IntersectWith(other);
+        /// <inheritdoc/>
         public void ExceptWith(IEnumerable<T> other) => Hash.ExceptWith(other);
 
 
+        /// <inheritdoc/>
         public bool SetEquals(IEnumerable<T> other) => Hash.SetEquals(other);
+        /// <inheritdoc/>
         public bool Overlaps(IEnumerable<T> other) => Hash.Overlaps(other);
+        /// <inheritdoc/>
         public bool IsSubsetOf(IEnumerable<T> other) => Hash.IsSubsetOf(other);
+        /// <inheritdoc/>
         public bool IsSupersetOf(IEnumerable<T> other) => Hash.IsSupersetOf(other);
+        /// <inheritdoc/>
         public bool IsProperSubsetOf(IEnumerable<T> other) => Hash.IsProperSubsetOf(other);
+        /// <inheritdoc/>
         public bool IsProperSupersetOf(IEnumerable<T> other) => Hash.IsProperSupersetOf(other);
 
+        /// <inheritdoc/>
         public ListHashSetSorting<T> OrderBy<K>(Func<T, K> keySelector)
         {
             return new ListHashSetSorting<T>
@@ -193,6 +222,7 @@ namespace TerraTechETCUtil
                 List = List.OrderBy(keySelector),
             };
         }
+        /// <inheritdoc/>
         public ListHashSetSorting<T> OrderByDescending<K>(Func<T, K> keySelector)
         {
             return new ListHashSetSorting<T>
@@ -201,22 +231,28 @@ namespace TerraTechETCUtil
                 List = List.OrderByDescending(keySelector),
             };
         }
-
-        public class ListHashSetSorting<T> where T : class
+        /// <summary>
+        /// Sorter for <see cref="ListHashSet{V}"/>
+        /// </summary>
+        /// <typeparam name="V"></typeparam>
+        public class ListHashSetSorting<V> where V : class
         {
-            internal ListHashSet<T> Origin;
-            internal IOrderedEnumerable<T> List;
-            public ListHashSetSorting<T> ThenBy<K>(Func<T, K> keySelector)
+            internal ListHashSet<V> Origin;
+            internal IOrderedEnumerable<V> List;
+            /// <inheritdoc/>
+            public ListHashSetSorting<V> ThenBy<K>(Func<V, K> keySelector)
             {
                 List = List.ThenBy(keySelector);
                 return this;
             }
-            public ListHashSetSorting<T> ThenByDescending<K>(Func<T, K> keySelector)
+            /// <inheritdoc/>
+            public ListHashSetSorting<V> ThenByDescending<K>(Func<V, K> keySelector)
             {
                 List = List.ThenByDescending(keySelector);
                 return this;
             }
-            public ListHashSet<T> ToList()
+            /// <inheritdoc/>
+            public ListHashSet<V> ToList()
             {
                 Origin.List = List.ToList();
                 return Origin;

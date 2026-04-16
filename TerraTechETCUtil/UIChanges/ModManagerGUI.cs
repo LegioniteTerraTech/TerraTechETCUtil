@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
+    // WIP
     /// <summary>
     /// It's main goal is to create a persistant, managed GUI window.
     /// </summary>
@@ -15,8 +16,8 @@ namespace TerraTechETCUtil
         private string name;
         public string Name
         {
-            get => Display.context;
-            set => Display.context = value;
+            get => Display.Header;
+            set => Display.Header = value;
         }
         public Rect HotWindow
         {
@@ -40,15 +41,19 @@ namespace TerraTechETCUtil
             });
         }
 
-
+        /// <inheritdoc/>
         public override void Setup(GUIDisplayStats stats) { }
 
+        /// <inheritdoc/>
         public override void RunGUI(int ID)
         {
         }
 
+        /// <inheritdoc/>
         public override void DelayedUpdate() { }
+        /// <inheritdoc/>
         public override void FastUpdate() { }
+        /// <inheritdoc/>
         public override void OnRemoval() { }
     }
 }

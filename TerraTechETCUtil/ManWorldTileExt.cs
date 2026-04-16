@@ -13,51 +13,95 @@ using static CompoundExpression;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Interface for custom modded TileLoaders for <see cref="ManWorldTileExt"/>
+    /// </summary>
     public interface ITileLoader
     {
+        /// <summary>
+        /// Add to the given <paramref name="tileCache"/> the tiles this <see cref="ITileLoader"/> should load
+        /// </summary>
         void GetActiveTiles(List<IntVector2> tileCache);
     }
 
-
+    /// <summary>
+    /// Manages <see cref="WorldTile"/> as well as <see cref="ITileLoader"/>s
+    /// </summary>
     public class ManWorldTileExt
     {
+        /// <summary>
+        /// The factor to extend the physics range for long-distance actions
+        /// </summary>
         public const float BroadphasePhysicsExtendSizeMultiplier = 64;
+        /// <summary>
+        /// The <see cref="ManWorldTileExt"/> physics mode the game is set to handle
+        /// </summary>
         public enum PhysicsMode
         {
+            /// <summary>
+            /// Game default
+            /// </summary>
             DefaultBroadphase,
+            /// <summary>
+            /// Unity default
+            /// </summary>
             Standard,
+            /// <summary>
+            /// Game default extended by <see cref="BroadphasePhysicsExtendSizeMultiplier"/>
+            /// </summary>
             BroadphaseExtended,
+            /// <summary>
+            /// Game default dynamically moving with player position
+            /// </summary>
             BroadphaseDynamic,
         }
 
         private static bool init = false;
         private static PhysicsMode phyMode = PhysicsMode.DefaultBroadphase;
+        /// <summary>
+        /// True if the base game is using Broadphase
+        /// </summary>
         public static bool AutomaticBroadphase => Globals.inst.DynamicMultiBoxBroadphaseRegions;
-
+        /// <summary>
+        /// The physics bounds currently in use
+        /// </summary>
         public static Bounds BoundsPhysics = default;
 
 
-        
+        /// <summary>
+        /// The <see cref="WorldTile"/> message type
+        /// </summary>
         public enum NetWTMsgType
         {
+            /// <summary> unknown </summary>
             None,
+            /// <summary> Tile states updated </summary>
             TileStatesUpdate,
+            /// <summary> fixed tiles updated </summary>
             FixedTilesUpdate,
+            /// <summary> dynamic tiles updated </summary>
             DynamicTilesUpdate,
         }
+        /// <summary>
+        /// The world tiles networking message sent over networking
+        /// </summary>
         public class NetWTMessage : MessageBase
         {
+            /// <summary> </summary>
             public NetWTMessage() { }
+            /// <summary> </summary>
             public NetWTMessage(Dictionary<IntVector2, WorldTile.State> rawData)
             {
                 this.type = (uint)NetWTMsgType.TileStatesUpdate;
                 AssignData(rawData);
             }
+            /// <summary> </summary>
             public NetWTMessage(HashSet<IntVector2> rawData)
             {
                 this.type = (uint)NetWTMsgType.FixedTilesUpdate;
                 AssignData(rawData);
             }
+            /// <summary> </summary>
             public NetWTMessage(List<ITileLoader> rawData)
             {
                 this.type = (uint)NetWTMsgType.DynamicTilesUpdate;
@@ -78,11 +122,14 @@ namespace TerraTechETCUtil
                     infoBytes = FS.ToArray();
                 }
             }
+            /// <summary> </summary>
             public Dictionary<IntVector2, WorldTile.State> ExtractTileState() =>
                 ExtractData<Dictionary<IntVector2, WorldTile.State>>(NetWTMsgType.TileStatesUpdate);
+            /// <summary> </summary>
             public HashSet<IntVector2> ExtractFixedTileState() =>
                 ExtractData<HashSet<IntVector2>>(NetWTMsgType.FixedTilesUpdate);
 
+            /// <summary> </summary>
             public List<ITileLoader> ExtractDynamicTileState() =>
                 ExtractData<List<ITileLoader>>(NetWTMsgType.DynamicTilesUpdate);
 
@@ -103,7 +150,9 @@ namespace TerraTechETCUtil
                 }
             }
 
+            /// <summary> </summary>
             public uint type;
+            /// <summary> </summary>
             public byte[] infoBytes;
         }
         private static NetworkHook<NetWTMessage>  netHook = new NetworkHook<NetWTMessage>("TerraTechETCUtil.NetWTMessage", 
@@ -137,7 +186,9 @@ namespace TerraTechETCUtil
             return true;
         }
 
-
+        /// <summary>
+        /// All tiles that are requested to load
+        /// </summary>
         public static Dictionary<IntVector2, WorldTile.State> RequestedLoaded => LoadedTileCoords;
         private static readonly Dictionary<IntVector2, float> TempLoaders = new Dictionary<IntVector2, float>();
         private static readonly HashSet<IntVector2> FixedTileLoaders = new HashSet<IntVector2>();
@@ -145,19 +196,36 @@ namespace TerraTechETCUtil
         private static readonly Dictionary<IntVector2, WorldTile.State> SetTiles = new Dictionary<IntVector2, WorldTile.State>();
 
         private static bool rushTiles = false;
+        /// <summary>
+        /// The game is trying to load tiles far faster than normal, which may be very laggy
+        /// </summary>
         public static bool RushingTiles => rushTiles;
-
+        /// <summary>
+        /// Rush tile loading duration for clients
+        /// </summary>
         public const float TempDurationDefault = 6; // In seconds
+        /// <summary>
+        /// Rush tile loading duration
+        /// </summary>
         public const float RushLoadingDuration = 1.5f; // In seconds
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public const float MaxWorldPhysicsSafeDistance = 100_000; // In blocks
 
         private static int _MaxWorldPhysicsSafeDistanceTiles = Mathf.CeilToInt(MaxWorldPhysicsSafeDistance / ManWorld.inst.TileSize) - 1; // In worldTile Coords
+        /// <summary>
+        /// self-explanitory
+        /// </summary>
         public static int MaxWorldPhysicsSafeDistanceTiles => _MaxWorldPhysicsSafeDistanceTiles; // In worldTile Coords
 
         private static Dictionary<IntVector2, WorldTile.State> LoadedTileCoords = new Dictionary<IntVector2, WorldTile.State>();
 
         private static Dictionary<IntVector2, WorldTile.State> PerimeterTileSubLoaded = new Dictionary<IntVector2, WorldTile.State>();
 
+        /// <summary>
+        /// External call to <see cref="SetExtendedBroadphase"/>
+        /// </summary>
         public static void FORCEExtendedBroadphase() => SetExtendedBroadphase();
         internal static void SetDynamicBroadphase()
         {
@@ -200,6 +268,9 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log("Expanded physics bounds to " + BoundsPhysics.min + ", " + BoundsPhysics.max);
         }
 
+        /// <summary>
+        /// Insure <see cref="ManWorldTileExt"/> is init and running
+        /// </summary>
         public static void InsureInit()
         {
             if (init)
@@ -524,7 +595,9 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary> </summary>
         public static int lastTechID = -1;
+        /// <summary> </summary>
         public static float lastTechUpdateTime = -1;
 
         /*
@@ -534,6 +607,12 @@ namespace TerraTechETCUtil
                 MaintainPlayerTech();
         }*/
 
+        /// <summary>
+        /// Check to see if the target point is still within the active physics space
+        /// </summary>
+        /// <param name="posScene"></param>
+        /// <param name="boundsRadius"></param>
+        /// <returns></returns>
         public static bool IsWithinPhysicsRegions(Vector3 posScene, float boundsRadius = 76)
         {
             Bounds bounds = BoundsPhysics;
@@ -664,6 +743,12 @@ namespace TerraTechETCUtil
                 perimeter.Add(perimeterToAdd, state);
         }
 
+        /// <summary>
+        /// Get the active tiles around a specific WorldPosition for remote tile-loading
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="WP"></param>
+        /// <param name="MaxTileLoadingDiameter"></param>
         public static void GetActiveTilesAround(List<IntVector2> cache, WorldPosition WP, int MaxTileLoadingDiameter)
         {
             IntVector2 centerTile = WP.TileCoord;

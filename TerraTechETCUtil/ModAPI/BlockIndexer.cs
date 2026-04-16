@@ -14,22 +14,31 @@ using Nuterra.BlockInjector;
 namespace TerraTechETCUtil
 {
     /// <summary>
-    /// A temporary way of doing reverse block lookups for the time being
+    /// A unified mod and vanilla block lookup system
     /// </summary>
     public class BlockIndexer : MonoBehaviour
     {
+        /// <summary> self-explanitory </summary>
         public static bool isBlockInjectorPresent = false;
+        /// <summary> self-explanitory </summary>
         public static string FolderDivider = "/";
+        /// <summary> self-explanitory </summary>
         public static bool UseVanillaFallbackSnapUtility = true;
 
         private static bool spamLog = false;
         private static BlockIndexer inst;
         private static bool Compiled = false;
+        /// <summary>
+        /// True if all blocks in the current session were indexed.
+        /// <para>Rebuilds every time <see cref="ManGameMode"/> switches game modes</para>
+        /// <para><b>Does not account for new blocks created in the session itself</b></para>
+        /// </summary>
+        public static bool IsIndexed => Compiled;
         private static int types = Enum.GetValues(typeof(BlockTypes)).Length;
 
 
         /// <summary>
-        /// Searches Block Injector for the block based on root GameObject name.
+        /// Searches ENTIRE GAME for the block based on root GameObject name.
         /// </summary>
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <returns>The Block Type to use if it found it, otherwise returns BlockTypes.GSOCockpit_111</returns>
@@ -51,7 +60,7 @@ namespace TerraTechETCUtil
             (Enum.TryParse(mem, out BT) && (int)BT < types) || TryGetMismatchNames(mem, ref BT) ||
             StringToBIBlockType(mem, out BT) || GetBlockIDLogFree(mem, out BT);
         /// <summary>
-        /// Searches Block Injector for the block based on root GameObject name.
+        /// Searches <b>ONLY Block Injector</b> for the block based on root GameObject name.
         /// </summary>
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <param name="BT">The Block Type to use if it found it</param>
@@ -73,6 +82,12 @@ namespace TerraTechETCUtil
             return false;
         }
 
+        /// <summary>
+        /// <para><b>ONLY CHECKS MODDED BLOCKS</b></para>
+        /// Silent replacement for <see cref="ManMods.GetBlockID(string)"/>
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public static BlockTypes GetBlockIDLogFree(string name)
         {
             PrepareModdedBlocksFetch();
@@ -83,6 +98,13 @@ namespace TerraTechETCUtil
             return BlockTypes.GSOCockpit_111;
         }
 
+        /// <summary>
+        /// <para><b>ONLY CHECKS MODDED BLOCKS</b></para>
+        /// Silent replacement for <see cref="ManMods.GetBlockID(string)"/>
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="BT"></param>
+        /// <returns></returns>
         public static bool GetBlockIDLogFree(string name, out BlockTypes BT)
         {
             PrepareModdedBlocksFetch();
@@ -103,6 +125,11 @@ namespace TerraTechETCUtil
         // Block Details Cache 
         private static readonly Dictionary<int, BlockDetails.Flags> vanillaDetails = new Dictionary<int, BlockDetails.Flags>();
         private static readonly Dictionary<int, BlockDetails.Flags> moddedDetails = new Dictionary<int, BlockDetails.Flags>();
+        /// <summary>
+        /// Gets the <see cref="BlockDetails"/> for a given block, way faster than manually looking in the block for data
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public static BlockDetails GetBlockDetails(BlockTypes type) => new BlockDetails(type);
         internal static void GetBlockDetails_Internal(BlockTypes type, ref BlockDetails cache)
         {
@@ -122,6 +149,10 @@ namespace TerraTechETCUtil
         private static readonly Dictionary<int, BlockTypes> errorNamesVanilla = new Dictionary<int, BlockTypes>();
         private static readonly Dictionary<int, BlockTypes> errorNames = new Dictionary<int, BlockTypes>();
         private static bool subbed = false;
+        /// <summary>
+        /// Resets ALL the block lookup lists in <see cref="BlockIndexer"/>.
+        /// <para><b>DO NOT USE UNLESS ABSOLUTELY NECESSARY</b></para>
+        /// </summary>
         public static void ResetBlockLookupList()
         {
             if (subbed)
@@ -153,7 +184,8 @@ namespace TerraTechETCUtil
                 subbed = true;
             }
         }
-        public static void ConstructBlockLookupListTrigger(Mode mode)
+
+        internal static void ConstructBlockLookupListTrigger(Mode mode)
         {
             ConstructBlockLookupList();
         }
@@ -281,6 +313,9 @@ namespace TerraTechETCUtil
                 ModdedBlocksGrabbed = (Dictionary<string, int>)allModdedBlocks.GetValue(Singleton.Manager<ManMods>.inst);
         }
 
+        /// <summary>
+        /// Construct only the modded block ID list
+        /// </summary>
         public static void ConstructModdedIDList()
         {
 #if STEAM
@@ -298,7 +333,7 @@ namespace TerraTechETCUtil
                     if (SCAN.Contains("NuterraBlock"))
                     {
                         int num = 0;
-                        string name = "";
+                        //string name = "";
                         if (FindInt(SCAN, "\"ID\":", ref num)) //&& FindText(SCAN, "\"Name\" :", ref name))
                         {
                             BlockTypes BT = (BlockTypes)ManMods.inst.GetBlockID(MBD.name);
@@ -491,6 +526,7 @@ namespace TerraTechETCUtil
         // RawTech Support
 
         private static StringBuilder blockCase = new StringBuilder();
+        /*
         private static List<BlockMemory> JSONToMemory(string toLoad)
         {   // Loading a Tech from the BlockMemory
             List<BlockMemory> mem = new List<BlockMemory>();
@@ -518,10 +554,11 @@ namespace TerraTechETCUtil
                 blockCase.Clear();
             }
         }
-        private static FactionTypesExt GetCorpExtended(BlockTypes type)
-        {
-            return (FactionTypesExt)Singleton.Manager<ManSpawn>.inst.GetCorporation(type);
-        }
+        */
+        /// <inheritdoc cref=" RawTechUtil.GetCorpExtended(BlockTypes)"/>
+        private static FactionTypesExt GetCorpExtended(BlockTypes type) =>
+            RawTechUtil.GetCorpExtended(type);
+
         private static FactionSubTypes CorpExtToCorp(FactionTypesExt corpExt)
         {
             switch (corpExt)
@@ -544,6 +581,14 @@ namespace TerraTechETCUtil
             }
             return (FactionSubTypes)corpExt;
         }
+        /// <summary>
+        /// Convert <see cref="RawTech"/> JSON string format to <see cref="TechData"/>
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="blueprint"></param>
+        /// <param name="blockIDs"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException"></exception>
         public static TechData RawTechToTechData(string name, string blueprint, out int[] blockIDs)
         {
             if (!Compiled)
@@ -557,7 +602,7 @@ namespace TerraTechETCUtil
             data.m_TechSaveState = new Dictionary<int, TechComponent.SerialData>();
             data.m_CreationData = new TechData.CreationData();
             data.m_BlockSpecs = new List<TankPreset.BlockSpec>();
-            List<BlockMemory> mems = JSONToMemory(blueprint);
+            List<RawBlock> mems = RawTechBase.JSONToMemoryExternalNonAlloc(blueprint);
             if (mems == null)
                 throw new NullReferenceException("RawTechToTechData was given an INVALID blueprint!");
             List<int> BTs = new List<int>();
@@ -565,7 +610,7 @@ namespace TerraTechETCUtil
             bool skinChaotic = UnityEngine.Random.Range(0, 100) < 2;
             byte skinset = (byte)UnityEngine.Random.Range(0, 2);
             byte skinset2 = (byte)UnityEngine.Random.Range(0, 1);
-            foreach (BlockMemory mem in mems)
+            foreach (RawBlock mem in mems)
             {
                 if (StringToBlockType(mem.t, out BlockTypes type))
                 {
@@ -636,6 +681,11 @@ namespace TerraTechETCUtil
             return data;
         }
 
+        /// <summary>
+        /// Convert active <see cref="Tank"/> to <see cref="RawTech"/> JSON string format. <b>LOSSY</b>.
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <returns></returns>
         public static string SaveTechToRawJSON(Tank tank)
         {
             return TechToJSONExternal(tank);
@@ -685,105 +735,71 @@ namespace TerraTechETCUtil
             }
             return newRoot;
         }
-        private static List<BlockMemory> TechToMemoryExternal(Tank tank)
-        {
-            // This resaves the whole tech cab-forwards regardless of original rotation
-            //   It's because any solutions that involve the cab in a funny direction will demand unholy workarounds.
-            //   I seriously don't know why the devs didn't try it this way, perhaps due to lag reasons.
-            //   or the blocks that don't allow upright placement (just detach those lmao)
-            List<BlockMemory> output = new List<BlockMemory>();
-            List<TankBlock> ToSave = tank.blockman.IterateBlocks().ToList();
-            Vector3 coreOffset = Vector3.zero;
-            Quaternion coreRot;
-            TankBlock rootBlock = FindProperRootBlockExternal(ToSave);
-            if (rootBlock != null)
-            {
-                if (rootBlock != ToSave.FirstOrDefault())
-                {
-                    ToSave.Remove(rootBlock);
-                    ToSave.Insert(0, rootBlock);
-                }
-                coreOffset = rootBlock.trans.localPosition;
-                coreRot = rootBlock.trans.localRotation;
-                tank.blockman.SetRootBlock(rootBlock);
-            }
-            else
-                coreRot = new OrthoRotation(OrthoRotation.r.u000);
+        
 
-            foreach (TankBlock bloc in ToSave)
-            {
-                if (!Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(bloc.BlockType))
-                    continue;
-                Quaternion deltaRot = Quaternion.Inverse(coreRot);
-                BlockMemory mem = new BlockMemory
-                {
-                    t = bloc.name,
-                    p = deltaRot * (bloc.trans.localPosition - coreOffset)
-                };
-                // get rid of floating point errors
-                mem.TidyUp();
-                //Get the rotation
-                mem.r = SetCorrectRotation(bloc.trans.localRotation, deltaRot).rot;
-                if (!IsValidRotation(bloc, mem.r))
-                {   // block cannot be saved - illegal rotation.
-                    Debug.Log("TTETCUtil:  DesignMemory - " + tank.name + ": could not save " + bloc.name + " in blueprint due to illegal rotation.");
-                    continue;
-                }
-                output.Add(mem);
-            }
-
-            return output;
-        }
+        /// <summary>
+        /// Convert active <see cref="Tank"/> to <see cref="RawTech"/> JSON string format. <b>LOSSY</b>.
+        /// </summary>
+        /// <param name="tank"></param>
+        /// <returns></returns>
         public static string TechToJSONExternal(Tank tank)
         {   // Saving a Tech from the BlockMemory
-            return MemoryToJSONExternal(TechToMemoryExternal(tank));
+            return RawTechBase.TechToJSONExternal(tank);
         }
 
-        private static StringBuilder TechRAW = new StringBuilder();
-        private static StringBuilder TechRAWCase = new StringBuilder();
-        private static string MemoryToJSONExternal(List<BlockMemory> mem)
-        {   // Saving a Tech from the BlockMemory
-            if (mem.Count == 0)
-                return null;
-            try
-            {
-                TechRAW.Append(JsonUtility.ToJson(mem.FirstOrDefault()));
-                for (int step = 1; step < mem.Count; step++)
-                {
-                    TechRAW.Append("|");
-                    TechRAW.Append(JsonUtility.ToJson(mem.ElementAt(step)));
-                }
-            }
-            finally
-            {
-                TechRAW.Clear();
-            }
-            try
-            {
-                foreach (char ch in TechRAW.ToString())
-                {
-                    if (ch == '"')
-                    {
-                        //TechRAWCase.Append("\\");
-                        TechRAWCase.Append(ch);
-                    }
-                    else
-                        TechRAWCase.Append(ch);
-                }
-                //Debug.Log("TTETCUtil: " + JSONTech.ToString());
-                return TechRAWCase.ToString();
-            }
-            finally
-            {
-                TechRAWCase.Clear();
-            }
-        }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="TB"></param>
+        /// <param name="r"></param>
+        /// <returns></returns>
         public static bool IsValidRotation(TankBlock TB, OrthoRotation.r r)
         {
             return true; // can't fetch proper context for some reason
         }
 
+
+        /// <summary>
+        /// Set the correct <see cref="OrthoRotation"/> from any valid <see cref="Quaternion"/>, 
+        /// since <see cref="OrthoRotation"/>.ctor does not work properly
+        /// </summary>
+        /// <param name="changeRot">Rotation to check</param>
+        /// <returns>The correct <see cref="OrthoRotation"/></returns>
+        public static OrthoRotation SetCorrectRotation(Quaternion changeRot)
+        {
+            Vector3 foA = (changeRot * Vector3.forward).normalized;
+            Vector3 upA = (changeRot * Vector3.up).normalized;
+            //Debug.Log("Architech: SetCorrectRotation - Matching test " + foA + " | " + upA);
+            Quaternion qRot2 = Quaternion.LookRotation(foA, upA);
+            OrthoRotation rot = new OrthoRotation(qRot2);
+            if (rot != qRot2)
+            {
+                bool worked = false;
+                for (int step = 0; step < OrthoRotation.NumDistinctRotations; step++)
+                {
+                    OrthoRotation rotT = new OrthoRotation(OrthoRotation.AllRotations[step]);
+                    bool isForeMatch = (rotT * Vector3.forward).Approximately(foA, 0.35f);
+                    bool isUpMatch = (rotT * Vector3.up).Approximately(upA, 0.35f);
+                    if (isForeMatch && isUpMatch)
+                    {
+                        rot = rotT;
+                        worked = true;
+                        break;
+                    }
+                }
+                if (!worked)
+                    Debug_TTExt.Log("BlockIndexer: SetCorrectRotation - Matching failed - OrthoRotation is missing edge case " + foA + " | " + upA);
+            }
+            return rot;
+        }
+        /// <summary>
+        /// Set the correct <see cref="OrthoRotation"/> from any valid <see cref="Quaternion"/>, 
+        /// since <see cref="OrthoRotation"/>.ctor does not work properly
+        /// </summary>
+        /// <param name="blockRot">Current rotation</param>
+        /// <param name="changeRot">Offset rotation to apply</param>
+        /// <returns>The correct <see cref="OrthoRotation"/></returns>
         public static OrthoRotation SetCorrectRotation(Quaternion blockRot, Quaternion changeRot)
         {
             Quaternion qRot2 = Quaternion.identity;
@@ -809,9 +825,7 @@ namespace TerraTechETCUtil
                     }
                 }
                 if (!worked)
-                {
-                    Debug.Log("TerraTechETCUtil: ReplaceBlock - Matching failed - OrthoRotation is missing edge case");
-                }
+                    Debug_TTExt.Log("BlockIndexer: SetCorrectRotation - Matching failed - OrthoRotation is missing edge case");
             }
             return rot;
         }
@@ -825,7 +839,7 @@ namespace TerraTechETCUtil
             private static bool controlledDisp3 = false;
             private static bool controlledDisp4 = false;
             private static HashSet<string> enabledTabs = null;
-            private static BiomeTypes curBiome = BiomeTypes.Grassland;
+            //private static BiomeTypes curBiome = BiomeTypes.Grassland;
             private static bool showUtils = false;
             private static Visible Vis = null;
             private static GameObject GrabbedObject;
@@ -840,7 +854,7 @@ namespace TerraTechETCUtil
 
 
 
-            private static bool snapTerrain = false;
+            //private static bool snapTerrain = false;
             private static string Tech = "";
             private static int mask = Globals.inst.layerTank.mask | Globals.inst.layerTerrain.mask | Globals.inst.layerScenery.mask | 
                 Globals.inst.layerPickup.mask | Globals.inst.layerLandmark.mask;
@@ -880,7 +894,7 @@ namespace TerraTechETCUtil
                             biome = ManWorld.inst.GetBiomeWeightsAtScenePosition(hit.point).Biome(0);
                             if (biome)
                             {
-                                string name = WikiPageBiome.CleanupName(biome.name);
+                                string name = WikiPageBiome.CleanupBiomeName(biome.name);
                                 ItemID = (int)biome.BiomeType;
                                 Page = ManIngameWiki.GetPage(name);
                             }
@@ -1009,7 +1023,7 @@ namespace TerraTechETCUtil
                         {
                             GUILayout.BeginHorizontal();
                             GUILayout.Label("Selected Biome: ");
-                            string name = WikiPageBiome.CleanupName(biome.name);
+                            string name = WikiPageBiome.CleanupBiomeName(biome.name);
                             GUILayout.Label(name);
                             GUILayout.FlexibleSpace();
                             GUILayout.EndHorizontal();
@@ -1201,64 +1215,7 @@ namespace TerraTechETCUtil
         }
 
         [Serializable]
-        private class BlockMemory
-        {   // Save the blocks!
-            public string t = BlockTypes.GSOAIController_111.ToString(); //blocktype
-            public Vector3 p = Vector3.zero;
-            public OrthoRotation.r r = OrthoRotation.r.u000;
-
-            /// <summary>
-            /// get rid of floating point errors
-            /// </summary>
-            public void TidyUp()
-            {
-                p.x = Mathf.RoundToInt(p.x);
-                p.y = Mathf.RoundToInt(p.y);
-                p.z = Mathf.RoundToInt(p.z);
-            }
-        }
-
-        /// <summary>
-        /// Obsolete - Will phase out.
-        /// </summary>
-        private enum FactionTypesExt
-        {
-            // No I do not make any of the corps below (exclusing some of TAC and EFF) 
-            //  - but these are needed to allow the AI to spawn the right bases with 
-            //    the right block ranges
-            // OFFICIAL
-            NULL,   // not a corp, really, probably the most unique of all lol
-            GSO,    // Galactic Survey Organization
-            GC,     // GeoCorp
-            EXP,    // Reticule Research
-            VEN,    // VENture
-            HE,     // HawkEye
-            SPE,    // Special
-            BF,     // Better Future
-            SJ,     // Space Junkers
-            LEG,    // LEGION!!1!
-
-            // Community
-            AER,    // Aerion
-            BL,     // Black Labs (EXT OF HE)
-            CC,     // CrystalCorp
-            DC,     // DEVCorp
-            DL,     // DarkLight
-            EYM,    // Ellydium
-            GT,     // GreenTech
-            HS,     // Hyperion Systems
-            IEC,    // Independant Earthern Colonies
-            LK,     // Lemon Kingdom
-            OS,     // Old Stars
-            TC,     // Tofuu Corp
-            TAC,    // Technocratic AI Colony
-
-            // idk
-            EFF,    // Emperical Forge Fabrication
-            MCC,    // Mechaniccoid Cooperative Confederacy 
-            BLN,    // BuLwark Nation (Bulin)
-            CNC,    // ClaNg Clads (ChanClas)
-            LOL,    // Larry's Overlord Laser
-        }
+        [Obsolete]
+        private class BlockMemory : RawBlockMem { }
     }
 }

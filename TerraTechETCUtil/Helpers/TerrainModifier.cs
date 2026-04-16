@@ -11,6 +11,9 @@ using static BiomeMap.MapData;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Terrain tool mode
+    /// </summary>
     public enum TerraApplyMode
     {
         /// <summary>Sets the terrain to the values set in the TerrainModifier with a offset based on mode</summary>
@@ -24,26 +27,45 @@ namespace TerraTechETCUtil
         /// <summary>Adds the terrain elevation to the values set in the TerrainModifier</summary>
         Add,
         /// <summary>Smooths out the terrain, using the TerrainModifier as a multiplier for the smoothing intensity</summary>
-        //Level,
+        Level,
         /// <summary>Returns the terrain to it's original form, using the TerrainModifier as a multiplier for the reset intensity</summary>
         Reset
     }
+    /// <summary>
+    /// terrain tool multiplier
+    /// </summary>
     public enum TerraDampenMode
     {
+        /// <summary> Only change the terrain without accounting for current elevations </summary>
         DeformOnly,
+        /// <summary> Change the terrain while accounting for current elevations </summary>
         DeformAndDampen,
+        /// <summary> Only change the terrain without messing with current elevations </summary>
         DampenOnly,
     }
+    /// <summary>
+    /// Serilizable data for altered terrain data
+    /// </summary>
     public static class ModifiedTerrainExt
     {
 
         private static Dictionary<IntVector2, TerrainModifier> ModsTemp =
             new Dictionary<IntVector2, TerrainModifier>();
+        /// <summary>
+        /// Apply the mods to this 
+        /// </summary>
+        /// <param name="Mods"><see cref="TerrainModifier"/> by Tile Offsets</param>
+        /// <param name="offsetTileCoord">Tile offset</param>
         public static void ApplyAll(this Dictionary<IntVector2, TerrainModifier> Mods,
             IntVector2 offsetTileCoord = default)
         {
            ManWorldDeformerExt.ReloadTerrainMods(Mods, offsetTileCoord);
         }
+        /// <summary>
+        /// Apply the mods to this with an offset
+        /// </summary>
+        /// <param name="Mods"><see cref="TerrainModifier"/> by Tile Offsets</param>
+        /// <param name="vec">Tile offset</param>
         public static void NudgeAll(this Dictionary<IntVector2, TerrainModifier> Mods, IntVector2 vec)
         {
             foreach (var item in Mods)
@@ -65,18 +87,27 @@ namespace TerraTechETCUtil
     [Serializable]
     public class TerrainModifierJSON
     {
+        /// <summary> </summary>
         public WorldPosition Position;
+        /// <summary> </summary>
         public ushort[,] HeightDeltas;
+        /// <summary> </summary>
         public byte[,] additionalInfo;
+        /// <summary> </summary>
         public float EdgeDampening;
+        /// <summary> </summary>
         public bool UseAmplifiedTerrain;
+        /// <summary> </summary>
         public TerraApplyMode AutoMode = TerraApplyMode.None;
 
+        /// <summary> </summary>
         [JsonIgnore]
         public bool IsCompressed => HeightDeltas != null;
 
+        /// <summary> </summary>
         public TerrainModifierJSON() { }
 
+        /// <summary> </summary>
         public TerrainModifierJSON(TerrainModifier toConvert)
         {
             Position = toConvert.Position;
@@ -97,6 +128,7 @@ namespace TerraTechETCUtil
             HeightDeltas = deltas;
         }
 
+        /// <summary> Change it from serial to an applicable instance</summary>
         public TerrainModifier ToInstance()
         {
             TerrainModifier inst = new TerrainModifier()
@@ -129,11 +161,16 @@ namespace TerraTechETCUtil
     [Serializable]
     public class TerrainModifier
     {
+        /// <summary> </summary>
         public const ushort compressSize = ushort.MaxValue;
 
+        /// <summary> </summary>
         public static int CellsInTile => Mathf.Max(1, 2 >> QualitySettingsExtended.ReducedHeightmapDetail) * ManWorld.inst.CellsPerTileEdge;
+        /// <summary> </summary>
         public static int CellsInTileIndexer => CellsInTile + 1;
+        /// <summary> </summary>
         public static float tilePosToTileScale => ManWorld.inst.TileSize / CellsInTile;
+        /// <summary> </summary>
         public static float TileHeight = 100;
         //private static float[,] HeightmapDeltasApplier = new float[CellsInTile, CellsInTile];
 
@@ -141,20 +178,27 @@ namespace TerraTechETCUtil
         /// This is ALWAYS the southwest corner of the entire TerrainModifier
         /// </summary>
         public WorldPosition Position = WorldPosition.FromGameWorldPosition(Vector3.zero);
+        /// <summary> </summary>
         public float[,] HeightmapDeltas;
+        /// <summary> </summary>
         public byte[,] AddInfo;
+        /// <summary> </summary>
         public float EdgeDampening = 6;
         /// <summary>
         /// Set this to true if this is working off of the 4x height range when ManWorldGeneratorExt is set to extend terrain heights
         /// </summary>
         public bool UseAmplifiedTerrain = false;
+        /// <summary> </summary>
         public TerraApplyMode AutoMode = TerraApplyMode.FlushAutoHeightAdjust;
 
 
+        /// <summary> </summary>
         [JsonIgnore]
         public bool IsCompressed => HeightmapDeltas == null;
+        /// <summary> </summary>
         [JsonIgnore]
         public bool Changed => deltaed;
+        /// <summary> </summary>
         [JsonIgnore]
         public Action OnChanged = null;
 
@@ -169,12 +213,12 @@ namespace TerraTechETCUtil
         [JsonIgnore]
         private int Height = 0;
         /// <summary>
-        /// The magnitude radius of Width & Height
+        /// The magnitude radius of Width and Height
         /// </summary>
         [JsonIgnore]
         private float ApproxRadius = 0;
         /// <summary>
-        /// The magnitude radius of Width & Height with EdgeDampening applied
+        /// The magnitude radius of Width and Height with EdgeDampening applied
         /// </summary>
         [JsonIgnore]
         private float ApproxRadiusDampen = 0;
@@ -183,6 +227,7 @@ namespace TerraTechETCUtil
         [JsonIgnore]
         private IntVector2 offset = IntVector2.zero;
 
+        /// <summary> </summary>
         public TerrainModifier Clone()
         {
             InsureSetup();
@@ -216,6 +261,7 @@ namespace TerraTechETCUtil
         {
             //Debug_TTExt.Log("Created new TerrainModifier");
         }
+        /// <summary> </summary>
         public TerrainModifier(int StartSize)
         {
             float half = StartSize / 2f;
@@ -230,6 +276,7 @@ namespace TerraTechETCUtil
             }
             Setup();
         }
+        /// <summary> </summary>
         public static bool TerrainHasDelta(WorldTile tile)
         {
             if (tile == null)
@@ -248,6 +295,7 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+        /// <summary> </summary>
         public TerrainModifier(WorldTile tile, TerraApplyMode modifierMode)
         {
             if (tile == null)
@@ -255,6 +303,7 @@ namespace TerraTechETCUtil
             Setup(tile);
             AutoMode = modifierMode;
         }
+        /// <summary> </summary>
         public TerrainModifier(WorldTile tile, Vector3 overrideOrigin, TerraApplyMode modifierMode)
         {
             if (tile == null)
@@ -262,6 +311,7 @@ namespace TerraTechETCUtil
             Setup(tile, overrideOrigin);
             AutoMode = modifierMode;
         }
+        /// <summary> </summary>
         public TerrainModifier(float[,] heightmapDeltaDirect)
         {
             if (heightmapDeltaDirect == null)
@@ -270,6 +320,7 @@ namespace TerraTechETCUtil
             Setup();
         }
 
+        /// <summary> </summary>
         public void Setup(WorldTile tile, Vector3 overrideOrigin)
         {
             if (tile == null)
@@ -291,6 +342,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary> </summary>
         public void Setup(WorldTile tile)
         {
             if (tile == null)
@@ -312,6 +364,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary> </summary>
         public void Setup()
         {
             if (HeightmapDeltas == null)
@@ -330,10 +383,12 @@ namespace TerraTechETCUtil
                 Setup();
         }
 
+        /// <summary> WIP DOES NOT DO ANYTHING </summary>
         public void DampenSurrounding()
         { 
         }
 
+        /// <summary> </summary>
         public void OnDelta()
         {
             if (!deltaed)
@@ -345,6 +400,7 @@ namespace TerraTechETCUtil
         }
 
         private static StringBuilder SB = new StringBuilder();
+        /// <summary> </summary>
         public override string ToString()
         {
             try
@@ -364,31 +420,41 @@ namespace TerraTechETCUtil
                 SB.Clear();
             }
         }
+        /// <summary> </summary>
         public static IntVector2 TileWorldSceneOriginCellPos(WorldTile tile) => StandardPosToCellPos(tile.CalcSceneOrigin());
+        /// <summary> </summary>
         public static IntVector2 TileWorldSceneOriginCellPos(IntVector2 tile) => StandardPosToCellPos(ManWorld.inst.TileManager.CalcTileOriginScene(tile));
+        /// <summary> </summary>
         public IntVector2 SceneToModCellPos(Vector3 scenePos)
         {
             return SceneToModCellPos(scenePos, Position.ScenePosition);
         }
+        /// <summary> </summary>
         public static IntVector2 SceneToModCellPos(Vector3 scenePos, Vector3 ModSceneOverride)
         {
             Vector2 pos = scenePos.ToVector2XZ() - ModSceneOverride.ToVector2XZ();
             return new IntVector2(pos / tilePosToTileScale);
         }
+        /// <summary> </summary>
         public Vector3 ModCellToScenePos(IntVector2 modPos)
         {
             Vector3 scenePos = Position.ScenePosition;
             return (((Vector3)modPos.ToVector3XZ(0) * tilePosToTileScale) + scenePos.SetY(0)).SetY(scenePos.y);
         }
+        /// <summary> </summary>
         public static IntVector2 StandardPosToCellPos(Vector3 scenePos) => 
             new IntVector2(scenePos.ToVector2XZ() / tilePosToTileScale);
+        /// <summary> </summary>
         public Vector3 CellPosToStandardPos(IntVector2 sceneCellPos) =>
             (Vector3)sceneCellPos.ToVector3XZ() * tilePosToTileScale;
+        /// <summary> </summary>
         public Vector3 GetCenterOffset() => new Vector3(0.5f * Width * tilePosToTileScale, 50, 0.5f * Height * tilePosToTileScale);
 
+        /// <summary> </summary>
         public void GetModTileCoords(Vector3 ModSceneOverride, out IntVector2 min, out IntVector2 max) =>
             ManWorld.inst.TileManager.GetTileCoordRange(new Bounds(ModSceneOverride + GetCenterOffset(),
                 new Vector3(Width, 100, Height) * tilePosToTileScale), out min, out max);
+        /// <summary> </summary>
         public void GetModTileCoordsWithEdging(Vector3 ModSceneOverride, out IntVector2 min, out IntVector2 max) => 
             ManWorld.inst.TileManager.GetTileCoordRange(new Bounds(ModSceneOverride + GetCenterOffset(),
                 Vector3.one * ApproxRadiusDampen), out min, out max);
@@ -403,10 +469,12 @@ namespace TerraTechETCUtil
             AddInfo[modPos.x, Height - 1 - modPos.y] |= (byte)((Mathf.RoundToInt(
                 Mathf.Clamp(interpHeight * 15, 0, 15)) << 1) | 1);
         }
+        /// <summary> </summary>
         public byte GetAddInfoInterpHeight(IntVector2 modPos)
         {
             return (byte)((AddInfo[modPos.x, Height - 1 - modPos.y] & 30) >> 1);
         }
+        /// <summary> </summary>
         public bool UsesDefaultTerrain(IntVector2 modPos)
         {
             return (AddInfo[modPos.x, Height - 1 - modPos.y] & 1) == 1;
@@ -464,6 +532,7 @@ namespace TerraTechETCUtil
             return true;
         }
 
+        /// <summary> </summary>
         public static IntVector2 InTilePosToInTileCoord(Vector3 pos)
         {
             return new IntVector2(
@@ -472,6 +541,7 @@ namespace TerraTechETCUtil
                 );
         }
 
+        /// <summary> </summary>
         public Vector3 TryEncapsulate(IntVector2 modPos)
         {
             Vector3 scenePos = Position.ScenePosition;
@@ -537,11 +607,13 @@ namespace TerraTechETCUtil
             if (GC_Call)
                 GC.Collect();
         }
+        /// <summary> </summary>
         public void EncapsulateRecenter() =>
             Position = WorldPosition.FromGameWorldPosition(CellPosToStandardPos(new IntVector2(
                 Mathf.RoundToInt(Width / 2f), Mathf.RoundToInt(Height / 2f))));
 
 
+        /// <summary> </summary>
         public void SetHeightAtPosition(Vector3 inModPos, float newHeight, bool resize = false)
         {
             bool CanDo;
@@ -561,6 +633,7 @@ namespace TerraTechETCUtil
             }
             deltaed = true;
         }
+        /// <summary> </summary>
         public void SetHeightAtPosition(Vector3 inModPos, float newHeight, float intensity, bool resize = false)
         {
             bool CanDo;
@@ -584,6 +657,7 @@ namespace TerraTechETCUtil
                 deltaed = true;
             }
         }
+        /// <summary> </summary>
         public void AddHeightAtPosition(Vector3 inModPos, float addHeight, bool resize = false)
         {
             bool CanDo;
@@ -603,6 +677,7 @@ namespace TerraTechETCUtil
             deltaed = true;
         }
 
+        /// <summary> </summary>
         public void SetHeightsAtPosition(Vector3 inModPos, Vector2 size, float newHeight, float intensity, bool resize = false)
         {
             bool CanDo;
@@ -642,6 +717,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary> </summary>
         public void SetHeightsAtPositionSmooth(Vector3 inModPos, Vector2 size, float newHeight, float intensity, bool resize = false)
         {
             bool CanDo;
@@ -692,6 +768,7 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary> </summary>
         public void AddHeightsAtPosition(Vector3 inModPos, Vector2 size, float addHeight, bool resize = false)
         {
             bool CanDo;
@@ -728,6 +805,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary> </summary>
         public void AddHeightsAtPositionSmooth(Vector3 inModPos, Vector2 size, float addHeight, bool resize = false)
         {
             bool CanDo;
@@ -777,10 +855,12 @@ namespace TerraTechETCUtil
         private static List<IntVector2> posCached = new List<IntVector2>();
         private static int posCachedRad2 = -1;
         private static HashSet<IntVector2> posCached2 = new HashSet<IntVector2>();
+        /// <summary> </summary>
         public void SetHeightsAtPositionRadius(float radius, float newHeight, float intensity, bool resize = false)
         {
             SetHeightsAtPositionRadius(new Vector3(radius, 0, radius), radius, newHeight, intensity, resize);
         }
+        /// <summary> </summary>
         public void SetHeightsAtPositionRadius(Vector3 inModPos, float radius, float newHeight, float intensity, bool resize = false)
         {
             newHeight = Mathf.Clamp01(newHeight);
@@ -824,10 +904,12 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        /// <summary> </summary>
         public void SetHeightsAtPositionRadiusSmooth(float radius, float newHeight, float intensity, bool resize = false)
         {
             SetHeightsAtPositionRadiusSmooth(new Vector3(radius, 0, radius), radius, newHeight, intensity, resize);
         }
+        /// <summary> </summary>
         public void SetHeightsAtPositionRadiusSmooth(Vector3 inModPos, float radius, float newHeight, float intensity, bool resize = false)
         {
             newHeight = Mathf.Clamp01(newHeight);
@@ -920,10 +1002,12 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary> </summary>
         public void AddHeightsAtPositionRadius(float radius, float addHeight, bool resize = false)
         {
             AddHeightsAtPositionRadius(new Vector3(radius, 0, radius), radius, addHeight, resize);
         }
+        /// <summary> </summary>
         public void AddHeightsAtPositionRadius(Vector3 inModPos, float radius, float addHeight, bool resize = false)
         {
             int radInt = Mathf.CeilToInt(radius / tilePosToTileScale);
@@ -965,10 +1049,12 @@ namespace TerraTechETCUtil
                 //Debug_TTExt.Log("AddHeightsAtPositionRadius final is pos: " + Position.GameWorldPosition + " Layout:\n" + ToString());
             }
         }
+        /// <summary> </summary>
         public void AddHeightsAtPositionRadiusSmooth(float radius, float addHeight, bool resize = false)
         {
             AddHeightsAtPositionRadiusSmooth(new Vector3(radius, 0, radius), radius, addHeight, resize);
         }
+        /// <summary> </summary>
         public void AddHeightsAtPositionRadiusSmooth(Vector3 inModPos, float radius, float addHeight, bool resize = false)
         {
             int radInt = Mathf.CeilToInt(radius / tilePosToTileScale);
@@ -1029,6 +1115,7 @@ namespace TerraTechETCUtil
 
 
 
+        /// <summary> Display it using lines in the world </summary>
         public void DisplayBoundsUpdate(float displayTime = 0)
         {
             DebugExtUtilities.DrawDirIndicatorRecPrizCorner(Position.ScenePosition, new Vector3(Width, 32, Height), 
@@ -1036,15 +1123,18 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary> </summary>
         public bool Within(IntVector2 modPos)
         {
             InsureSetup();
             return modPos.x >= 0 && modPos.y >= 0 && modPos.x < Width && modPos.y < Height;
         }
+        /// <summary> </summary>
         public bool Intersects(Vector3 scenePos)
         {
             return Within(SceneToModCellPos(scenePos));
         }
+        /// <summary> </summary>
         public bool Intersects(Vector2 lowerScenePos, Vector2 higherScenePos)
         {
             InsureSetup();
@@ -1053,6 +1143,7 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= higherScenePos.x || lowerScenePos.x <= thisOriginEnd.x) &&
                 (thisOrigin.y <= higherScenePos.y || lowerScenePos.y <= thisOriginEnd.y);
         }
+        /// <summary> </summary>
         public bool Intersects(IntVector2 lowerModPos, IntVector2 higherModPos)
         {
             InsureSetup();
@@ -1060,6 +1151,7 @@ namespace TerraTechETCUtil
             return (0 <= higherModPos.x || lowerModPos.x <= thisOriginEnd.x) &&
                 (0 <= higherModPos.y || lowerModPos.y <= thisOriginEnd.y);
         }
+        /// <summary> </summary>
         public bool Intersects(WorldTile WT)
         {
             InsureSetup();
@@ -1070,6 +1162,7 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= tileOriginEnd.x || tileOrigin.x <= thisOriginEnd.x) &&
                 (thisOrigin.y <= tileOriginEnd.y || tileOrigin.y <= thisOriginEnd.y);
         }
+        /// <summary> </summary>
         public bool Intersects(WorldTile WT, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1080,6 +1173,7 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
                 (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
         }
+        /// <summary> </summary>
         public bool Intersects(IntVector2 tilePos, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1090,6 +1184,7 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
                 (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
         }
+        /// <summary> </summary>
         public bool IntersectsWithEdges(WorldTile WT, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1100,6 +1195,7 @@ namespace TerraTechETCUtil
             return (thisOrigin.x <= tileOriginEnd.x || thisOriginEnd.x >= tileOrigin.x) &&
                 (thisOrigin.y <= tileOriginEnd.y || thisOriginEnd.y >= tileOrigin.y);
         }
+        /// <summary> </summary>
         public bool IntersectsWithEdges(IntVector2 tilePos, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1212,6 +1308,8 @@ namespace TerraTechETCUtil
         /// Multiple operations
         /// </summary>
         /// <param name="ModSceneOverride">The offset from scene space origin</param>
+        /// <param name="TerraYMid"></param>
+        /// <param name="AddMultiplier"></param>
         public void FlushAdd(float TerraYMid, float AddMultiplier, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1235,6 +1333,7 @@ namespace TerraTechETCUtil
                     PushFlush(item);
             }
         }
+        /// <summary> </summary>
         public void FlushAdd(float TerraYMid, float AddMultiplier)
         {
             FlushAdd(TerraYMid, AddMultiplier, Position.ScenePosition);
@@ -1306,7 +1405,6 @@ namespace TerraTechETCUtil
         /// </summary>
         /// <param name="curWeight">The weight of the terrain that already exists</param>
         /// <param name="addWeight">The weight of the terrain that this TerrainModifier suggests</param>
-        /// <param name="ModSceneOverride">The offset from origin</param>
         public void FlushApply(float curWeight, float addWeight)
         {
             FlushApply(curWeight, addWeight, Position.ScenePosition);
@@ -1399,13 +1497,14 @@ namespace TerraTechETCUtil
                     PushFlush(item);
             }
         }
+        /// <summary> </summary>
         public void FlushLevel(int gradientRadius, float intensity) =>
             FlushLevel(gradientRadius, intensity, Position.ScenePosition);
         private void DoLevel(float[,] heightsPrev, IntVector2 delta, IntVector2 origin, float[,] OGHeights, 
             int gradientRadius, ref float intensity, Vector3 ModSceneOverride, TerraDampenMode mode)
         {
-            float dampen;
-            float dampenInv;
+            //float dampen;
+            //float dampenInv;
             //BoundsInt BI = new BoundsInt();
             int widthT = heightsPrev.GetLength(0);
             int heightT = heightsPrev.GetLength(1);
@@ -1466,6 +1565,7 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary> </summary>
         public void FlushReset(float intensity, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1491,6 +1591,7 @@ namespace TerraTechETCUtil
                     PushFlush(item);
             }
         }
+        /// <summary> </summary>
         public void FlushReset(float intensity) => FlushReset(intensity, Position.ScenePosition);
         private void DoReset(float[,] heightsPrev, IntVector2 delta, float[,] OGHeights, 
             ref float intensity, Vector3 ModSceneOverride, TerraDampenMode mode)
@@ -1545,6 +1646,7 @@ namespace TerraTechETCUtil
             return prevHeight;
         }
 
+        /// <summary> </summary>
         public void FlushRamp(float intensity, Vector3 start, Vector3 end, Vector3 ModSceneOverride)
         {
             InsureSetup();
@@ -1751,6 +1853,7 @@ namespace TerraTechETCUtil
         }
 
 
+        /// <summary> </summary>
         public static void PushChanges(TerrainData TD, float[,] newMap)
         {
             TD.SetHeights(0, 0, newMap);
@@ -1759,6 +1862,7 @@ namespace TerraTechETCUtil
         private static MethodInfo flusher = typeof(TileManager).GetMethod("ConnectNeighbouringTilesAndFlush", 
             BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.InvokeMethod);
         private static object[] flushCall = new object[2] { null, null };
+        /// <summary> </summary>
         public static void PushFlush(WorldTile WT)
         {
             flushCall[0] = WT;

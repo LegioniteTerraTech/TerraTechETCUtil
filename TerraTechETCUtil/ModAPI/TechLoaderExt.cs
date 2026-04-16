@@ -15,8 +15,14 @@ namespace TerraTechETCUtil
     {
         private static FieldInfo GetUI = typeof(UISnapshotsPanelHUD).GetField("m_SnapshotViewModel",
             BindingFlags.Instance | BindingFlags.NonPublic);
+        /// <summary>
+        /// TechLoader is selecting a Tech in the sidebar menu
+        /// </summary>
         public static bool IsSelectingTech => OnSelectedTechCallback != null;
         private static Action<Snapshot> OnSelectedTechCallback = null;
+        /// <summary>
+        /// TechLoader is selecting a folder in the sidebar menu
+        /// </summary>
         public static bool IsSelectingFolder => OnSelectedFolderCallback != null;
         private static Action<string> OnSelectedFolderCallback = null;
         internal static bool QueuedOpen = false;
@@ -214,6 +220,7 @@ namespace TerraTechETCUtil
         /// </summary>
         /// <param name="CallbackOnSelected">To invoke</param>
         /// <param name="PrevSnap">The last snapshot you want this to default to</param>
+        /// <param name="UsePlaceInstead">Activate the tech placer mode instead of swapping active player Tech</param>
         /// <param name="overrideRequest">If you don't want an exception thrown if there is already a request on the UI</param>
         /// <exception cref="InvalidOperationException">If there is already another TechLoader UI operation in progress</exception>
         public static void Open(Action<Snapshot> CallbackOnSelected, Snapshot PrevSnap, bool UsePlaceInstead, bool overrideRequest = false)
@@ -390,6 +397,11 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Iterate all Techs in the folder
+        /// </summary>
+        /// <param name="folderName"></param>
+        /// <returns></returns>
         public static IEnumerator<SnapshotLiveData> IterateFolder(string folderName)
         {
             Insure();
@@ -405,6 +417,11 @@ namespace TerraTechETCUtil
             }
         }
 
+        /// <summary>
+        /// Add a tech to the folder
+        /// </summary>
+        /// <param name="techName"></param>
+        /// <param name="folderName"></param>
         public static void AddTechToFolder(string techName, string folderName)
         {
             Insure();

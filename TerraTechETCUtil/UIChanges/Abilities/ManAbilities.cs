@@ -9,6 +9,9 @@ using static ModeAttract;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Manages <see cref="AbilityElement"/>s for UI abilities on the hotbar
+    /// </summary>
     public class ManAbilities
     {
         internal static List<AbilityElement> updating = new List<AbilityElement>();
@@ -21,10 +24,15 @@ namespace TerraTechETCUtil
         internal static List<AbilityElement> Shown = null;
         internal static AbilityButton NextPageButton = null;
 
+        /// <summary> Hotkey to cycle the ability page </summary>
         public static KeyCode AbilityTogglePage = KeyCode.Alpha1;
+        /// <summary> Hotkeys </summary>
         public static KeyCode ability1 = KeyCode.Alpha2;
+        /// <summary> Hotkeys </summary>
         public static KeyCode ability2 = KeyCode.Alpha3;
+        /// <summary> Hotkeys </summary>
         public static KeyCode ability3 = KeyCode.Alpha4;
+        /// <summary> Hotkeys </summary>
         public static KeyCode ability4 = KeyCode.Alpha5;
 
         internal static void InitElement(AbilityElement add)
@@ -82,6 +90,9 @@ namespace TerraTechETCUtil
             ManGameMode.inst.ModeCleanUpEvent.Subscribe(NotReady);
             ManGameMode.inst.ModeStartEvent.Unsubscribe(TrySetup);
         }
+        /// <summary>
+        /// Insure the ability bar
+        /// </summary>
         public static void InitAbilityBar()
         {
             if (inst != null)

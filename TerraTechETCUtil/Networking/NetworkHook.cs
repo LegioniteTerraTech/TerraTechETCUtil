@@ -4,27 +4,52 @@ using UnityEngine.Networking;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// The networking path
+    /// </summary>
     public enum NetMessageType
     {
+        /// <summary> self-explanitory </summary>
         ToClientsOnly,
+        /// <summary> self-explanitory </summary>
         FromClientToServerThenClients,
+        /// <summary> self-explanitory </summary>
         RequestServerFromClient,
+        /// <summary> self-explanitory </summary>
         ToServerOnly,
     }
 
+    /// <summary>
+    /// A simple network hook to send mod networking information
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class NetworkHook<T> : NetworkHook where T : MessageBase
     {
         /// <summary>
         /// MessageBase, IsServer
         /// </summary>
         protected Func<T, bool, bool> receiveAction;
+        /// <summary>
+        /// The logging name of this
+        /// </summary>
         public override string NameFull => typeof(T).ToString() +" [" + StringID + "]";
 
+        /// <summary>
+        /// Create a new <see cref="NetworkHook"/>
+        /// </summary>
+        /// <param name="ID"></param>
+        /// <param name="onReceive"></param>
+        /// <param name="type"></param>
         public NetworkHook(string ID, Func<T, bool, bool> onReceive, NetMessageType type)
             : base(ID, type)
         {
             receiveAction = onReceive;
         }
+        /// <summary>
+        /// Sent from someone on our server to our client
+        /// </summary>
+        /// <param name="netMsg"></param>
+        /// <exception cref="Exception"></exception>
         public override void OnToClientReceive_Internal(NetworkMessage netMsg)
         {
             T decoded;
@@ -68,6 +93,11 @@ namespace TerraTechETCUtil
                     break;
             }
         }
+        /// <summary>
+        /// Sent from someone on our server to our server
+        /// </summary>
+        /// <param name="netMsg"></param>
+        /// <exception cref="Exception"></exception>
         public override void OnToServerReceive_Internal(NetworkMessage netMsg)
         {
             T decoded;

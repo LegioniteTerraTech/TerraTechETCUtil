@@ -14,6 +14,9 @@ namespace TerraTechETCUtil
     /// </summary>
     public static class ExtendedWiki
     {
+        /// <summary>
+        /// Called when a Wiki is created incase mods want to add more data to the end of every wiki
+        /// </summary>
         public static Event<Wiki> OnExtendWikiCall = new Event<Wiki>();
         internal static void AutoPopulateWikiExtras(Wiki wiki)
         {

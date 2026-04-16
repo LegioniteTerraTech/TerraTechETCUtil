@@ -7,20 +7,34 @@ using UnityEngine;
 #if !EDITOR
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// External pooling management
+    /// </summary>
     public static class PoolExtensionsExt
     {
+        /// <summary>
+        /// Recycle it with a delay, similar to <see cref="UnityEngine.Object.Destroy(UnityEngine.Object, float)"/>
+        /// </summary>
+        /// <param name="trans"></param>
+        /// <param name="delay"></param>
         public static void Recycle(this Transform trans, float delay)
         {
             InvokeHelper.Invoke(DoRecycleDelayed, delay, trans);
         }
-        public static void DoRecycleDelayed(Transform trans)
+        private static void DoRecycleDelayed(Transform trans)
         {
             trans.SetParent(null);
             trans.Recycle();
         }
     }
+    /// <summary>
+    /// The broad general helper class for TerraTech mods.
+    /// </summary>
     public class DebugExtUtilities : MonoBehaviour
     {
+        /// <summary>
+        /// Set this to true if <see cref="LocalisationExt"/> is giving you problems
+        /// </summary>
         public static bool LogAllStringLocalisationLoadEvents2 = false;
         private static bool allowEnableDebugMenu_KeypadEnter = false;
         /// <summary>
@@ -76,7 +90,10 @@ namespace TerraTechETCUtil
             DirPrefabGO.SetActive(false);
             DirPrefab.CreatePool(32);
         }
-        public static void RecyclePrefab(Transform trans, LineRenderer LR, float delay)
+        /// <summary>
+        /// Recycle the directional line if not used for a while
+        /// </summary>
+        private static void RecyclePrefab(Transform trans, LineRenderer LR, float delay)
         {
             InvokeHelper.Invoke(DoRecycleDelayed, delay, trans, LR);
         }
@@ -91,9 +108,11 @@ namespace TerraTechETCUtil
         }
 
         /// <summary>
-        /// endPosGlobal is GLOBAL ROTATION in relation to local tech.
+        /// Draw a line this <b>Update()</b> in the world to represent something abstract.
+        /// <para>Nice for spacial debugging.</para>
+        /// <para><u>endPosGlobal is SCENE SPACE ROTATION in relation to local tech.</u></para>
         /// </summary>
-        /// <param name="obj">Parent GO</param>
+        /// <param name="obj">Parent GO to attach this to</param>
         /// <param name="num">Index (each DrawDirIndicator of this override to be shown each frame must have it's own unique index)</param>
         /// <param name="endPosGlobalSpaceOffset">The other end of the Directional Indicator. In GLOBAL ROTATION in relation to local tech</param>
         /// <param name="color">Color to display the Directional Indicator</param>
@@ -132,6 +151,14 @@ namespace TerraTechETCUtil
             RecyclePrefab(trans, lr, Time.deltaTime);
             //DebugTAC_AI.Log("SPAWN DrawDirIndicator(Local)");
         }
+        /// <summary>
+        /// Draw a line this <b>Update()</b> in the world to represent something abstract.
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="startPos">Start line position in Scene space</param>
+        /// <param name="endPos">End line position in Scene space</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
         public static void DrawDirIndicator(Vector3 startPos, Vector3 endPos, Color color, float decayTime = 0)
         {
             InsureDirPrefab();
@@ -150,6 +177,16 @@ namespace TerraTechETCUtil
             //DebugTAC_AI.Log("SPAWN DrawDirIndicator(World)");
         }
         private const int circleEdgeCount = 32;
+        /// <summary>
+        /// Draw a circle this <b>Update()</b> in the world to represent something abstract.
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="normal">The upwards or flat-top of the circle</param>
+        /// <param name="flat">Deformation multiplier</param>
+        /// <param name="radius">Radius of the circle</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
         public static void DrawDirIndicatorCircle(Vector3 center, Vector3 normal, Vector3 flat, float radius, Color color, float decayTime = 0)
         {
             if (radius <= 0)
@@ -177,12 +214,29 @@ namespace TerraTechETCUtil
             RecyclePrefab(trans, lr,(decayTime <= 0) ? Time.deltaTime : decayTime);
             //DebugTAC_AI.Log("SPAWN DrawDirIndicatorCircle(World)");
         }
+        /// <summary>
+        /// Draw a sphere this <b>Update()</b> in the world to represent something abstract.
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="radius">Radius of the sphere</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
         public static void DrawDirIndicatorSphere(Vector3 center, float radius, Color color, float decayTime = 0)
         {
             DrawDirIndicatorCircle(center, Vector3.up, Vector3.forward, radius, color, decayTime);
             DrawDirIndicatorCircle(center, Vector3.right, Vector3.forward, radius, color, decayTime);
             DrawDirIndicatorCircle(center, Vector3.forward, Vector3.up, radius, color, decayTime);
         }
+
+        /// <summary>
+        /// Draw a rectangular prism aligned with the world <u>from one corner (0,0,0) to (+,+,+)</u> this <b>Update()</b> in the world to represent something abstract.
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
+        /// <param name="size">Size of the rectangular prism relative to the scene</param>
         public static void DrawDirIndicatorRecPrizCorner(Vector3 center, Vector3 size, Color color, float decayTime = 0)
         {
             Vector3 fruCorner = new Vector3(size.x, size.y, size.z) + center;
@@ -209,6 +263,15 @@ namespace TerraTechETCUtil
             DrawDirIndicator(rruCorner, rluCorner, color, decayTime);
             DrawDirIndicator(rrdCorner, rldCorner, color, decayTime);
         }
+        /// <summary>
+        /// Draw a rectangular prism aligned with the world <u>centered on <paramref name="center"/></u> this 
+        /// <b>Update()</b> in the world to represent something abstract. 
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
+        /// <param name="size">Size of the rectangular prism relative to the scene</param>
         public static void DrawDirIndicatorRecPriz(Vector3 center, Vector3 size, Color color, float decayTime = 0)
         {
             Vector3 sizeCons = size / 2;
@@ -236,6 +299,17 @@ namespace TerraTechETCUtil
             DrawDirIndicator(rruCorner, rluCorner, color, decayTime);
             DrawDirIndicator(rrdCorner, rldCorner, color, decayTime);
         }
+        /// <summary>
+        /// Draw a rectangular prism aligned with the world <u>centered on <paramref name="center"/></u> with 
+        /// <u>additional rotational offset</u> this 
+        /// <b>Update()</b> in the world to represent something abstract. 
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="rotation">Offset rotation in Scene space</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
+        /// <param name="size">Size of the rectangular prism relative to the scene</param>
         public static void DrawDirIndicatorRecPriz(Vector3 center, Quaternion rotation, Vector3 size, Color color, float decayTime = 0)
         {
             Vector3 sizeCons = size / 2;
@@ -263,6 +337,16 @@ namespace TerraTechETCUtil
             DrawDirIndicator(rruCorner, rluCorner, color, decayTime);
             DrawDirIndicator(rrdCorner, rldCorner, color, decayTime);
         }
+        /// <summary>
+        /// Draw a rectangular prism aligned with the world <u>centered on <paramref name="center"/></u> with 
+        /// <u>extents instead of size</u> this 
+        /// <b>Update()</b> in the world to represent something abstract. 
+        /// <para>Nice for spacial debugging.</para>
+        /// </summary>
+        /// <param name="center">Center in Scene space</param>
+        /// <param name="color">Color to display the Directional Indicator</param>
+        /// <param name="decayTime">How long until the line is removed.  Leave at 0 to remove next update</param>
+        /// <param name="extents">the extents of the rectangular prism relative to the scene.  Basically a 2x multiplier</param>
         public static void DrawDirIndicatorRecPrizExt(Vector3 center, Vector3 extents, Color color, float decayTime = 0)
         {
             Vector3 fruCorner = center + new Vector3(extents.x, extents.y, extents.z);

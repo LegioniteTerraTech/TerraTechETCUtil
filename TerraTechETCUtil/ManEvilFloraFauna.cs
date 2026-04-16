@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// WIP, INCOMPLETE
-/// Controls all that lives, breathes and is ANGRY non-Tech
+/// <b>WIP, INCOMPLETE</b>
+/// <para>Controls all that lives, breathes and is ANGRY non-Tech</para>
+/// <para>The TerraTech OG equiv to TerraTech Worlds hostile flora</para>
 /// </summary>
 public class ManEvilFloraFauna
 {
@@ -27,15 +28,42 @@ public class ManEvilFloraFauna
 
     internal static Bitfield<ObjectTypes> filter = new Bitfield<ObjectTypes>(new ObjectTypes[] { ObjectTypes.Vehicle });
 }
+/// <summary>
+/// <b>WIP, INCOMPLETE</b>
+/// <para>A hostile flora or fauna visible that can attack Techs that come too close</para>
+/// </summary>
 public class FloraFauna : MonoBehaviour
 {
+    /// <summary>
+    /// Every interactable has a Visible
+    /// </summary>
     public Visible visible;
+    /// <summary>
+    /// Main transform
+    /// </summary>
     public Transform trans;
+    /// <summary>
+    /// Team this is assigned to - <i>yes <see cref="FloraFauna"/> can be assigned teams, because they can be tamed</i>
+    /// </summary>
     public int Team = -1;
-    public Tank target;
+    /// <summary>
+    /// Current target
+    /// </summary>
+    public Visible target;
+    /// <summary>
+    /// How far the <see cref="FloraFauna"/> can see
+    /// </summary>
     public float DetectionRange = 50;
     private float DetectionRangeSqr;
+    /// <summary>
+    /// last time this was slow updated
+    /// </summary>
     public float LastSlowUpdateTime;
+    /// <summary>
+    /// Adds this to a <see cref="ResourceDispenser"/>
+    /// </summary>
+    /// <param name="RD"></param>
+    /// <returns></returns>
     public static FloraFauna Insure(ResourceDispenser RD)
     {
         FloraFauna comp = RD.GetComponent<FloraFauna>();
@@ -50,14 +78,14 @@ public class FloraFauna : MonoBehaviour
         }
         return comp;
     }
-    public void OnRecycle(Visible vis)
+    internal void OnRecycle(Visible vis)
     {
         if (vis == visible)
         { 
             ManEvilFloraFauna.UnregisterCreature(this);
         }
     }
-    public void Update()
+    internal void Update()
     {
         if (LastSlowUpdateTime < Time.time)
         {
@@ -67,11 +95,11 @@ public class FloraFauna : MonoBehaviour
         }
         if (target)
         {
-            if (!target.visible.isActive || (target.boundsCentreWorldNoCheck - trans.position).sqrMagnitude > DetectionRangeSqr)
+            if (!target.isActive || (target.centrePosition - trans.position).sqrMagnitude > DetectionRangeSqr)
                 target = null;
             else if (target == Singleton.playerTank)
             {
-                ManMusic.inst.SetDanger(ManMusic.DangerContext.Circumstance.Enemy, target, target);
+                ManMusic.inst.SetDanger(ManMusic.DangerContext.Circumstance.Enemy, Singleton.playerTank, Singleton.playerTank);
             }
         }
     }
@@ -82,7 +110,7 @@ public class FloraFauna : MonoBehaviour
         {
             if (Tank.IsEnemy(Team, item.tank.Team))
             {
-                target = item.tank;
+                target = item.tank.visible;
                 return;
             }
         }

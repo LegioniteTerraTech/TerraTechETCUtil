@@ -13,8 +13,18 @@ namespace TerraTechETCUtil
     /// </summary>
     public class ManTimeOfDayExt
     {
+        /// <summary>
+        /// Order the <see cref="ManTimeOfDay"/> effects with multiple mods
+        /// </summary>
         public class TOD_Ordering
         {
+            /// <summary>
+            /// Create a manager class for sky effects
+            /// </summary>
+            /// <param name="ModID"></param>
+            /// <param name="priority"></param>
+            /// <param name="ColorForSetSkyInOrder"></param>
+            /// <param name="KeepTheSkyInOrder"></param>
             public TOD_Ordering(string ModID, int priority, Func<Color, Color> ColorForSetSkyInOrder, Action<DayNightColours, DayNightColours> KeepTheSkyInOrder)
             {
                 this.ModID = ModID;
@@ -22,9 +32,21 @@ namespace TerraTechETCUtil
                 setTheSky = ColorForSetSkyInOrder;
                 keepTheSky = KeepTheSkyInOrder;
             }
+            /// <summary>
+            /// self-explanitory, how much this will pre prioritized over other mods
+            /// </summary>
             public readonly int priority;
+            /// <summary>
+            /// self-explanitory
+            /// </summary>
             public readonly Func<Color,Color> setTheSky;
+            /// <summary>
+            /// self-explanitory
+            /// </summary>
             public readonly Action<DayNightColours,DayNightColours> keepTheSky;
+            /// <summary>
+            /// self-explanitory
+            /// </summary>
             public readonly string ModID;
         }
         private static Dictionary<string, TOD_Ordering> modIDs = new Dictionary<string, TOD_Ordering>();
@@ -54,12 +76,11 @@ namespace TerraTechETCUtil
         private static float updateFrame = Time.time;
 
         /// <summary>
-        /// Higher priority goes first
+        /// Add the <see cref="TOD_Ordering"/> to be active
+        /// <para>Higher priority goes first</para>
         /// </summary>
-        /// <param name="modID"></param>
-        /// <param name="priority"></param>
-        /// <param name="setTheSky"></param>
-        /// <returns></returns>
+        /// <param name="order"></param>
+        /// <returns>true if newly assigned</returns>
         public static bool SetState(TOD_Ordering order)
         {
             if (modIDs.Count == 0)
@@ -110,6 +131,10 @@ namespace TerraTechETCUtil
             return false;
 
         }
+        /// <summary>
+        /// Remove the <see cref="TOD_Ordering"/> from being active
+        /// </summary>
+        /// <param name="modID"></param>
         public static void RemoveState(string modID)
         {
             if (modIDs.TryGetValue(modID, out var val))
@@ -148,6 +173,10 @@ namespace TerraTechETCUtil
                 sky.m_UseTerraTechBiomeData = true;
             }
         }
+        /// <summary>
+        /// Updates the sky to the <see cref="ManTimeOfDayExt"/> status
+        /// </summary>
+        /// <param name="ignored"></param>
         public static void ReinforceState(bool ignored = false)
         {
             if (applyCommand.Any())
@@ -159,7 +188,7 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        public static void ReinforceStateActive(ref DayNightColours dayColours, ref DayNightColours nightColours)
+        internal static void ReinforceStateActive(ref DayNightColours dayColours, ref DayNightColours nightColours)
         {
             if (applyCommand.Any())
             {

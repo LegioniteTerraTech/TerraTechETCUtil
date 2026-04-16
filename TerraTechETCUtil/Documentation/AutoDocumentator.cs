@@ -10,9 +10,20 @@ using static VectorLineRenderer;
 using static CompoundExpression.EEInstance;
 using static TerraTechETCUtil.WikiPageBlock;
 
+/// <summary>
+/// Provides additional information for JSONs extracted using 
+/// <b><see cref="TerraTechETCUtil.AutoDocumentator"/></b> and 
+/// <b><see cref="TerraTechETCUtil.AutoDataExtractor"/></b>
+/// </summary>
 public class DocAttribute : Attribute
 {
     internal string desc;
+    /// <summary>
+    /// Create a new documentation note for anything extracted via
+    /// <b><see cref="TerraTechETCUtil.AutoDocumentator"/></b> and 
+    /// <b><see cref="TerraTechETCUtil.AutoDataExtractor"/></b>
+    /// </summary>
+    /// <param name="description">The description to display as a footnote on the JSON extracted</param>
     public DocAttribute(string description)
     {
         desc = description;
@@ -21,8 +32,19 @@ public class DocAttribute : Attribute
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Documents GameObjects
+    /// </summary>
     public static class GameObjectDocumentator
     {
+        /// <summary>
+        /// Logs the target into the given <see cref="StringBuilder"/>
+        /// </summary>
+        /// <param name="targetBaseGameObject">The <see cref="GameObject"/> to get from</param>
+        /// <param name="SB">Inserts the data into this</param>
+        /// <param name="tabs">Offset number of tabs to apply to the extracted data</param>
+        /// <param name="slash">set to <b><see cref="SlashState.Slash"/></b> if we should add slashes to the ends</param>
+        /// <param name="GetComponentsToo">Set this to true to also get the attached <see cref="Component"/>s</param>
         public static void GetStrings(GameObject targetBaseGameObject, StringBuilder SB,
             int tabs, SlashState slash, bool GetComponentsToo = true)
         {
@@ -96,15 +118,33 @@ namespace TerraTechETCUtil
             SB.Append("},\n");
         }
     }
+    /// <summary>
+    /// Automatically documents the target type with default values
+    /// </summary>
     public class AutoDocumentator
     {
+        /// <summary>
+        /// Log even statics and blocked - which isn't recommended since they usually shouldn't be changed in any way
+        /// </summary>
         public static bool LogStaticsAndBlocked = false;
-        public static bool HideUseless = true;
+        /// <summary>
+        /// The target type of this
+        /// </summary>
         public readonly Type type;
+        /// <summary>
+        /// The description to display for this when extracted
+        /// </summary>
         public readonly string overrideDesc;
         internal readonly AutoDocUIElem[] lines;
 
         private static List<AutoDocUIElem> Collector = new List<AutoDocUIElem>();
+        /// <summary>
+        /// Create an <see cref="AutoDocumentator"/> for this type to document <b>default</b> values
+        /// </summary>
+        /// <param name="target">Type to document</param>
+        /// <param name="targetFieldNames">All field names this should document in <paramref name="target"/></param>
+        /// <param name="overrideDesc">The overriden JSON description for this</param>
+        /// <exception cref="ArgumentNullException"></exception>
         public AutoDocumentator(Type target, string[] targetFieldNames, string overrideDesc = null)
         {
             this.overrideDesc = overrideDesc;
@@ -128,6 +168,13 @@ namespace TerraTechETCUtil
             lines = Collector.ToArray();
             Collector.Clear();
         }
+        /// <summary>
+        /// Create an <see cref="AutoDocumentator"/> for this type to document <b>default</b> values
+        /// </summary>
+        /// <param name="target">Type to document</param>
+        /// <param name="cachedFields">All fields that were previously cached in <paramref name="target"/> to document</param>
+        /// <param name="overrideDesc">The overriden JSON description for this</param>
+        /// <exception cref="ArgumentNullException"></exception>
         public AutoDocumentator(Type target, string overrideDesc = null, FieldInfo[] cachedFields = null)
         {
             this.overrideDesc = overrideDesc;
@@ -148,15 +195,17 @@ namespace TerraTechETCUtil
             lines = Collector.ToArray();
             Collector.Clear();
         }
+
         /// <summary>
-        /// Does NOT return end comma with newline!
+        /// Logs the target into the given <see cref="StringBuilder"/>
+        /// <para><b>Does NOT return end comma with newline!</b></para>
         /// </summary>
-        /// <param name="inst"></param>
-        /// <param name="trans"></param>
-        /// <param name="SB"></param>
-        /// <param name="slash"></param>
-        /// <param name="tabs"></param>
-        /// <param name="ShowName"></param>
+        /// <param name="inst">The <see cref="object"/> to get from</param>
+        /// <param name="trans">The <see cref="Transform"/> this <paramref name="inst"/> is attached to, if applicable</param>
+        /// <param name="SB">Inserts the data into this</param>
+        /// <param name="tabs">Offset number of tabs to apply to the extracted data</param>
+        /// <param name="slash">set to <b><see cref="SlashState.Slash"/></b> if we should add slashes to the ends</param>
+        /// <param name="ShowName">Attach at the beginning of this the name of the type</param>
         public void StringBuild(object inst, Transform trans, StringBuilder SB, SlashState slash, int tabs = 0, bool ShowName = true)
         {
             if (tabs > 16)
@@ -204,22 +253,40 @@ namespace TerraTechETCUtil
 
 
     }
+    /// <summary>
+    /// Slash handling for <see cref="AutoDocumentator"/>
+    /// </summary>
     public enum SlashState
     {
+        /// <summary> Don't slash </summary>
         None,
+        /// <summary> Add dual slashes to exclude from JSON readers </summary>
         Slash,
     }
+    /// <summary>
+    /// <see cref="AutoDocumentator"/> for the <see cref="ManIngameWiki"/> UI
+    /// </summary>
     public class AutoDocUIElem
     {
         internal readonly FieldInfo field;
         internal readonly string desc;
-        public AutoDocUIElem(FieldInfo field, string desc)
+
+        internal AutoDocUIElem(FieldInfo field, string desc)
         { 
             this.field = field;
             if (desc.NullOrEmpty())
                 desc = string.Empty;
             this.desc = desc;
         }
+
+        /// <summary>
+        /// Logs the target into the given <see cref="StringBuilder"/>
+        /// </summary>
+        /// <param name="inst">The <see cref="object"/> to get from</param>
+        /// <param name="trans">The <see cref="Transform"/> this <paramref name="inst"/> is attached to, if applicable</param>
+        /// <param name="SB">Inserts the data into this</param>
+        /// <param name="tabs">Offset number of tabs to apply to the extracted data</param>
+        /// <param name="slash">set to <b><see cref="SlashState.Slash"/></b> if we should add slashes to the ends</param>
         public void GetStrings(object inst, Transform trans, StringBuilder SB, int tabs, SlashState slash)
         {
             object fieldVal;
@@ -452,6 +519,8 @@ namespace TerraTechETCUtil
         }
         internal static string TryGetFoundationRefName(Transform inst)
         {
+            if (inst == null)
+                return "No Transform!";
             while (inst.parent != null)
                 inst = inst.parent;
             TankBlock TB = inst.GetComponent<TankBlock>();

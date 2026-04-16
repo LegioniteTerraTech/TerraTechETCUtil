@@ -45,22 +45,62 @@ namespace TerraTechETCUtil
     /// </summary>
     public static class SpecialAttract
     {
+        /// <summary>
+        /// A class to configure custom mod attract sequences for the title screen
+        /// </summary>
         public class AttractInfo
         {
+            /// <summary>
+            /// Auto-assigned ID
+            /// </summary>
             public readonly int ID;
+            /// <summary>
+            /// Custom name of the attract
+            /// </summary>
             public readonly string name;
+            /// <summary>
+            /// Weight of the attract vs other attracts
+            /// </summary>
             public readonly float weight;
+            /// <summary>
+            /// Use the default attract max distance restart rules
+            /// </summary>
             public readonly bool restart;
+            /// <summary>
+            /// Called BEFORE start when terrain is generated.
+            /// <para>Use this to setup terrain generation</para>
+            /// </summary>
             public readonly Func<ModeAttract, bool> preStart;
+            /// <summary>
+            /// Called AFTER start.
+            /// <para>Use this to setup Techs and Scenery</para>
+            /// </summary>
             public readonly Func<ModeAttract, bool> start;
+            /// <summary>
+            /// Called before the attract sequence is deleted
+            /// </summary>
             public readonly Action<ModeAttract> end;
+            /// <summary>
+            /// The time to display the attract sequence in relation to the time of day.
+            /// <para>11 is midday [0 ~ 24]</para>
+            /// </summary>
             public readonly int time;
 
             /// <summary>
             /// Weight CANNOT be negative or 0!
             /// </summary>
-            /// <param name="Name"></param>
-            /// <param name="Weight"></param>
+            /// <param name="Name">Custom name of the attract</param>
+            /// <param name="Weight">Weight of the attract vs other attracts</param>
+            /// <param name="PreStart">Called BEFORE start when terrain is generated.
+            /// <para>Use this to setup terrain generation</para></param>
+            /// <param name="Start">Called AFTER start.
+            /// <para>Use this to setup Techs and Scenery</para></param>
+            /// <param name="End">Called before the attract sequence is deleted</param>
+            /// <param name="restartBeyond125">Use the default attract max distance restart rules</param>
+            /// <param name="timeOfDay">The time to display the attract sequence in relation to the time of day.
+            /// <para>11 is midday [0 ~ 24]</para></param>
+            /// <exception cref="ArgumentException"></exception>
+            /// <exception cref="ArgumentOutOfRangeException"></exception>
             public AttractInfo(string Name, float Weight, Func<ModeAttract, bool> PreStart = null, 
                 Func<ModeAttract, bool> Start = null, 
                 Action<ModeAttract> End = null, bool restartBeyond125 = false, int timeOfDay = -1)
@@ -90,6 +130,9 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Log("Registered attract " + name + " with weight " + weight);
                 RecalcWeightCache();
             }
+            /// <summary>
+            /// Unassign this attract from <see cref="SpecialAttract"/>
+            /// </summary>
             public void Release()
             {
                 weightedAttracts.Remove(ID);
@@ -98,9 +141,15 @@ namespace TerraTechETCUtil
         }
         private static bool Active = false;
 
+        /// <summary>
+        /// The current active <see cref="AttractInfo"/>
+        /// </summary>
         public static int CurAttractID => curAttractID;
         private static int curAttractID = 0;
 
+        /// <summary>
+        /// Custom override to test attracts with.  Change to your <see cref="AttractInfo"/>'s own ID to force run it for testing.
+        /// </summary>
         public static int ForcedAttractID = -1;
 
         private static readonly FieldInfo spawnNum = typeof(ModeAttract).GetField("spawnIndex", BindingFlags.NonPublic | BindingFlags.Instance),
@@ -110,7 +159,7 @@ namespace TerraTechETCUtil
         private static ModeAttract attractor;
         private static float totalWeightCached = 1;
         private static int attracts = 0;
-        public static Vector3 AttractPosition = Vector3.zero;
+        //public static Vector3 AttractPosition = Vector3.zero;
 
         private static bool NeedsRestart = false;
 
@@ -335,6 +384,10 @@ namespace TerraTechETCUtil
                 Singleton.Manager<ManTimeOfDay>.inst.SetTimeOfDay(attract.time, 0, 0);//11 is midday
             return false;
         }
+        /// <summary>
+        /// Setup the attract follow cam
+        /// </summary>
+        /// <param name="target"></param>
         public static void SetupTechCam(Tank target = null)
         {
             UseFollowCam = true;
@@ -370,6 +423,10 @@ namespace TerraTechETCUtil
         }
 
         private static List<Vector3> tanksToConsider = new List<Vector3>();
+        /// <summary>
+        /// Get random starting positions for the attract
+        /// </summary>
+        /// <returns></returns>
         public static List<Vector3> GetRandomStartingPositions()
         {
             tanksToConsider.Clear();

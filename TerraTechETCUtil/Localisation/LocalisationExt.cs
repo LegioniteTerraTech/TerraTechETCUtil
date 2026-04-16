@@ -10,15 +10,31 @@ using static LocalisationEnums;
 
 namespace TerraTechETCUtil
 {
+    /// <summary>
+    /// Localization for mods.
+    /// <para>Does not support <see cref="Localisation.GlyphInfo"/>, aka inlined dynamic text</para>
+    /// </summary>
     public static class LocalisationExt
     {
         /// <summary>
-        /// For anything that should be rigistered that DOES NOT have an existing ID to assign to in StringBanks
+        /// For anything that should be registered that DOES NOT have an existing ID to assign to in StringBanks
         /// </summary>
         public const StringBanks LOC_ExtGeneralID = (StringBanks)int.MinValue;
+        /// <summary>
+        /// The default language that <see cref="LocalisationExt"/> uses as fallback
+        /// </summary>
         public const Languages defaultLanguage = Languages.US_English;
+        /// <summary>
+        /// The second default language that <see cref="LocalisationExt"/> uses as fallback
+        /// </summary>
         public const Languages defaultLanguage2 = Languages.English;
-        public const string ModTag = "MOD";
+        /// <summary>
+        /// The tag applied to added stringbanks to flag them as modded
+        /// </summary>
+        public const string ModTag = "_MOD";
+        /// <summary>
+        /// This is returned if the targeted string doesn't exist
+        /// </summary>
         public const string StringFailed = "LOC_Failiure";
 
         internal static Event<Languages> OnLOCChanged = new Event<Languages>();
@@ -68,6 +84,10 @@ namespace TerraTechETCUtil
             OnLOCChanged.Send(Localisation.inst.CurrentLanguage);
         }
 
+        /// <summary>
+        /// Iterates all languages that have at least one entry in the <see cref="LocalisationExt"/> system
+        /// </summary>
+        /// <returns></returns>
         public static IEnumerable<Languages> IterateRegisteredLanguages()
         {
             foreach (var item in LOCLang)
@@ -75,6 +95,14 @@ namespace TerraTechETCUtil
                 yield return item.Key;
             }
         }
+        /// <summary>
+        /// Use <see cref="StringLookup"/> or <see cref="Localisation.GetLocalisedString(string, string, Localisation.GlyphInfo[])"/> instead of this whenever possible!
+        /// <para>Find a localised string based on a <see cref="StringBanks"/> category</para>
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="ID"></param>
+        /// <param name="result"></param>
+        /// <returns>True if string found, else false</returns>
         public static bool TryGetFrom(StringBanks category, int ID, ref string result)
         {
             if (LOCExt.TryGetValue(category, out LocExtCategory LEC) &&
@@ -91,6 +119,15 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+        /// <summary>
+        /// Use <see cref="StringLookup"/> or <see cref="Localisation.GetLocalisedString(string, string, Localisation.GlyphInfo[])"/> instead of this whenever possible!
+        /// <para>Find a localised string based on a <see cref="StringBanks"/> category for a specified <see cref="Languages"/> </para>
+        /// </summary>
+        /// <param name="lang"></param>
+        /// <param name="category"></param>
+        /// <param name="ID"></param>
+        /// <param name="result"></param>
+        /// <returns>True if string found, else false</returns>
         public static bool TryGetFromLang(Languages lang, StringBanks category, int ID, ref string result)
         {
             if (!LOCLang.TryGetValue(lang, out Dictionary<StringBanks, LocExtCategory> LOCExtS))
@@ -122,7 +159,13 @@ namespace TerraTechETCUtil
             LEC.bank.Add(ID, String);
         }
 
-
+        /// <summary>
+        /// Register an English translation fallback for use in the <see cref="StringLookup"/> system
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="ID"></param>
+        /// <param name="String"></param>
+        /// <exception cref="Exception"></exception>
         public static void RegisterRawEng(StringBanks category, int ID, string String)
         {
             if (!LOCExtDefault.TryGetValue(category, out LocExtCategory LEC))
@@ -139,6 +182,13 @@ namespace TerraTechETCUtil
                     ID + " of category " + category + " for language US_English");
         }
 
+        /// <summary>
+        /// Register an English translation fallback for use in the <see cref="StringLookup"/> system.
+        /// Gets the ID automatically
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="String"></param>
+        /// <exception cref="Exception"></exception>
         public static void RegisterEnglish(StringBanks category, string String)
         {
             RegisterEnglishGetID(category, String);
@@ -176,6 +226,9 @@ namespace TerraTechETCUtil
                 Debug_TTExt.Assert("Failed to insert localizationExt " + String + " of ID " +
                     ID + " of category " + category + " for language " + lang.ToString());
         }
+        /// <summary>
+        /// Resets <b>ALL</b> lookups in <see cref="LocalisationExt"/>! Do not use unless ABSOLUTELY NECESSARY!
+        /// </summary>
         public static void ResetLookupList()
         {
             foreach (var item in LOCExt)
@@ -211,7 +264,11 @@ namespace TerraTechETCUtil
         }
 
 
-
+        /// <summary>
+        /// Convert a <see cref="LocalisedString"/> into a <see cref="LocExtStringVanillaText"/>, which loses the Glyphs function.
+        /// </summary>
+        /// <param name="TC"></param>
+        /// <returns></returns>
         public static LocExtStringVanillaText GetLocExtStringLossy(this LocalisedString TC)
         {
             return new LocExtStringVanillaText(TC);
@@ -222,11 +279,23 @@ namespace TerraTechETCUtil
         internal static FieldInfo textSet = typeof(TooltipComponent).GetField("m_ManuallySetText", BindingFlags.NonPublic | BindingFlags.Instance);
         internal static FieldInfo GetLoc = typeof(TooltipComponent).GetField("m_LocalisedString", BindingFlags.Instance | BindingFlags.NonPublic);
         internal static Localisation.GlyphInfo[] emptyGlyphs = new Localisation.GlyphInfo[0];
+        /// <summary>
+        /// Change the given <see cref="TooltipComponent"/> to display <paramref name="inString"/>
+        /// </summary>
+        /// <param name="inString">To replace the <see cref="TooltipComponent"/>'s description with</param>
+        /// <param name="TC">The target</param>
         public static void SetTextAuto(this string inString, TooltipComponent TC)
         {
             textSet.SetValue(TC, false);
             TC.SetText(inString);
         }
+        /// <summary>
+        /// Creates a vanilla <see cref="LocalisedString"/> for immedeate, temporary use.  
+        /// <para><b>Does not register it.</b></para>
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <param name="guiExpanded"></param>
+        /// <returns></returns>
         public static LocalisedString CreateLocalisedString(this string inst, bool guiExpanded = true)
         {
             return new LocalisedString
@@ -240,17 +309,43 @@ namespace TerraTechETCUtil
 
     }
 
+    /// <summary>
+    /// Interface for a mod localized string for <see cref="LocalisationExt"/>
+    /// </summary>
     public interface ILocExtString
     {
+        /// <summary>
+        /// Gets the localization of this
+        /// </summary>
         string ToString();
+        /// <summary>
+        /// Gets the default English fallback of this.  Always exists.
+        /// </summary>
         string GetEnglish();
     }
+    /// <summary>
+    /// A <see cref="ILocExtString"/> that has replacable contents.
+    /// </summary>
     public interface ILocExtStringLSAble : ILocExtString
     {
+        /// <summary>
+        /// Converts it to a vanilla-style <see cref="LocalisedString"/>
+        /// </summary>
+        /// <param name="guiExpanded"></param>
+        /// <returns></returns>
         LocalisedString CreateNewLocalisedString(bool guiExpanded = true);
+        /// <summary>
+        /// Set it with the contents of the given <see cref="LocalisedString"/>
+        /// </summary>
         void SetLocalisedString(LocalisedString LS);
+        /// <summary>
+        /// Set it with the contents of the given <see cref="TooltipComponent"/>
+        /// </summary>
         void SetTextAuto(TooltipComponent TC);
     }
+    /// <summary>
+    /// A <see cref="ILocExtString"/> for mods
+    /// </summary>
     public interface ILocExtStringMod : ILocExtString
     {
         /// <summary>
@@ -258,10 +353,23 @@ namespace TerraTechETCUtil
         /// </summary>
         /// <param name="lang"></param>
         /// <param name="output"></param>
-        /// <returns></returns>
+        /// <returns>True if a valid translation was found, false for fallback English</returns>
         bool TryLookup(Languages lang, out string output);
+        /// <summary>
+        /// Change the default English string for this
+        /// </summary>
+        /// <param name="newDesc"></param>
         void ChangeEnglish(string newDesc);
+        /// <summary>
+        /// Change the target language string for this
+        /// </summary>
+        /// <param name="lang"></param>
+        /// <param name="newDesc"></param>
         void Change(Languages lang, string newDesc);
+        /// <summary>
+        /// Iterate all of the languages this supports
+        /// </summary>
+        /// <returns></returns>
         IEnumerable<KeyValuePair<Languages, string>> IterateLanguages();
     }
 
@@ -270,16 +378,33 @@ namespace TerraTechETCUtil
     /// </summary>
     public abstract class LocExtString : ILocExtString
     {
-        public abstract string ToString();
+        string ILocExtString.ToString() => ToString();
+        /// <summary>
+        /// Gets the localization of this
+        /// </summary>
+        public abstract new string ToString();
+        /// <inheritdoc/>
         public abstract string GetEnglish();
+        /// <inheritdoc/>
         public static implicit operator string(LocExtString s) => s.ToString();
     }
 
-
+    /// <summary>
+    /// Localised category
+    /// </summary>
     public class LocExtCategory
     {
+        /// <summary>
+        /// Next free ID that can be assigned to
+        /// </summary>
         public int NextID;
+        /// <summary>
+        /// The databank that stores all related strings
+        /// </summary>
         public Dictionary<int, string> bank = new Dictionary<int, string>();
+        /// <summary>
+        /// Creates the category
+        /// </summary>
         public LocExtCategory()
         {
             NextID = 9001;
