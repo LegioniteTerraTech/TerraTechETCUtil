@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
+using HarmonyLib;
 
 #if !EDITOR
 namespace TerraTechETCUtil
@@ -100,6 +101,42 @@ namespace TerraTechETCUtil
             {
                 yield return item.Value;
             }
+        }
+
+        /// <summary>
+        /// Get the primary prefab list the game uses to spawn most 
+        /// <see cref="TerrainObject"/>s and <see cref="ResourceDispenser"/>s.
+        /// <para>You have to patch postfix <b>TerrainObjectTable.InitLookupTable</b> and 
+        /// <b></b> this to add/change content in the main game.</para>
+        /// </summary>
+        /// <returns>The prefab <see cref="TerrainObjectTable"/> with all the spawn prefabs in it</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public static TerrainObjectTable GetAllTerrainObjectPrefabTable()
+        {
+            FieldInfo sce = typeof(ManSpawn).GetField("m_TerrainObjectTable", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (sce == null)
+                throw new NullReferenceException("Field \"ManSpawn.m_TerrainObjectTable\" no longer exists!");
+            var lookup = (TerrainObjectTable)sce.GetValue(ManSpawn.inst);
+            if (lookup == null)
+                throw new NullReferenceException("SpawnHelper: ManSpawn.inst has not allocated m_TerrainObjectTable for some reason and SpawnHelper fetch failed");
+            return lookup;
+        }
+        /// <summary>
+        /// Get the primary prefab list the game uses to spawn most 
+        /// <see cref="TerrainObject"/>s and <see cref="ResourceDispenser"/>s.
+        /// <para>WARNING: THIS LIST CAN CHANGE BETWEEN GAME SESSIONS</para>
+        /// </summary>
+        /// <returns>The prefab list</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public static Dictionary<string, TerrainObject> GetAllTerrainObjectPrefabList()
+        {
+            FieldInfo sce2 = typeof(TerrainObjectTable).GetField("m_GUIDToPrefabLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (sce2 == null)
+                throw new NullReferenceException("Field \"TerrainObjectTable.m_GUIDToPrefabLookup\" no longer exists!");
+
+            var lookup = GetAllTerrainObjectPrefabTable();
+
+            return lookup.GetLookupList();
         }
 
         /// <summary>
@@ -308,19 +345,14 @@ namespace TerraTechETCUtil
             try
             {
                 objsNonRes.Clear();
-                FieldInfo sce = typeof(ManSpawn).GetField("m_TerrainObjectTable", BindingFlags.NonPublic | BindingFlags.Instance);
-                FieldInfo sce2 = typeof(TerrainObjectTable).GetField("m_GUIDToPrefabLookup", BindingFlags.NonPublic | BindingFlags.Instance);
-                var lookup = sce.GetValue(ManSpawn.inst);
-                if (lookup == null) throw new NullReferenceException("SpawnHelper: ManSpawn.inst has not allocated m_TerrainObjectTable for some reason and SpawnHelper fetch failed");
-
                 if (ManWorld.inst.CurrentBiomeMap.GetNumBiomes() == 0)
                 {
                     Debug_TTExt.Log("No biomes?");
                     objs.Clear();
                 }
 
-                Dictionary<string, TerrainObject> objsRaw = (Dictionary<string, TerrainObject>)sce2.GetValue(lookup);
-                if (objsRaw == null) throw new NullReferenceException("SpawnHelper: TerrainObjectTable has not allocated m_GUIDToPrefabLookup for some reason and SpawnHelper fetch failed");
+                Dictionary<string, TerrainObject> objsRaw = GetAllTerrainObjectPrefabList();
+
                 RefreshBiomeResources(ToMap);
                 bool gatherResTemp = !objs.Any();
                 foreach (var itemPair in objsRaw)
@@ -806,6 +838,35 @@ namespace TerraTechETCUtil
             Obj.Recycle();
         }
 
+
+        /// <summary>
+        /// Get the primary prefab list the game uses to spawn most 
+        /// <see cref="ChunkTypes"/> to <see cref="ResourcePickup"/>s.
+        /// <para>You can edit this to add/change content in the main game by submitting your edited 
+        /// version to <see cref="OverrideResourceChunkPrefabs(ResourceTable.Definition[])"/></para>
+        /// </summary>
+        /// <returns>The prefab list</returns>
+        public static ResourceTable.Definition[] GetResourceChunkPrefabs()
+        {
+            return ResourceManager.inst.resourceTable.resources;
+        }
+        /// <summary>
+        /// Remplace the game's vanilla resource chunk list and regenerate this.
+        /// <para><b>DO NOT DELETE VANILLA CHUNKS</b></para>
+        /// </summary>
+        /// <returns>The prefab list</returns>
+        public static void OverrideResourceChunkPrefabs(ResourceTable.Definition[] toReplaceWith)
+        {
+            var reGenRes = AccessTools.Method(typeof(ResourceManager), "RebuildResources");
+            if (reGenRes == null)
+                throw new NullReferenceException("Field \"ResourceManager.RebuildResources\" no longer exists!");
+            ResourceManager.inst.resourceTable.resources = toReplaceWith;
+            reGenRes.Invoke(ResourceManager.inst, Array.Empty<object>());
+        }
+        /// <summary>
+        /// Called when <see cref="OverrideResourceChunkPrefabs"/> is called to rebuild the resources
+        /// </summary>
+        public static EventNoParams OnResChunksRebuilt = new EventNoParams();
 
 
 

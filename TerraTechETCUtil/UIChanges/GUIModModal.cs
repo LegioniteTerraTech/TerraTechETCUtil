@@ -41,7 +41,7 @@ namespace TerraTechETCUtil
                 {
                     AltUI.StartUI();
                     HotWindow = GUI.Window(setID, HotWindow, GUIHandler, Name);
-                    if (UIHelpersExt.MouseIsOverSubMenu(HotWindow))
+                    if (UIHelpersExt.MouseIsOverGUIMenu(HotWindow))
                         openTime = 1;
                     AltUI.EndUI();
                 }
@@ -138,7 +138,7 @@ namespace TerraTechETCUtil
         /// <returns>True if it can</returns>
         public static bool DefaultCanContinueDisplay()
         {
-            return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow));
+            return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverGUIMenu(HotWindow));
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace TerraTechETCUtil
         /// <returns>True if it can</returns>
         public static bool CanContinueDisplayOverlap()
         {
-            return UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow);
+            return UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverGUIMenu(HotWindow);
         }
 
         private static Dictionary<int, PlaceholderRadialMenu> MenuPanelPrefabs = null;
@@ -191,7 +191,7 @@ namespace TerraTechETCUtil
             else
             {
                 InsureModalExt();
-                UIHelpersExt.ClampMenuToScreen(ref HotWindow, true);
+                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
                 elementsExt = elements;
                 modalExt.enabled = true;
             }
@@ -237,7 +237,7 @@ namespace TerraTechETCUtil
             else
             {
                 InsureModalExt();
-                UIHelpersExt.ClampMenuToScreen(ref HotWindow, true);
+                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
                 elementsExt = elements;
                 modalExt.enabled = true;
             }
@@ -313,7 +313,7 @@ namespace TerraTechETCUtil
             else
             {
                 InsureModalExt();
-                UIHelpersExt.ClampMenuToScreen(ref HotWindow, true);
+                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
                 modalExt.enabled = true;
                 return true;
             }

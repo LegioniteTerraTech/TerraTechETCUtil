@@ -14,7 +14,7 @@ namespace TerraTechETCUtil
     /// <summary>
     /// <para>Wiki page for block information</para>
     /// </summary>
-    public class WikiPageBlock : ManIngameWiki.WikiPage
+    public class WikiPageBlock : ManIngameWiki.WikiPage<string, BlockTypes>
     {
         /// <summary>
         /// An additional event displayer for mods to add their own wiki data
@@ -35,15 +35,13 @@ namespace TerraTechETCUtil
 
         //private static List<WikiPageBlock> IconsPending = null;
 
-        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
-        public int blockID;
-        /// <inheritdoc cref="WikiPageBiome.desc"/>
-        public string desc = "unset";
         /// <summary>
         /// The cached instance of the <see cref="TankBlock"/> for this block.
         /// <para><b>MOST OF THE TIME THIS FIELD IS NULL! DO NOT USE!!!</b></para>
         /// </summary>
-        public TankBlock inst;
+        public TankBlock blockInst;
+        /// <inheritdoc cref="WikiPageBiome.desc"/>
+        public string desc = "unset";
         /// <summary>
         /// If this is shown in the wiki for normal players
         /// </summary>
@@ -60,19 +58,191 @@ namespace TerraTechETCUtil
             return sprite;
         }
 
+        /// <inheritdoc />
+        public override bool HasInst() => _inst != BlockTypes.GSOAIController_111;
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+            _inst = BlockIndexer.StringToBlockType(ID);
+            if (!getFullData)
+                return;
+            blockInst = ManSpawn.inst.GetBlockPrefab(_inst);
+            if (blockInst)
+            {
+                try
+                {
+                    var modulesC = ModuleInfo.TryGetModules(blockInst.gameObject, ModuleInfo.AllowedTypesUIWiki);
+                    foreach (var item in modulesC)
+                    {
+                        if (item.name == "General")
+                        {
+                            item.infos.Add("Base Name", blockInst.name);
+                            bool isVanilla = ((int)_inst) <= Enum.GetValues(typeof(BlockTypes)).Length;
+                            item.infos.Add("Is Vanilla", isVanilla.ToString());
+                            if (isVanilla)
+                            {
+                                item.infos.Add("Block ID (Vanilla - Enum)", ((BlockTypes)_inst).ToString());
+                                item.infos.Add("Block ID (Vanilla - Int)", _inst.ToString());
+                            }
+                            else
+                            {
+                                item.infos.Add("Block ID (Warning!)", AltUI.EnemyString("Changes with mod selection!"));
+                                item.infos.Add("Block ID (Modded - Int)", _inst.ToString());
+                            }
+                            item.infos.Add("Cost", RecipeManager.inst.GetBlockBuyPrice(_inst));
+                            int chunkCount = 0;
+                            List<KeyValuePair<int, WikiLink>> links =
+                                new List<KeyValuePair<int, WikiLink>>();
+                            RecipeManager.inst.recipeTable.m_RecipeLists.Find(x =>
+                            x.m_Recipes.Exists(y =>
+                            {
+                                if (y.m_OutputType == RecipeTable.Recipe.OutputType.Items &&
+                                    y.m_OutputItems.Any(z =>
+                                        z.m_Item.ObjectType == ObjectTypes.Block &&
+                                        z.m_Item.ItemType == ((int)_inst)
+                                    ))
+                                {
+                                    foreach (var item2 in y.m_InputItems)
+                                    {
+                                        chunkCount += item2.m_Quantity;
+                                        links.Add(new KeyValuePair<int, WikiLink>(item2.m_Quantity,
+                                        new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
+                                            StringLookup.GetItemName(item2.m_Item.ObjectType, item2.m_Item.ItemType)))));
+                                    }
+                                    return true;
+                                }
+                                return false;
+                            }));
+                            item.infos.Add("Ingredient Count", chunkCount);
+                            item.infos.Add("Ingredients", links);
+                            mainInfo = item;
+                        }
+                        else if (item.name == "Armoring")
+                            damageable = item;
+                        else if (item.name == "Durability")
+                            damage = item;
+                        else
+                        {
+                            try
+                            {
+                                if (item.inst != null)
+                                {
+                                    if (item.inst is IModuleDamager MDR)
+                                    {
+                                        item.infos.Add("Damage Type", MDR.DamageType);
+                                        item.infos.Add("Estimated Damage On Hit", float.IsInfinity(MDR.GetHitDamage()) ? "Error" : MDR.GetHitDamage().ToString("0.00"));
+                                        item.infos.Add("Estimated Hit Rate", float.IsInfinity(MDR.GetHitsPerSec()) ? "Error" : AutoDataExtractor.DisplayCountOfRate(MDR.GetHitsPerSec(), "round(s)"));
+                                        item.infos.Add("Damage Per Second", float.IsInfinity(MDR.GetHitDamage() * MDR.GetHitsPerSec()) ? "Error" :
+                                            (MDR.GetHitDamage() * MDR.GetHitsPerSec()).ToString("0.00"));
+                                        if (MDR is ModuleWeaponGun MWG)
+                                        {
+                                            List<string> doDisp = new List<string>();
+                                            foreach (var item2 in MWG.GetComponentsInChildren<BeamWeapon>())
+                                            {
+                                                if (item2 != null)
+                                                    doDisp.Add("DPS: " + item2.DamagePerSecond +
+                                                        ", Range: " + AutoDataExtractor.DisplayDist(item2.Range) +
+                                                        ", Retract Time: " + AutoDataExtractor.DisplaySec((float)beamRetractGet.GetValue(item2)));
+                                            }
+                                            if (doDisp.Any())
+                                                item.infos.Add("Beam Weapons", doDisp);
+                                        }
+                                    }
+                                    else if (item.inst is ModuleWheels MW)
+                                    {
+                                        item.infos.Add("Wheel Count", ((List<ManWheels.Wheel>)wheelGet.GetValue(MW)).Count);
+                                        item.infos.Add("Wheel Radius", AutoDataExtractor.DisplayDist(MW.m_WheelParams.radius));
+                                        item.infos.Add("Suspension Max", AutoDataExtractor.DisplayDist(MW.m_WheelParams.suspensionTravel));
+                                        item.infos.Add("Max Steer Angle", AutoDataExtractor.DisplayDeg(MW.m_WheelParams.steerAngleMax));
+                                        item.infos.Add("Normal Steer Rate", AutoDataExtractor.DisplayDegSec(MW.m_WheelParams.steerSpeed));
+                                        if (MW.m_WheelParams.strafeSteeringSpeed == 0)
+                                            item.infos.Add("Strafing Steer Rate", AltUI.EnemyString("Does not strafe"));
+                                        else
+                                            item.infos.Add("Strafing Steer Rate", AutoDataExtractor.DisplayDegSec(MW.m_WheelParams.strafeSteeringSpeed));
+                                        item.infos.Add("Max Potential RPM", MW.m_TorqueParams.torqueCurveMaxRpm);
+                                        item.infos.Add("Torque", AutoDataExtractor.DisplayNewtons(MW.m_TorqueParams.torqueCurveMaxTorque));
+                                    }
+                                    else if (item.inst is ModuleHover MH)
+                                    {
+                                        List<string> doDisp = new List<string>();
+                                        foreach (var item2 in MH.gameObject.GetComponentsInChildren<HoverJet>(true))
+                                        {
+                                            if (item2 != null)
+                                                doDisp.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MH.transform.InverseTransformDirection(-item2.effector.forward)) +
+                                                    ", Force: " + AutoDataExtractor.DisplayNewtons(item2.forceMax) +
+                                                    ", Ramp Time: " + AutoDataExtractor.DisplaySec(1f / (float)hoverDeltaGet.GetValue(item2)) +
+                                                    (((float)hoverAngleGet.GetValue(item2) == 0 || (float)hoverDeltaAngleGet.GetValue(item2) == 0) ?
+                                                    AltUI.EnemyString("Does not gimbal") :
+                                                    (", Max Gimbal Angle: " + AutoDataExtractor.DisplayDeg((float)hoverAngleGet.GetValue(item2)) +
+                                                    ", Gimbal Rate: " + AutoDataExtractor.DisplayDegSec((float)hoverDeltaAngleGet.GetValue(item2)))));
+                                        }
+                                        item.infos.Add("Hover Forces", doDisp);
+                                    }
+                                    else if (item.inst is ModuleBooster MB)
+                                    {
+                                        List<string> doDispF = new List<string>();
+                                        foreach (var item2 in MB.gameObject.GetComponentsInChildren<FanJet>(true))
+                                        {
+                                            if (item2 != null)
+                                                doDispF.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MB.transform.InverseTransformDirection(-item2.EffectorForward)) +
+                                                    ", Force: " + AutoDataExtractor.DisplayNewtons((float)thrustGet.GetValue(item2)) +
+                                                    ", Ramp Time: " + AutoDataExtractor.DisplaySec(1f / (float)fanDeltaGet.GetValue(item2)));
+                                        }
+                                        if (doDispF.Any())
+                                            item.infos.Add("Propeller Forces", doDispF);
+                                        List<string> doDispB = new List<string>();
+                                        foreach (var item2 in MB.gameObject.GetComponentsInChildren<BoosterJet>(true))
+                                        {
+                                            if (item2 != null)
+                                                doDispB.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MB.transform.InverseTransformDirection(-item2.EffectorForward)) +
+                                                    ", Force: " + AutoDataExtractor.DisplayNewtons((float)thrustGet.GetValue(item2)) +
+                                                    ", Shutoff Delay: " + AutoDataExtractor.DisplaySec((float)boosterDeltaGet.GetValue(item2)));
+                                        }
+                                        if (doDispB.Any())
+                                            item.infos.Add("Booster Forces", doDispB);
+                                    }
+                                    else if (item.inst is ModuleWing MWA)
+                                    {
+                                        item.infos.Add("Aerofoil Count", MWA.m_Aerofoils.Length);
+                                        List<string> doDisp = new List<string>();
+                                        foreach (var item2 in MWA.m_Aerofoils)
+                                        {
+                                            if (item2 != null)
+                                                doDisp.Add("Force: " + AutoDataExtractor.DisplayNewtons(item2.liftStrength) +
+                                                    ", Max Redirection Angle: " + AutoDataExtractor.DisplayDeg(item2.flapAngleRangeActual) +
+                                                    ", Max Turn Angle: " + AutoDataExtractor.DisplayDeg(item2.flapAngleRangeVisual) +
+                                                    ", Turn Speed: " + AutoDataExtractor.DisplayDegSec(item2.flapTurnSpeed * (item2.flapAngleRangeVisual / item2.flapAngleRangeActual)));
+                                        }
+                                        if (doDisp.Any())
+                                            item.infos.Add("Aerofoils", doDisp);
+                                    }
+                                }
+                            }
+                            catch { }
+                            Combiler.Add(item);
+                        }
+                    }
+                    modules = Combiler.ToArray();
+                }
+                finally
+                {
+                    Combiler.Clear();
+                }
+            }
+        }
         /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="BlockID">The block ID (<see cref="BlockTypes"/>) to affiliate with this page</param>
-        public WikiPageBlock(int BlockID) :
-            base(GetBlockModName(BlockID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, BlockID), 
-                () => { return StringLookup.GetItemName(ObjectTypes.Block, BlockID); }),
-            GetSprite(BlockID), ManIngameWiki.LOC_Blocks, ManIngameWiki.BlocksSprite)
+        /// <param name="curSessionBlockID">The block ID (<see cref="BlockTypes"/>) to affiliate with this page</param>
+        /// <param name="nameID">The actual block ID to affiliate with this page</param>
+        public WikiPageBlock(int curSessionBlockID, string nameID) :
+            base(GetBlockModName(curSessionBlockID), nameID, new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, curSessionBlockID), 
+                () => { return StringLookup.GetItemName(ObjectTypes.Block, curSessionBlockID); }),
+            GetSprite(curSessionBlockID), ManIngameWiki.LOC_Blocks, ManIngameWiki.BlocksSprite)
         {
-            blockID = BlockID;
-            desc = StringLookup.GetItemDescription(ObjectTypes.Block, BlockID);
-            string titleRaw = ManMods.inst.GetModNameForBlockID((BlockTypes)BlockID);
+            desc = StringLookup.GetItemDescription(ObjectTypes.Block, curSessionBlockID);
+            string titleRaw = ManMods.inst.GetModNameForBlockID((BlockTypes)curSessionBlockID);
             if (!titleRaw.Equals("Unknown Mod"))
             {
                 /*
@@ -81,15 +251,14 @@ namespace TerraTechETCUtil
                 IconsPending.Add(this);
                 */
             }
-            publicVisible = StringLookup.GetItemName(ObjectTypes.Block, BlockID) != StringLookup.GetItemName(ObjectTypes.Block, -1);
+            publicVisible = StringLookup.GetItemName(ObjectTypes.Block, curSessionBlockID) != StringLookup.GetItemName(ObjectTypes.Block, -1);
         }
-        /// <inheritdoc cref=" WikiPageBlock.WikiPageBlock(int)"/>
-        public WikiPageBlock(int BlockID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetBlockModName(BlockID), new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, BlockID),
+        /// <inheritdoc cref=" WikiPageBlock.WikiPageBlock(int, string)"/>
+        public WikiPageBlock(int BlockID, string nameID, ManIngameWiki.WikiPageGroup group) : 
+            base(GetBlockModName(BlockID), nameID, new LocExtStringFunc(StringLookup.GetItemName(ObjectTypes.Block, BlockID),
                 () => { return StringLookup.GetItemName(ObjectTypes.Block, BlockID); }),
             GetSprite(BlockID), group)
         {
-            blockID = BlockID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Block, BlockID);
             string titleRaw = ManMods.inst.GetModNameForBlockID((BlockTypes)BlockID);
             if (!titleRaw.Equals("Unknown Mod"))
@@ -114,7 +283,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void GetIcon()
         {
-            icon = ManUI.inst.GetSprite(ObjectTypes.Block, blockID);
+            icon = ManUI.inst.GetSprite(ObjectTypes.Block, (int)_inst);
             /*
             if (IconsPending == null)
                 return;
@@ -156,7 +325,7 @@ namespace TerraTechETCUtil
         {
             if (page is WikiPageBlock WPB)
             {
-                BlockTypes BT = (BlockTypes)WPB.blockID;
+                BlockTypes BT = (BlockTypes)WPB._inst;
                 int ignoreExtra = 0;
                 var stringSections = searchText.Split(' ');
                 foreach (var stringSection in stringSections)
@@ -210,7 +379,7 @@ namespace TerraTechETCUtil
                         try
                         {
                             if (!queries.All(x => RecipeManager.inst.GetRecipeByOutputType(
-                                new ItemTypeInfo(ObjectTypes.Block, WPB.blockID))
+                                new ItemTypeInfo(ObjectTypes.Block, (int)WPB._inst))
                                 .m_InputItems.Any(y => StringLookup.GetItemName(y.m_Item).
                                 Replace(" ", string.Empty).ToLower().Contains(x))))
                                 return false;
@@ -343,10 +512,10 @@ namespace TerraTechETCUtil
                     return true;
                 string leftOverText = searchText.Substring(ignoreExtra);
                 if (int.TryParse(leftOverText, out int potBlockID) && 
-                    potBlockID == WPB.blockID)
+                    potBlockID == (int)WPB._inst)
                     return true;
                 if (Enum.TryParse(leftOverText, out BlockTypes potBlockIDEnum) && 
-                    ((int)potBlockIDEnum) == WPB.blockID)
+                    ((int)potBlockIDEnum) == (int)WPB._inst)
                     return true;
                 return pageName.ToLower().Contains(searchText.Substring(ignoreExtra));
             }
@@ -356,7 +525,7 @@ namespace TerraTechETCUtil
         {
             if (page is WikiPageBlock WPB)
             {
-                BlockTypes BT = (BlockTypes)WPB.blockID;
+                BlockTypes BT = (BlockTypes)WPB._inst;
                 return WPB.publicVisible && ManSpawn.inst.IsBlockAllowedInCurrentGameMode(BT) &&
                     ManGameMode.inst.CheckBlockAllowed(BT) &&
                     !ManSpawn.inst.IsBlockUsageRestrictedInGameMode(BT);
@@ -367,7 +536,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDispLateIcon();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -395,204 +564,35 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void OnBeforeDisplay()
         {
-            if (ManMods.inst.IsModdedBlock((BlockTypes)blockID))
-                icon = ManUI.inst.GetSprite(ObjectTypes.Block, blockID);
-        }
-        private void OnFirstInitGUI()
-        {
-            BlockTypes BT = (BlockTypes)blockID;
-            var inst = ManSpawn.inst.GetBlockPrefab(BT);
-            if (inst)
-            {
-                try
-                {
-                    var modulesC = ModuleInfo.TryGetModules(inst.gameObject, ModuleInfo.AllowedTypesUIWiki);
-                    foreach (var item in modulesC)
-                    {
-                        if (item.name == "General")
-                        {
-                            item.infos.Add("Base Name", inst.name);
-                            bool isVanilla = blockID <= Enum.GetValues(typeof(BlockTypes)).Length;
-                            item.infos.Add("Is Vanilla", isVanilla.ToString());
-                            if (isVanilla)
-                            {
-                                item.infos.Add("Block ID (Vanilla - Enum)", ((BlockTypes)blockID).ToString());
-                                item.infos.Add("Block ID (Vanilla - Int)", blockID.ToString());
-                            }
-                            else
-                            {
-                                item.infos.Add("Block ID (Warning!)", AltUI.EnemyString("Changes with mod selection!"));
-                                item.infos.Add("Block ID (Modded - Int)", blockID.ToString());
-                            }
-                            item.infos.Add("Cost", RecipeManager.inst.GetBlockBuyPrice(BT));
-                            int chunkCount = 0;
-                            List<KeyValuePair<int, ManIngameWiki.WikiLink>> links =
-                                new List<KeyValuePair<int, ManIngameWiki.WikiLink>>();
-                            RecipeManager.inst.recipeTable.m_RecipeLists.Find(x =>
-                            x.m_Recipes.Exists(y =>
-                            {
-                                if (y.m_OutputType == RecipeTable.Recipe.OutputType.Items &&
-                                    y.m_OutputItems.Any(z =>
-                                        z.m_Item.ObjectType == ObjectTypes.Block &&
-                                        z.m_Item.ItemType == blockID
-                                    ))
-                                {
-                                    foreach (var item2 in y.m_InputItems)
-                                    {
-                                        chunkCount += item2.m_Quantity;
-                                        links.Add(new KeyValuePair<int, ManIngameWiki.WikiLink>(item2.m_Quantity,
-                                        new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
-                                            StringLookup.GetItemName(item2.m_Item.ObjectType, item2.m_Item.ItemType)))));
-                                    }
-                                    return true;
-                                }
-                                return false;
-                            }));
-                            item.infos.Add("Ingredient Count", chunkCount);
-                            item.infos.Add("Ingredients", links);
-                            mainInfo = item;
-                        }
-                        else if (item.name == "Armoring")
-                            damageable = item;
-                        else if (item.name == "Durability")
-                            damage = item;
-                        else
-                        {
-                            try
-                            {
-                                if (item.inst != null)
-                                {
-                                    if (item.inst is IModuleDamager MDR)
-                                    {
-                                        item.infos.Add("Damage Type", MDR.DamageType);
-                                        item.infos.Add("Estimated Damage On Hit", float.IsInfinity(MDR.GetHitDamage()) ? "Error" : MDR.GetHitDamage().ToString("0.00"));
-                                        item.infos.Add("Estimated Hit Rate", float.IsInfinity(MDR.GetHitsPerSec()) ? "Error" : AutoDataExtractor.DisplayCountOfRate(MDR.GetHitsPerSec(), "round(s)"));
-                                        item.infos.Add("Damage Per Second", float.IsInfinity(MDR.GetHitDamage() * MDR.GetHitsPerSec()) ? "Error" : 
-                                            (MDR.GetHitDamage() * MDR.GetHitsPerSec()).ToString("0.00"));
-                                        if (MDR is ModuleWeaponGun MWG)
-                                        {
-                                            List<string> doDisp = new List<string>();
-                                            foreach (var item2 in MWG.GetComponentsInChildren<BeamWeapon>())
-                                            {
-                                                if (item2 != null)
-                                                    doDisp.Add("DPS: " + item2.DamagePerSecond + 
-                                                        ", Range: " + AutoDataExtractor.DisplayDist(item2.Range) +
-                                                        ", Retract Time: " + AutoDataExtractor.DisplaySec((float)beamRetractGet.GetValue(item2)));
-                                            }
-                                            if (doDisp.Any())
-                                                item.infos.Add("Beam Weapons", doDisp);
-                                        }
-                                    }
-                                    else if (item.inst is ModuleWheels MW)
-                                    {
-                                        item.infos.Add("Wheel Count", ((List<ManWheels.Wheel>)wheelGet.GetValue(MW)).Count);
-                                        item.infos.Add("Wheel Radius", AutoDataExtractor.DisplayDist(MW.m_WheelParams.radius));
-                                        item.infos.Add("Suspension Max", AutoDataExtractor.DisplayDist(MW.m_WheelParams.suspensionTravel));
-                                        item.infos.Add("Max Steer Angle", AutoDataExtractor.DisplayDeg(MW.m_WheelParams.steerAngleMax));
-                                        item.infos.Add("Normal Steer Rate", AutoDataExtractor.DisplayDegSec(MW.m_WheelParams.steerSpeed));
-                                        if (MW.m_WheelParams.strafeSteeringSpeed == 0)
-                                            item.infos.Add("Strafing Steer Rate", AltUI.EnemyString("Does not strafe"));
-                                        else
-                                            item.infos.Add("Strafing Steer Rate", AutoDataExtractor.DisplayDegSec(MW.m_WheelParams.strafeSteeringSpeed));
-                                        item.infos.Add("Max Potential RPM", MW.m_TorqueParams.torqueCurveMaxRpm);
-                                        item.infos.Add("Torque", AutoDataExtractor.DisplayNewtons(MW.m_TorqueParams.torqueCurveMaxTorque));
-                                    }
-                                    else if (item.inst is ModuleHover MH)
-                                    {
-                                        List<string> doDisp = new List<string>();
-                                        foreach (var item2 in MH.gameObject.GetComponentsInChildren<HoverJet>(true))
-                                        {
-                                            if (item2 != null)
-                                                doDisp.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MH.transform.InverseTransformDirection(-item2.effector.forward)) +
-                                                    ", Force: " + AutoDataExtractor.DisplayNewtons(item2.forceMax) +
-                                                    ", Ramp Time: " + AutoDataExtractor.DisplaySec(1f / (float)hoverDeltaGet.GetValue(item2)) +
-                                                    (((float)hoverAngleGet.GetValue(item2) == 0 || (float)hoverDeltaAngleGet.GetValue(item2) == 0) ?
-                                                    AltUI.EnemyString("Does not gimbal") :
-                                                    (", Max Gimbal Angle: " + AutoDataExtractor.DisplayDeg((float)hoverAngleGet.GetValue(item2)) +
-                                                    ", Gimbal Rate: " + AutoDataExtractor.DisplayDegSec((float)hoverDeltaAngleGet.GetValue(item2)))));
-                                        }
-                                        item.infos.Add("Hover Forces", doDisp);
-                                    }
-                                    else if (item.inst is ModuleBooster MB)
-                                    {
-                                        List<string> doDispF = new List<string>();
-                                        foreach (var item2 in MB.gameObject.GetComponentsInChildren<FanJet>(true))
-                                        {
-                                            if (item2 != null)
-                                                doDispF.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MB.transform.InverseTransformDirection(-item2.EffectorForward)) +
-                                                    ", Force: " + AutoDataExtractor.DisplayNewtons((float)thrustGet.GetValue(item2)) +
-                                                    ", Ramp Time: " + AutoDataExtractor.DisplaySec(1f / (float)fanDeltaGet.GetValue(item2)));
-                                        }
-                                        if (doDispF.Any())
-                                            item.infos.Add("Propeller Forces", doDispF);
-                                        List<string> doDispB = new List<string>();
-                                        foreach (var item2 in MB.gameObject.GetComponentsInChildren<BoosterJet>(true))
-                                        {
-                                            if (item2 != null)
-                                                doDispB.Add("Est. Direction: " + AutoDataExtractor.DisplayDirection(MB.transform.InverseTransformDirection(-item2.EffectorForward)) +
-                                                    ", Force: " + AutoDataExtractor.DisplayNewtons((float)thrustGet.GetValue(item2)) +
-                                                    ", Shutoff Delay: " + AutoDataExtractor.DisplaySec((float)boosterDeltaGet.GetValue(item2)));
-                                        }
-                                        if (doDispB.Any())
-                                            item.infos.Add("Booster Forces", doDispB);
-                                    }
-                                    else if (item.inst is ModuleWing MWA)
-                                    {
-                                        item.infos.Add("Aerofoil Count", MWA.m_Aerofoils.Length);
-                                        List<string> doDisp = new List<string>();
-                                        foreach (var item2 in MWA.m_Aerofoils)
-                                        {
-                                            if (item2 != null)
-                                                doDisp.Add("Force: " + AutoDataExtractor.DisplayNewtons(item2.liftStrength) +
-                                                    ", Max Redirection Angle: " + AutoDataExtractor.DisplayDeg(item2.flapAngleRangeActual) +
-                                                    ", Max Turn Angle: " + AutoDataExtractor.DisplayDeg(item2.flapAngleRangeVisual) +
-                                                    ", Turn Speed: " + AutoDataExtractor.DisplayDegSec(item2.flapTurnSpeed * (item2.flapAngleRangeVisual / item2.flapAngleRangeActual)));
-                                        }
-                                        if (doDisp.Any())
-                                            item.infos.Add("Aerofoils", doDisp);
-                                    }
-                                }
-                            }
-                            catch { }
-                            Combiler.Add(item);
-                        }
-                    }
-                    modules = Combiler.ToArray();
-                }
-                finally
-                {
-                    Combiler.Clear();
-                }
-            }
+            if (ManMods.inst.IsModdedBlock(_inst))
+                icon = ManUI.inst.GetSprite(ObjectTypes.Block, (int)_inst);
         }
         private static bool AttributesShown = false;
         /// <inheritdoc/>
         protected override void DisplayGUI()
         {
-            if (modules == null)
-                OnFirstInitGUI();
             GUILayout.BeginHorizontal();
             AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
 
             GUILayout.BeginVertical(AltUI.BoxBlack);
-            ManIngameWiki.WikiLink link = new ManIngameWiki.WikiLink(ManIngameWiki.GetCorpPage(ManSpawn.inst.GetCorporation((BlockTypes)blockID)));
-            if (link.OnGUILarge(AltUI.ButtonBlue, AltUI.LabelWhite))
+            ManIngameWiki.WikiLink link = new ManIngameWiki.WikiLink(ManIngameWiki.GetCorpPage(ManSpawn.inst.GetCorporation((BlockTypes)_inst)));
+            if (link.OnGUILargeInv(AltUI.ButtonBlue, AltUI.LabelWhite))
                 link.linked.GoHere();
 
             GUILayout.BeginHorizontal();
             GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockGradeTitle), AltUI.LabelWhiteTitle);
             GUILayout.Label(": ", AltUI.LabelWhiteTitle);
             GUILayout.FlexibleSpace();
-            GUILayout.Label(StringLookup.GetBlockTierName((BlockTypes)blockID, false), AltUI.LabelGoldTitle);
+            GUILayout.Label(StringLookup.GetBlockTierName((BlockTypes)_inst, false), AltUI.LabelGoldTitle);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockCategoryTitle), AltUI.LabelWhite);
             GUILayout.Label(": ", AltUI.LabelWhite);
             GUILayout.FlexibleSpace();
-            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockCatIcon(ManSpawn.inst.GetCategory((BlockTypes)blockID)),
-                StringLookup.GetBlockCategoryName(ManSpawn.inst.GetCategory((BlockTypes)blockID))).
+            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockCatIcon(ManSpawn.inst.GetCategory((BlockTypes)_inst)),
+                StringLookup.GetBlockCategoryName(ManSpawn.inst.GetCategory((BlockTypes)_inst))).
                 OnGUILarge(AltUI.TextfieldBorderedBlue, AltUI.LabelWhite);
             GUILayout.EndHorizontal();
 
@@ -600,11 +600,11 @@ namespace TerraTechETCUtil
             GUILayout.Label(Localisation.inst.GetLocalisedString(LocalisationEnums.Purchasing.BlockRarityTitle), AltUI.LabelWhite);
             GUILayout.Label(": ", AltUI.LabelWhite);
             GUILayout.FlexibleSpace();
-            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockRarityIcon(ManSpawn.inst.GetRarity((BlockTypes)blockID)), 
-                StringLookup.GetBlockRarityName(ManSpawn.inst.GetRarity((BlockTypes)blockID))).
+            new ManIngameWiki.WikiIconInfo(ManUI.inst.GetBlockRarityIcon(ManSpawn.inst.GetRarity((BlockTypes)_inst)), 
+                StringLookup.GetBlockRarityName(ManSpawn.inst.GetRarity((BlockTypes)_inst))).
                 OnGUILarge(AltUI.TextfieldBorderedBlue, AltUI.LabelWhite);
             GUILayout.EndHorizontal();
-            var BA = ManSpawn.inst.GetBlockAttributes((BlockTypes)blockID);
+            var BA = ManSpawn.inst.GetBlockAttributes((BlockTypes)_inst);
             if (BA != null && BA.Any())
             {
                 if (AttributesShown)
@@ -628,7 +628,7 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
 
             if (AdditionalDisplayOnUI.HasSubscribers())
-                AdditionalDisplayOnUI.Send((BlockTypes)blockID);
+                AdditionalDisplayOnUI.Send((BlockTypes)_inst);
 
             if (mainInfo != null)
                 mainInfo.DisplayGUI();
@@ -640,9 +640,9 @@ namespace TerraTechETCUtil
             GUILayout.EndHorizontal();
 
             if (ActiveGameInterop.IsReady && GUILayout.Button("Try Export GameObject hierarchy"))
-                ActiveGameInterop.TransmitBlock(ManSpawn.inst.GetBlockPrefab((BlockTypes)blockID));
+                ActiveGameInterop.TransmitBlock(ManSpawn.inst.GetBlockPrefab((BlockTypes)_inst));
 
-            GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
+            GUILayout.Label(desc, AltUI.TextfieldBlackHuge, GUILayout.ExpandHeight(false));
 
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (modules != null && modules.Any())
@@ -664,7 +664,7 @@ namespace TerraTechETCUtil
             {
                 if (AltUI.Button("ENTIRE BLOCK JSON to system clipboard", ManSFX.UISfxType.Craft))
                 {
-                    TankBlock TB = ManSpawn.inst.GetBlockPrefab((BlockTypes)blockID);
+                    TankBlock TB = ManSpawn.inst.GetBlockPrefab((BlockTypes)_inst);
                     AutoDataExtractor.clipboard.Clear();
                     GameObjectDocumentator.GetStrings(TB.gameObject, AutoDataExtractor.clipboard, 0, SlashState.None);
                     GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();

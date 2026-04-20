@@ -13,7 +13,7 @@ namespace TerraTechETCUtil
     /// <summary>
     /// <para>Wiki page for scenery data information</para>
     /// </summary>
-    public class WikiPageScenery : ManIngameWiki.WikiPage
+    public class WikiPageScenery : ManIngameWiki.WikiPage<SceneryTypes, TerrainObject>
     {
         /// <summary>
         /// An additional event displayer for mods to add their own wiki data
@@ -36,13 +36,11 @@ namespace TerraTechETCUtil
         public static Func<ResourceDispenser, string> GetSceneryData = null;
         /// <inheritdoc cref="WikiPageBiome.GetBiomeModName"/>
         public static Func<int, string> GetSceneryModName = GetSceneryModNameDefault;
-        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
-        public int sceneryID;
         /// <summary>
         /// Get the prefab
         /// </summary>
         public Dictionary<string, List<TerrainObject>> prefabBase => 
-            SpawnHelper.GetSceneryByType((SceneryTypes)sceneryID);
+            SpawnHelper.GetSceneryByType(ID);
         /// <summary>
         /// Get the main prefab component
         /// </summary>
@@ -59,24 +57,86 @@ namespace TerraTechETCUtil
         internal SceneryDataInfo damageable;
         internal SceneryDataInfo[] modules;
 
+
+        /// <inheritdoc />
+        public override bool HasInst() => _inst != null;
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+            _inst = prefabMain;
+            if (getFullData && modules == null)
+            {
+                if (prefab != null)
+                {
+                    try
+                    {
+                        var modulesC = SceneryDataInfo.TryGetModules(prefab);
+                        foreach (var item in modulesC)
+                        {
+                            if (item.name == "Scenery")
+                            {
+                                item.infos.Add("Base Name", prefab.name == null ? "<NULL>" : prefab.name);
+                                bool isVanilla = (int)ID < Enum.GetValues(typeof(SceneryTypes)).Length;
+                                item.infos.Add("Is Vanilla", isVanilla);
+                                if (isVanilla)
+                                    item.infos.Add("Scenery ID (Enum)", ID.ToString());
+                                item.infos.Add("Scenery ID (Int)", ((int)ID).ToString());
+                                List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
+                                foreach (ChunkTypes itemChunk in prefab.AllDispensableItems())
+                                {
+                                    WikiPageChunk WPC = ManIngameWiki.GetChunkPage(
+                                        StringLookup.GetItemName(ObjectTypes.Chunk, (int)itemChunk));
+                                    if (WPC != null)
+                                        links.Add(new ManIngameWiki.WikiLink(WPC));
+                                }
+                                item.infos.Add("Yield", links);
+                                List<ManIngameWiki.WikiLink> typesLocations = new List<ManIngameWiki.WikiLink>();
+                                if (ManIngameWiki.GetPage("Biomes") is ManIngameWiki.WikiPageGroup group)
+                                {
+                                    foreach (var itemL in prefabBase)
+                                    {
+                                        foreach (var item2 in group.NestedPages)
+                                        {
+                                            if (item2 is WikiPageBiome biome && biome.inst.name == itemL.Key)
+                                                typesLocations.Add(new ManIngameWiki.WikiLink(biome));
+                                        }
+                                    }
+                                }
+                                item.infos.Add("Biomes", typesLocations);
+                                mainInfo = item;
+                            }
+                            else if (item.name == "Armoring")
+                                damageable = item;
+                            else if (item.name == "Durability")
+                                damage = item;
+                            else
+                                Combiler.Add(item);
+                        }
+                        modules = Combiler.ToArray();
+                    }
+                    finally
+                    {
+                        Combiler.Clear();
+                    }
+                }
+            }
+        }
         /// <inheritdoc cref="WikiPageInfo.WikiPageInfo(string, LocExtString, Sprite, Action, ManIngameWiki.WikiPageGroup)"/>
         /// <summary>
         /// 
         /// </summary>
         /// <param name="SceneryID">The scenery ID to target</param>
         public WikiPageScenery(int SceneryID) :
-            base(GetSceneryModName(SceneryID), GetSceneryName(SceneryID),
+            base(GetSceneryModName(SceneryID), (SceneryTypes)SceneryID, GetSceneryName(SceneryID),
             null, ManIngameWiki.LOC_Scenery, ManIngameWiki.ScenerySprite)
         {
-            sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
 
         /// <inheritdoc cref="WikiPageScenery.WikiPageScenery(int)"/>
         public WikiPageScenery(int SceneryID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetSceneryModName(SceneryID), GetSceneryName(SceneryID), null, group)
+            base(GetSceneryModName(SceneryID), (SceneryTypes)SceneryID, GetSceneryName(SceneryID), null, group)
         {
-            sceneryID = SceneryID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Scenery, SceneryID);
         }
         /// <inheritdoc/>
@@ -183,7 +243,7 @@ namespace TerraTechETCUtil
                     string[] queries = null;
                     if (FilterPass(stringSection, "type:", ref queries))
                     {
-                        if (!queries.Any(x => ((SceneryTypes)WPS.sceneryID).
+                        if (!queries.Any(x => WPS.ID.
                             ToString().ToLower().Contains(x)))
                             return false;
                     }
@@ -260,10 +320,10 @@ namespace TerraTechETCUtil
                     return true;
                 string leftOverText = searchText.Substring(ignoreExtra);
                 if (int.TryParse(leftOverText, out int potID) &&
-                    potID == WPS.sceneryID)
+                    potID == (int)WPS.ID)
                     return true;
                 if (Enum.TryParse(leftOverText, out SceneryTypes potIDEnum) &&
-                    ((int)potIDEnum) == WPS.sceneryID)
+                    ((int)potIDEnum) == (int)WPS.ID)
                     return true;
                 return pageName.ToLower().Contains(searchText.Substring(ignoreExtra));
             }
@@ -272,7 +332,7 @@ namespace TerraTechETCUtil
 
 
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -298,59 +358,6 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         protected override void DisplayGUI()
         {
-            if (modules == null)
-            {
-                if (prefab != null)
-                {
-                    try
-                    {
-                        var modulesC = SceneryDataInfo.TryGetModules(prefab);
-                        foreach (var item in modulesC)
-                        {
-                            if (item.name == "Scenery")
-                            {
-                                item.infos.Add("Base Name", prefab.name == null ? "<NULL>" : prefab.name);
-                                item.infos.Add("Scenery ID", sceneryID);
-                                item.infos.Add("Is Vanilla", sceneryID <= Enum.GetValues(typeof(SceneryTypes)).Length);
-                                List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
-                                foreach (ChunkTypes itemChunk in prefab.AllDispensableItems())
-                                {
-                                    WikiPageChunk WPC = ManIngameWiki.GetChunkPage(
-                                        StringLookup.GetItemName(ObjectTypes.Chunk, (int)itemChunk));
-                                    if (WPC != null)
-                                        links.Add(new ManIngameWiki.WikiLink(WPC));
-                                }
-                                item.infos.Add("Yield", links);
-                                List<ManIngameWiki.WikiLink> typesLocations = new List<ManIngameWiki.WikiLink>();
-                                if (ManIngameWiki.GetPage("Biomes") is ManIngameWiki.WikiPageGroup group)
-                                {
-                                    foreach (var itemL in prefabBase)
-                                    {
-                                        foreach (var item2 in group.NestedPages)
-                                        {
-                                            if (item2 is WikiPageBiome biome && biome.biomeInst.name == itemL.Key)
-                                                typesLocations.Add(new ManIngameWiki.WikiLink(biome));
-                                        }
-                                    }
-                                }
-                                item.infos.Add("Biomes", typesLocations);
-                                mainInfo = item;
-                            }
-                            else if (item.name == "Armoring")
-                                damageable = item;
-                            else if (item.name == "Durability")
-                                damage = item;
-                            else
-                                Combiler.Add(item);
-                        }
-                        modules = Combiler.ToArray();
-                    }
-                    finally
-                    {
-                        Combiler.Clear();
-                    }
-                }
-            }
             GUILayout.BeginHorizontal();
             if (icon != null)
                 AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
@@ -365,7 +372,7 @@ namespace TerraTechETCUtil
             GUILayout.EndHorizontal();
 
             if (desc != null)
-                GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
+                GUILayout.Label(desc, AltUI.TextfieldBlackHuge, GUILayout.ExpandHeight(false));
 
             if (AdditionalDisplayOnUI.HasSubscribers())
                 AdditionalDisplayOnUI.Send(prefab);

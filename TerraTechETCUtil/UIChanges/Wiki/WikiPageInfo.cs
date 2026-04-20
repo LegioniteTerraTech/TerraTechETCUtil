@@ -14,6 +14,10 @@ namespace TerraTechETCUtil
     /// </summary>
     public class WikiPageInfo : ManIngameWiki.WikiPage
     {
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+        }
         /// <summary>
         /// Information string to display on the page
         /// </summary>
@@ -62,7 +66,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             return false;
         }

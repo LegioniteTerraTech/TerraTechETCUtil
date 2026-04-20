@@ -93,7 +93,7 @@ namespace TerraTechETCUtil
         /// <returns>True if this can continue displaying</returns>
         public bool DefaultCanContinueDisplay()
         {
-            return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverSubMenu(HotWindow));
+            return UIHelpersExt.IsIngame && (UseRadialMode || openTime > 0 || UIHelpersExt.MouseIsOverGUIMenu(HotWindow));
         }
 
         private float openTime = 0;
@@ -180,7 +180,7 @@ namespace TerraTechETCUtil
             }
             else
             {
-                UIHelpersExt.ClampMenuToScreen(ref HotWindow, true);
+                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
                 return gameObject.activeSelf;
             }
         }
@@ -196,7 +196,7 @@ namespace TerraTechETCUtil
                 GUIModModal.OpenVanillaModal(opener, elements);
             else
             {
-                UIHelpersExt.ClampMenuToScreen(ref HotWindow, true);
+                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
                 gameObject.SetActive(true);
             }
         }

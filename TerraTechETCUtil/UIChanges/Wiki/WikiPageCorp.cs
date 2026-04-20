@@ -9,11 +9,12 @@ using static TerraTechETCUtil.ManIngameWiki;
 
 namespace TerraTechETCUtil
 {
-    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
     /// <summary>
-    /// <para>Wiki page for corp information</para>
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
+    /// <para>Wiki page for corp information, where <see cref="string"/> is the Corp's short name</para>, 
+    /// and <see cref="FactionSubTypes"/> is the corp <b><i>session</i></b>
     /// </summary>
-    public class WikiPageCorp : ManIngameWiki.WikiPage
+    public class WikiPageCorp : ManIngameWiki.WikiPage<string, FactionSubTypes>
     {
         /// <summary>
         /// An additional event displayer for mods to add their own wiki data
@@ -101,15 +102,14 @@ namespace TerraTechETCUtil
             }
         }
 
-
-        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
-        public int corpID;
-        private ModdedCorpDefinition MCD;
-        private FactionLicense FL;
         /// <summary>
-        /// The corp abbreviated name
+        /// Only present for modded corps!
         /// </summary>
-        public string corpShortName;
+        public ModdedCorpDefinition MCD { get; private set; }
+        /// <summary>
+        /// Many not always be present!
+        /// </summary>
+        public FactionLicense FL { get; private set; }
         /// <inheritdoc cref="WikiPageBiome.desc"/>
         public string corpDesc;
         /// <summary>
@@ -130,29 +130,56 @@ namespace TerraTechETCUtil
                 return ((FactionSubTypes)corpID).ToString();
         }
 
+        /// <inheritdoc />
+        public override bool HasInst() => _inst != (FactionSubTypes)(-1);
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+            _inst = ManMods.inst.GetCorpIndex(ID);
+            ModdedCorpDefinition MCDC = ManMods.inst.FindCorp(ID);
+            if (HasInst())
+                FL = ManLicenses.inst.GetLicense(_inst);
+            if (MCDC != MCD)
+            {
+                if (MCDC?.m_Icon != null)
+                {
+                    icon = Sprite.Create(MCDC.m_Icon, new Rect(0, 0, MCDC.m_Icon.width, MCDC.m_Icon.height),
+                        new Vector2(0.5f, 0.5f));
+                    if (ManMods.inst.FindCorpShortName(_inst) != ID)
+                    {
+                        for (int i = 16; i < 128; i++)
+                        {
+                            if (ManMods.inst.FindCorpShortName((FactionSubTypes)i) == ID)
+                            {
+                                _inst = (FactionSubTypes)i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                MCD = MCDC;
+            }
+        }
+
         /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
         /// <summary>
         /// 
         /// </summary>
         /// <param name="ModID"></param>
-        /// <param name="corpID">The corp ID (<see cref="FactionSubTypes"/>) to affiliate with this page</param>
-        public WikiPageCorp(string ModID, int corpID) : 
-            base(ModID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
-                () => { return StringLookup.GetCorporationName((FactionSubTypes)corpID); }),
-            ManUI.inst.GetModernCorpIcon((FactionSubTypes)corpID), ManIngameWiki.LOC_Corps, ManIngameWiki.CorpsSprite)
+        /// <param name="thisSessionCorpID">The corp ID (<see cref="FactionSubTypes"/>) to affiliate with this page</param>
+        public WikiPageCorp(string ModID, int thisSessionCorpID) : 
+            base(ModID, GetShortName(thisSessionCorpID), new LocExtStringFunc(GetShortName(thisSessionCorpID) + "_corp", 
+                () => { return StringLookup.GetCorporationName((FactionSubTypes)thisSessionCorpID); }),
+            ManUI.inst.GetModernCorpIcon((FactionSubTypes)thisSessionCorpID), ManIngameWiki.LOC_Corps, ManIngameWiki.CorpsSprite)
         {
-            this.corpID = corpID;
-            corpShortName = GetShortName(corpID);
             OnWikiPageMade.Send(this);
         }
         /// <inheritdoc cref=" WikiPageCorp.WikiPageCorp(string, int)"/>
-        public WikiPageCorp(string ModID, int corpID, ManIngameWiki.WikiPageGroup grouper) :
-            base(ModID, new LocExtStringFunc(GetShortName(corpID) + "_corp", 
-                () => { return StringLookup.GetCorporationName((FactionSubTypes)corpID); }),
-            ManUI.inst.GetModernCorpIcon((FactionSubTypes)corpID), grouper)
+        public WikiPageCorp(string ModID, int thisSessionCorpID, ManIngameWiki.WikiPageGroup grouper) :
+            base(ModID, GetShortName(thisSessionCorpID), new LocExtStringFunc(GetShortName(thisSessionCorpID) + "_corp", 
+                () => { return StringLookup.GetCorporationName((FactionSubTypes)thisSessionCorpID); }),
+            ManUI.inst.GetModernCorpIcon((FactionSubTypes)thisSessionCorpID), grouper)
         {
-            this.corpID = corpID;
-            corpShortName = GetShortName(corpID);
             OnWikiPageMade.Send(this);
         }
         /// <inheritdoc/>
@@ -169,28 +196,6 @@ namespace TerraTechETCUtil
         protected override void DisplayGUI()
         {
             GUILayout.BeginHorizontal();
-            ModdedCorpDefinition MCDC = ManMods.inst.FindCorp(corpShortName);
-            if (MCDC != MCD)
-            {
-                FL = ManLicenses.inst.GetLicense((FactionSubTypes)corpID);
-                if (MCDC?.m_Icon != null)
-                {
-                    icon = Sprite.Create(MCDC.m_Icon, new Rect(0, 0, MCDC.m_Icon.width, MCDC.m_Icon.height),
-                        new Vector2(0.5f, 0.5f));
-                    if (ManMods.inst.FindCorpShortName((FactionSubTypes)corpID) != corpShortName)
-                    {
-                        for (int i = 16; i < 128; i++)
-                        {
-                            if (ManMods.inst.FindCorpShortName((FactionSubTypes)corpID) == corpShortName)
-                            {
-                                corpID = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-                MCD = MCDC;
-            }
 
 
             if (icon)
@@ -199,13 +204,13 @@ namespace TerraTechETCUtil
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
             GUILayout.Label("AKA: ", AltUI.LabelBlackTitle);
-            GUILayout.Label(corpShortName, AltUI.LabelBlackTitle);
+            GUILayout.Label(ID, AltUI.LabelBlackTitle);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("CorpID: ", AltUI.LabelBlackTitle);
-            GUILayout.Label(corpID.ToString(), AltUI.LabelBlackTitle);
+            GUILayout.Label(inst.ToString(), AltUI.LabelBlackTitle);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
@@ -226,12 +231,12 @@ namespace TerraTechETCUtil
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
             if (corpDesc == null)
-                corpDesc = GetCorpDescription((FactionSubTypes)corpID);
+                corpDesc = GetCorpDescription((FactionSubTypes)inst);
             if (corpDesc != null)
                 GUILayout.Label(corpDesc, AltUI.TextfieldBlackHuge);
 
             if (AdditionalDisplayOnUI.HasSubscribers())
-                AdditionalDisplayOnUI.Send((FactionSubTypes)corpID);
+                AdditionalDisplayOnUI.Send((FactionSubTypes)inst);
 
 
             for (int i = 1; i < Enum.GetValues(typeof(BlockCategories)).Length; i++)
@@ -261,8 +266,8 @@ namespace TerraTechETCUtil
                                         foreach (var item3 in group.NestedPages)
                                         {
                                             if (item3 is WikiPageBlock WPB &&
-                                                ManSpawn.inst.GetCorporation((BlockTypes)WPB.blockID) == (FactionSubTypes)corpID &&
-                                                ManSpawn.inst.GetCategory((BlockTypes)WPB.blockID) == category)
+                                                ManSpawn.inst.GetCorporation(WPB.inst) == inst &&
+                                                ManSpawn.inst.GetCategory(WPB.inst) == category)
                                                 WPBL.Add(WPB);
                                         }
                                     }
@@ -286,7 +291,7 @@ namespace TerraTechETCUtil
 
             if (GUILayout.Button("Generate Report", AltUI.ButtonOrangeLarge, GUILayout.Height(40)))
             {
-                info = new GatheredInfo(corpID);
+                info = new GatheredInfo((int)_inst);
             }
             if (info != null)
             {
@@ -297,7 +302,7 @@ namespace TerraTechETCUtil
                 if (AltUI.Button("ENTIRE CORP JSON to system clipboard", ManSFX.UISfxType.Craft))
                 {
                     AutoDataExtractor.clipboard.Clear();
-                    AutoDataExtractor.clipboard.Append(GetCorpData.Invoke((FactionSubTypes)corpID));
+                    AutoDataExtractor.clipboard.Append(GetCorpData.Invoke((FactionSubTypes)inst));
                     GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
                     ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
                 }
@@ -320,9 +325,9 @@ namespace TerraTechETCUtil
                                     {
                                         if (item3 is WikiPageBlock WPB)
                                         {
-                                            var BT = (BlockTypes)WPB.blockID;
+                                            var BT = (BlockTypes)WPB.inst;
                                             if (ManMods.inst.IsModdedBlock(BT) &&
-                                            ManSpawn.inst.GetCorporation(BT) == (FactionSubTypes)corpID)
+                                            ManSpawn.inst.GetCorporation(BT) == (FactionSubTypes)inst)
                                                 ToSend.Add(ManSpawn.inst.GetBlockPrefab(BT));
                                         }
                                     }
@@ -335,7 +340,7 @@ namespace TerraTechETCUtil
             }
         }
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             if (info != null)
             {

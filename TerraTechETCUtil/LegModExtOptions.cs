@@ -18,11 +18,14 @@ namespace TerraTechETCUtil
         private static bool init = false;
 
         internal static OptionKey WikiSettings;
-        internal static OptionToggle WikiHideFull;
+        internal static OptionToggle HideDragFull;
         /// <summary>
         /// The wiki keybind
         /// </summary>
         public static int wikiBind = (int)ManIngameWiki.WikiButtonKeybind;
+
+
+        internal static OptionRange GUIScaler;
 
         internal static OptionKey Ability1;
         internal static OptionKey Ability2;
@@ -53,12 +56,22 @@ namespace TerraTechETCUtil
         {
             try
             {
-                if (init || WikiHideFull != null)
+                if (init || HideDragFull != null)
                     return;
                 init = true;
                 string modID = LegModExt.modID;
                 ModConfig thisModConfig = new ModConfig(modID);
-                thisModConfig.ReadConfigJsonFile();
+                thisModConfig.BindConfig<LegModExtOptions>(null, "wikiBind");
+
+                thisModConfig.BindConfig<ManModGUI>(null, "HideGUICompletelyWhenDragging");
+                thisModConfig.BindConfig<ManModGUI>(null, "GUIScale");
+
+                thisModConfig.BindConfig<LegModExtOptions>(null, "abil1");
+                thisModConfig.BindConfig<LegModExtOptions>(null, "abil2");
+                thisModConfig.BindConfig<LegModExtOptions>(null, "abil3");
+                thisModConfig.BindConfig<LegModExtOptions>(null, "abil4");
+                thisModConfig.BindConfig<LegModExtOptions>(null, "abilPage");
+
 
                 string mod = "Mod Wiki";
                 OptionKey keyTestTemp = new OptionKey("In-Game Wiki Key", mod, ManIngameWiki.WikiButtonKeybind);
@@ -68,10 +81,20 @@ namespace TerraTechETCUtil
                     wikiBind = (int)ManIngameWiki.WikiButtonKeybind;
                 });
                 WikiSettings = keyTestTemp;
-                WikiHideFull = new OptionToggle("Hide Mod GUI Entirely When Mouse is Held", mod, ManModGUI.HideGUICompletelyWhenDragging);
-                WikiHideFull.onValueSaved.AddListener(() =>
+
+                string GUIControl = "Ingame Mod GUI";
+                HideDragFull = new OptionToggle("Hide Mod GUI Entirely When Mouse is Held", GUIControl, ManModGUI.HideGUICompletelyWhenDragging);
+                HideDragFull.onValueSaved.AddListener(() =>
                 {
-                    ManModGUI.HideGUICompletelyWhenDragging = WikiHideFull.SavedValue;
+                    ManModGUI.HideGUICompletelyWhenDragging = HideDragFull.SavedValue;
+                });
+                GUIScaler = SuperNativeOptions.OptionRangeAutoDisplay("Mod GUI Scaling", GUIControl, ManModGUI.GUIScale,
+                    0.5f, 1.5f, 0.05f, (inVal) => {
+                        return inVal.ToString("P");
+                    });
+                GUIScaler.onValueSaved.AddListener(() =>
+                {
+                    ManModGUI.GUIScale = GUIScaler.SavedValue;
                 });
 
                 ManAbilities.ability1 = (KeyCode)abil1;
@@ -112,13 +135,6 @@ namespace TerraTechETCUtil
                     abilPage = (int)ManAbilities.AbilityTogglePage;
                 });
 
-                thisModConfig.BindConfig<LegModExtOptions>(null, "wikiBind");
-                thisModConfig.BindConfig<ManModGUI>(null, "HideGUICompletelyWhenDragging");
-                thisModConfig.BindConfig<LegModExtOptions>(null, "abil1");
-                thisModConfig.BindConfig<LegModExtOptions>(null, "abil2");
-                thisModConfig.BindConfig<LegModExtOptions>(null, "abil3");
-                thisModConfig.BindConfig<LegModExtOptions>(null, "abil4");
-                thisModConfig.BindConfig<LegModExtOptions>(null, "abilPage");
 
                 NativeOptionsMod.onOptionsSaved.AddListener(() => { thisModConfig.WriteConfigJsonFile(); });
                 config = thisModConfig;

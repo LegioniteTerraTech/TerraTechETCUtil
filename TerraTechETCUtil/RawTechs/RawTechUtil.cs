@@ -425,8 +425,14 @@ namespace TerraTechETCUtil
         /// Get an empty variant of this quickly.
         /// <para>DO NOT ALTER THIS</para>
         /// </summary>
-        public static readonly RawBlockMem empty = new RawBlockMem(BlockTypes.GSOAIController_111,
-            Vector3.zero, OrthoRotation.r.u000);
+#pragma warning disable CS0618 // Type or member is obsolete
+        public static readonly RawBlockMem empty = new RawBlockMem()
+        {
+            t = BlockTypes.GSOAIController_111.ToString(),
+            p = Vector3.zero,
+            r = OrthoRotation.r.u000,
+        };
+#pragma warning restore CS0618 // Type or member is obsolete
 
         /// <inheritdoc cref="tg"/>
         public string t = BlockTypes.GSOAIController_111.ToString(); //blocktype

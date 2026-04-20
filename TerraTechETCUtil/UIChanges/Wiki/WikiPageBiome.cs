@@ -13,7 +13,7 @@ namespace TerraTechETCUtil
     /// <summary>
     /// <para>Wiki page for biome information</para>
     /// </summary>
-    public class WikiPageBiome : ManIngameWiki.WikiPage
+    public class WikiPageBiome : ManIngameWiki.WikiPage<string, Biome>
     {
         /// <summary>
         /// An additional event displayer for mods to add their own wiki data
@@ -88,10 +88,7 @@ namespace TerraTechETCUtil
                     return "Nothing is known about this place, enter at your own risk.";
             }
         }
-        /// <summary>
-        /// The main identification the game uses for this
-        /// </summary>
-        public Biome biomeInst;
+
         /// <summary>
         /// Displayed description
         /// </summary>
@@ -101,28 +98,87 @@ namespace TerraTechETCUtil
         internal BiomeDataInfo damageable;
         internal BiomeDataInfo[] modules;
 
+        /// <inheritdoc />
+        public override bool HasInst() => _inst != null;
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+            if (getFullData && modules == null)
+            {
+                BiomeTypes BT = inst.BiomeType;
+
+                try
+                {
+                    var modulesC = BiomeDataInfo.TryGetModules(inst);
+                    foreach (var item in modulesC)
+                    {
+                        if (item.name == "Biome")
+                        {
+                            item.infos.Add("Base Name", inst.name == null ? "<NULL>" : inst.name);
+                            item.infos.Add("Biome ID", BT.ToString());
+                            item.infos.Add("Is Vanilla", (int)BT <= Enum.GetValues(typeof(BiomeTypes)).Length);
+                            item.infos.Add("Has Traders", inst.AllowVendors);
+                            item.infos.Add("Artifacts", inst.AllowLandmarks);
+                            item.infos.Add("Safe for Stunts", inst.AllowStuntRamps);
+                            item.infos.Add("Grippiness", inst.SurfaceFriction);
+
+                            List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
+                            foreach (var item2 in IterateForInfo<WikiPageScenery>())
+                            {
+                                var prefabBase = item2.prefabBase;
+                                var prefab = item2.prefab;
+                                string nameCached = item2.title;
+                                if (prefabBase != null && prefab)
+                                {
+                                    foreach (var item3 in prefabBase)
+                                    {
+                                        if (item3.Key == inst.name && !links.Exists(x => x.linked.title == nameCached))
+                                            links.Add(new ManIngameWiki.WikiLink(item2));
+                                    }
+                                }
+                            }
+                            item.infos.Add("Scenery", links);
+
+                            mainInfo = item;
+                        }
+                        else if (item.name == "Armoring")
+                            damageable = item;
+                        else if (item.name == "Durability")
+                            damage = item;
+                        else
+                            Combiler.Add(item);
+                    }
+                    modules = Combiler.ToArray();
+                }
+                finally
+                {
+                    Combiler.Clear();
+                }
+            }
+        }
+
         /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
         /// <summary>
         /// 
         /// </summary>
         /// <param name="BiomeInst">The biome instance to affiliate with this page</param>
         public WikiPageBiome(Biome BiomeInst) :
-            base(GetBiomeModName(BiomeInst), GetBiomeName(BiomeInst),
+            base(GetBiomeModName(BiomeInst), BiomeInst.name, GetBiomeName(BiomeInst),
             null, ManIngameWiki.LOC_Biomes, null)
         {
             if (BiomeInst == null)
                 throw new NullReferenceException("BiomeInst");
-            biomeInst = BiomeInst;
+            _inst = BiomeInst;
             desc = GetBiomeDescription(BiomeInst);
         }
 
         /// <inheritdoc cref=" WikiPageBiome.WikiPageBiome(Biome)"/>
         public WikiPageBiome(Biome BiomeInst, ManIngameWiki.WikiPageGroup group) : 
-            base(GetBiomeModName(BiomeInst), GetBiomeName(BiomeInst), null, group)
+            base(GetBiomeModName(BiomeInst), BiomeInst.name, GetBiomeName(BiomeInst), null, group)
         {
             if (BiomeInst == null)
                 throw new NullReferenceException("BiomeInst");
-            biomeInst = BiomeInst;
+            _inst = BiomeInst;
             desc = GetBiomeDescription(BiomeInst);
         }
         /// <inheritdoc/>
@@ -149,7 +205,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -173,58 +229,6 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         protected override void DisplayGUI()
         {
-            if (modules == null)
-            {
-                BiomeTypes BT = biomeInst.BiomeType;
-
-                try
-                {
-                    var modulesC = BiomeDataInfo.TryGetModules(biomeInst);
-                    foreach (var item in modulesC)
-                    {
-                        if (item.name == "Biome")
-                        {
-                            item.infos.Add("Base Name", biomeInst.name == null ? "<NULL>" : biomeInst.name);
-                            item.infos.Add("Biome ID", BT.ToString());
-                            item.infos.Add("Is Vanilla", (int)BT <= Enum.GetValues(typeof(BiomeTypes)).Length);
-                            item.infos.Add("Has Traders", biomeInst.AllowVendors);
-                            item.infos.Add("Artifacts", biomeInst.AllowLandmarks);
-                            item.infos.Add("Safe for Stunts", biomeInst.AllowStuntRamps);
-                            item.infos.Add("Grippiness", biomeInst.SurfaceFriction);
-
-                            List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
-                            foreach (var item2 in IterateForInfo<WikiPageScenery>())
-                            {
-                                var prefabBase = item2.prefabBase;
-                                var prefab = item2.prefab;
-                                string nameCached = item2.title;
-                                if (prefabBase != null && prefab)
-                                {
-                                    foreach (var item3 in prefabBase)
-                                    {
-                                        if (item3.Key == biomeInst.name && !links.Exists(x => x.linked.title == nameCached))
-                                            links.Add(new ManIngameWiki.WikiLink(item2));
-                                    }
-                                }
-                            }
-                            item.infos.Add("Scenery", links);
-
-                            mainInfo = item;
-                        }
-                        else if (item.name == "Armoring")
-                            damageable = item;
-                        else if (item.name == "Durability")
-                            damage = item;
-                        else
-                            Combiler.Add(item);
-                    }
-                    modules = Combiler.ToArray();
-                }
-                finally
-                {
-                    Combiler.Clear();
-                }
-            }
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (mainInfo != null)
                 mainInfo.DisplayGUI();
@@ -233,16 +237,16 @@ namespace TerraTechETCUtil
             if (damageable != null)
                 damageable.DisplayGUI();
             if (AdditionalDisplayOnUI.HasSubscribers())
-                AdditionalDisplayOnUI.Send(biomeInst);
+                AdditionalDisplayOnUI.Send(inst);
             GUILayout.EndVertical();
             if (desc != null)
-                GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
-            if (ManIngameWiki.ShowJSONExport && GetBiomeData != null && biomeInst != null)
+                GUILayout.Label(desc, AltUI.TextfieldBlackHuge, GUILayout.ExpandHeight(false));
+            if (ManIngameWiki.ShowJSONExport && GetBiomeData != null && _inst != null)
             {
                 if (AltUI.Button("ENTIRE BIOME JSON to system clipboard", ManSFX.UISfxType.Craft))
                 {
                     AutoDataExtractor.clipboard.Clear();
-                    AutoDataExtractor.clipboard.Append(GetBiomeData.Invoke(biomeInst));
+                    AutoDataExtractor.clipboard.Append(GetBiomeData.Invoke(inst));
                     GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
                     ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
                 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using FMOD.Studio;
 
 
@@ -12,100 +13,6 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-    /// <summary>
-    /// A quick-access low memory use struct for coloring things
-    /// </summary>
-    public struct ColorBytes
-    {
-        /// <summary> Red </summary>
-        public byte r;
-        /// <summary> Green </summary>
-        public byte g;
-        /// <summary> Blue </summary>
-        public byte b;
-        /// <summary> Alpha </summary>
-        public byte a;
-
-        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
-        public ColorBytes(byte R, byte G, byte B)
-        {
-            r = R;
-            g = G;
-            b = B;
-            a = byte.MaxValue;
-        }
-        /// <summary>
-        /// Setup <see cref="ColorBytes"/> to use
-        /// </summary>
-        /// <param name="R">Red</param>
-        /// <param name="G">Green</param>
-        /// <param name="B">Blue</param>
-        /// <param name="A">Alpha</param>
-        public ColorBytes(byte R, byte G, byte B, byte A)
-        {
-            r = R;
-            g = G;
-            b = B;
-            a = A;
-        }
-
-        /// <summary>
-        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
-        /// <para><b>Lossy</b></para>
-        /// </summary>
-        /// <param name="color">The color to copy from.</param>
-        public ColorBytes(Color color)
-        {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.r) * byte.MaxValue);
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.g) * byte.MaxValue);
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.b) * byte.MaxValue);
-            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(color.a) * byte.MaxValue);
-        }
-        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
-        public ColorBytes(float R, float G, float B)
-        {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G) * byte.MaxValue);
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
-            a = byte.MaxValue;
-        }
-        /// <inheritdoc cref="ColorBytes.ColorBytes(byte, byte, byte, byte)"/>
-        public ColorBytes(float R, float G, float B, float A)
-        {
-            r = (byte)Mathf.RoundToInt(Mathf.Clamp01(R) * byte.MaxValue);
-            g = (byte)Mathf.RoundToInt(Mathf.Clamp01(G) * byte.MaxValue);
-            b = (byte)Mathf.RoundToInt(Mathf.Clamp01(B) * byte.MaxValue);
-            a = (byte)Mathf.RoundToInt(Mathf.Clamp01(A) * byte.MaxValue);
-        }
-        /// <summary>
-        /// To <see cref="Color"/> type. Still lossy
-        /// </summary>
-        /// <returns></returns>
-        public Color ToRGBAFloat()
-        {
-            return new Color(
-                Mathf.Clamp01(r / (float)byte.MaxValue),
-                Mathf.Clamp01(g / (float)byte.MaxValue),
-                Mathf.Clamp01(b / (float)byte.MaxValue),
-                Mathf.Clamp01(a / (float)byte.MaxValue)
-            );
-        }
-        /// <inheritdoc/>
-        public override string ToString()
-        {
-            return r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2");
-        }
-        /// <summary>
-        /// Color the given string
-        /// </summary>
-        /// <param name="ToColor">string to color</param>
-        /// <returns>the given string with the color formatting around it</returns>
-        public string ColorString(string ToColor)
-        {
-            return "<color=#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + a.ToString("X2") + ">" + ToColor + "</color>";
-        }
-    }
-
     /// <summary>
     /// Manages extension methods for various classes.
     /// </summary>
@@ -457,6 +364,34 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log(depthParse + "}");
         }
 
+        /// <summary>
+        /// Remove and replace the username from a given path string
+        /// </summary>
+        /// <param name="toSearch">The path to clean</param>
+        /// <returns>the cleaned path</returns>
+        public static string RemoveUsername(string toSearch)
+        {
+            StringBuilder SB = new StringBuilder();
+            bool ignoreThisCase = true;
+            int stoppingPos = toSearch.IndexOf("Users") + 6;
+            for (int step = 0; step < toSearch.Length; step++)
+            {
+                if (stoppingPos <= step)
+                {
+                    if (stoppingPos == step)
+                    {
+                        SB.Append("userName");
+                    }
+                    //DebugRandAddi.Log("TTETCUtil: " + toSearch[step] + " | " );
+                    if (toSearch[step] == '/')
+                        ignoreThisCase = false;
+                    if (ignoreThisCase)
+                        continue;
+                }
+                SB.Append(toSearch[step]);
+            }
+            return SB.ToString(); //"(Error on OS fetch request)"; 
+        }
 
 
         /// <summary>
@@ -490,6 +425,34 @@ namespace TerraTechETCUtil
         }
 
         /// <summary>
+        /// Get the primary prefab list the game uses to spawn most 
+        /// <see cref="TerrainObject"/>s and <see cref="ResourceDispenser"/>s.
+        /// <para>WARNING: THIS LIST CAN CHANGE BETWEEN GAME SESSIONS</para>
+        /// </summary>
+        /// <returns>The prefab list</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public static Dictionary<string, TerrainObject> GetLookupList(this TerrainObjectTable TOT)
+        {
+            FieldInfo sce2 = typeof(TerrainObjectTable).GetField("m_GUIDToPrefabLookup", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (sce2 == null)
+                throw new NullReferenceException("Field \"TerrainObjectTable.m_GUIDToPrefabLookup\" no longer exists!");
+
+            Dictionary<string, TerrainObject> objsRaw = (Dictionary<string, TerrainObject>)sce2.GetValue(TOT);
+            if (objsRaw == null)
+            {
+                TOT.InitLookupTable();
+                objsRaw = (Dictionary<string, TerrainObject>)sce2.GetValue(TOT);
+                if (objsRaw == null)
+                    throw new NullReferenceException("SpawnHelper: TerrainObjectTable has not allocated m_GUIDToPrefabLookup for some reason and SpawnHelper fetch failed");
+            }
+            return objsRaw;
+        }
+
+
+
+
+
+        /// <summary>
         /// Finds the first Transform that matches the given name.
         /// Case sensitive.
         /// </summary>
@@ -509,11 +472,16 @@ namespace TerraTechETCUtil
         }
 
         /// <summary>
-        /// Finds all Components of type T within a given GameObject's children.
+        /// Finds all <see cref="Component"/> of <see cref="Type"/> <typeparamref name="T"/> within a given <see cref="GameObject"/>'s children at
+        /// to <b>output_log.txt</b> at <see cref="Application.consoleLogPath"/>
+        /// <para>For more advanced operations, see:</para> 
+        /// <para><list type="bullet">
+        /// <item>For simple <seealso cref="GameObject"/><b>-only</b> extraction <seealso cref="GameObjectDocumentator.GetHierachyAndPrintToLog"/></item>
+        /// <item>For detailed extraction - <seealso cref="AutoDataExtractor.AutoDataExtractor(string, Type, object, HashSet{object})"/></item></list></para>
         /// </summary>
-        /// <typeparam name="T">The type to search for.</typeparam>
-        /// <param name="GO">The GameObject to search.</param>
-        public static void PrintAllComponentsGameObjectDepth<T>(GameObject GO) where T : Component
+        /// <typeparam name="T">The <see cref="Type"/> to search for.</typeparam>
+        /// <param name="GO">The <see cref="GameObject"/> to search through.</param>
+        public static void PrintAllComponentsGameObjectDepth<T>(this GameObject GO) where T : Component
         {
             Debug_TTExt.Log("-------------------------------------------");
             Debug_TTExt.Log("PrintAllComponentsGameObjectDepth - For " + typeof(T).Name);

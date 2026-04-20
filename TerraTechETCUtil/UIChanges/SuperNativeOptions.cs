@@ -67,54 +67,34 @@ public static class SuperNativeOptions
         Op.UIElement.transform.Find("Text").GetComponent<Text>().text =
         ((string)NameSetter.GetValue(Op)) + " (" + name.ToString("0.000") + ")";
     }
+
+
     /// <summary>
-    /// Advanced <see cref="OptionRange"/> with dynamically changing UI connected to it
+    /// Advanced <see cref="Option"/> with dynamically changing UI connected to it
     /// </summary>
     /// <param name="name">Name of the range</param>
     /// <param name="modname">Category to display this under</param>
-    /// <param name="defaultval">The starting number this begins with</param>
-    /// <param name="minval">The minimum value in the range</param>
-    /// <param name="maxval">The maximum value in the range</param>
-    /// <param name="roundto">The step clamping in the range</param>
-    /// <param name="uiReturnFunc">The special function to display the result of the option range value</param>
-    /// <returns>The special <see cref="OptionRange"/> with added functionality</returns>
-    public static OptionRange OptionRangeAutoDisplay(string name, string modname, float defaultval = 0,
-        float minval = 0, float maxval = 100, float roundto = 1, Func<float, string> uiReturnFunc = null)
+    /// <param name="defaultval">The starting boolean state this begins with</param>
+    /// <param name="uiReturnFunc">The special function to display the result of the option toggle value</param>
+    /// <returns>The special <see cref="OptionToggle"/> with added functionality</returns>
+    public static OptionToggle OptionToggleAutoDisplay(string name, string modname, bool defaultval,
+        Func<bool, string> uiReturnFunc)
     {
         string finalName;
         if (uiReturnFunc == null)
-        {
-            spacer.Append("0.");
-            for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                spacer.Append('0');
-            finalName = name + " (" + (Mathf.RoundToInt(defaultval / roundto) * roundto).ToString(spacer.ToString()) + ")";
-            spacer.Clear();
-        }
+            throw new ArgumentNullException("OptionToggleAutoDisplay expects a valid " + nameof(uiReturnFunc) + 
+                " to use for the toggle.  Otherwise just use " + nameof(OptionToggle));
         else
+            finalName = name + " (" + uiReturnFunc(defaultval) + ")";
+        OptionToggle OT = new OptionToggle(finalName, modname, defaultval);
+        ((Toggle.ToggleEvent)OT.onValueChanged).AddListener((bool value) =>
         {
-            finalName = name + " (" + uiReturnFunc(Mathf.RoundToInt(defaultval / roundto) * roundto) + ")";
-        }
-        OptionRange OR = new OptionRange(finalName, modname, defaultval, minval, maxval, roundto);
-        ((Slider.SliderEvent)OR.onValueChanged).AddListener((float value) =>
-        {
-            value = Mathf.RoundToInt(value / roundto) * roundto;
-            if (uiReturnFunc == null)
-            {
-                spacer.Append("0.");
-                for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                    spacer.Append('0');
-                OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
-                name + " (" + value.ToString(spacer.ToString()) + ")";
-                spacer.Clear();
-            }
-            else
-            {
-                OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
-                name + " (" + uiReturnFunc(value) + ")";
-            }
+            OT.UIElement.transform.Find("Text").GetComponent<Text>().text =
+            name + " (" + uiReturnFunc(value) + ")";
         });
-        return OR;
+        return OT;
     }
+
     /// <summary>
     /// Advanced <see cref="OptionRange"/> with dynamically changing UI connected to it
     /// </summary>
@@ -124,50 +104,66 @@ public static class SuperNativeOptions
     /// <param name="minval">The minimum value in the range</param>
     /// <param name="maxval">The maximum value in the range</param>
     /// <param name="roundto">The step clamping in the range</param>
-    /// <param name="uiReturnFunc">The special function to display the result of the option range value</param>
+    /// <param name="uiReturnFunc">The special function to display the result of the option range value.</param>
     /// <returns>The special <see cref="OptionRange"/> with added functionality</returns>
     public static OptionRange OptionRangeAutoDisplay(string name, string modname, float defaultval = 0,
         float minval = 0, float maxval = 100, float roundto = 1, Func<float, float> uiReturnFunc = null)
     {
         string finalName;
         if (uiReturnFunc == null)
-        {
-            spacer.Append("0.");
-            for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                spacer.Append('0');
-            finalName = name + " (" + (Mathf.RoundToInt(defaultval / roundto) * roundto).ToString(spacer.ToString()) + ")";
-            spacer.Clear();
-        }
-        else
-        {
-            spacer.Append("0.");
-            for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                spacer.Append('0');
-            finalName = name + " (" + uiReturnFunc(Mathf.RoundToInt(defaultval / roundto) * roundto).ToString(spacer.ToString()) + ")";
-            spacer.Clear();
-        }
+            uiReturnFunc = (inVal) => inVal;
+        spacer.Append("0.");
+        for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
+            spacer.Append('0');
+        string spacerGet = spacer.ToString();
+        spacer.Clear();
+        finalName = name + " (" + uiReturnFunc(Mathf.RoundToInt(defaultval / roundto) * roundto).ToString(spacerGet) + ")";
         OptionRange OR = new OptionRange(finalName, modname, defaultval, minval, maxval, roundto);
         ((Slider.SliderEvent)OR.onValueChanged).AddListener((float value) =>
         {
             value = Mathf.RoundToInt(value / roundto) * roundto;
-            if (uiReturnFunc == null)
-            {
-                spacer.Append("0.");
-                for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                    spacer.Append('0');
-                OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
-                name + " (" + value.ToString(spacer.ToString()) + ")";
-                spacer.Clear();
-            }
-            else
-            {
-                spacer.Append("0.");
-                for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
-                    spacer.Append('0');
-                OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
-                name + " (" + uiReturnFunc(value).ToString(spacer.ToString()) + ")";
-                spacer.Clear();
-            }
+            OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
+            name + " (" + uiReturnFunc(value).ToString(spacerGet) + ")";
+        });
+        return OR;
+    }
+    /// <inheritdoc cref="OptionRangeAutoDisplay(string, string, float, float, float, float, Func{float, float})"/>
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="name"></param>
+    /// <param name="modname"></param>
+    /// <param name="defaultval"></param>
+    /// <param name="minval"></param>
+    /// <param name="maxval"></param>
+    /// <param name="roundto"></param>
+    /// <param name="uiReturnFuncString">The special function to display the result of the option range value.
+    /// <para>Return null to display nothing</para></param>
+    /// <returns></returns>
+    public static OptionRange OptionRangeAutoDisplay(string name, string modname, float defaultval = 0,
+        float minval = 0, float maxval = 100, float roundto = 1, Func<float, string> uiReturnFuncString = null)
+    {
+        string finalName;
+        if (uiReturnFuncString == null)
+        {
+            spacer.Append("0.");
+            for (int i = 0; i < roundto.GetDecimalPlaceCount(); i++)
+                spacer.Append('0');
+            string spacerGet = spacer.ToString();
+            spacer.Clear();
+            uiReturnFuncString = (inVal) => inVal.ToString(spacerGet);
+        }
+        finalName = uiReturnFuncString(Mathf.RoundToInt(defaultval / roundto) * roundto);
+        if (finalName != null)
+            finalName = name + " (" + finalName + ")";
+        else
+            finalName = string.Empty;
+        OptionRange OR = new OptionRange(finalName, modname, defaultval, minval, maxval, roundto);
+        ((Slider.SliderEvent)OR.onValueChanged).AddListener((float value) =>
+        {
+            value = Mathf.RoundToInt(value / roundto) * roundto;
+            OR.UIElement.transform.Find("Text").GetComponent<Text>().text =
+            name + " (" + uiReturnFuncString(value) + ")";
         });
         return OR;
     }

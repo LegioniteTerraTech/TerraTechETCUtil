@@ -8,14 +8,20 @@ using UnityEngine;
 
 namespace TerraTechETCUtil
 {
-    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
     /// <summary>
+    /// <inheritdoc cref="ManIngameWiki.WikiPage"/>
     /// <para>Wiki page for all hint-related information</para>
+    /// <para>Hints are automatically inserted when registered with 
+    /// <seealso cref="ExtUsageHint.UsageHint"/> or <seealso cref="LoadingHintsExt"/></para>
     /// </summary>
     public class WikiPageHints : ManIngameWiki.WikiPage
     {
         private List<LocExtString> hints = new List<LocExtString>();
 
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+        }
         internal WikiPageHints(string modID, LocExtString hintTitle, LocExtString firstHint) :
             base(modID, hintTitle, null, ManIngameWiki.LOC_Hints, ManIngameWiki.InfoSprite)
         {
@@ -99,7 +105,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             return false;
         }

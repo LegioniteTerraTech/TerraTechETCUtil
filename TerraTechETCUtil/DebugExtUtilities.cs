@@ -474,7 +474,7 @@ namespace TerraTechETCUtil
         {
             private void OnGUI()
             {
-                HotWindow = AltUI.Window(DisplayExtID, HotWindow, GUIHandlerDebug, "<b>Ext Mod Info</b>", Close);
+                HotWindow = AltUI.Window(DisplayExtID, HotWindow, GUIHandlerDebug, "<b>Ext Mod Info</b>", Close, true, true);
             }
         }
 
@@ -500,7 +500,6 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
             GUILayout.EndScrollView();
-            GUI.DragWindow();
         }
     }
 }

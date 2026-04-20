@@ -210,6 +210,8 @@ namespace TerraTechETCUtil
     /// <summary>
     /// Extracts fine data from a target Component. 
     /// <para>Use <see cref="AutoDataExtractorInst"/> to keep track of active instances</para>
+    /// <para>Use <see cref="ModuleInfo"/> to keep track of block instances</para>
+    /// <para>Use the <see cref="ManIngameWiki"/> system to access end-user information</para>
     /// </summary>
     public class AutoDataExtractor
     {
@@ -467,7 +469,8 @@ namespace TerraTechETCUtil
             GUILayout.BeginVertical(AltUI.BoxBlack);
             string nameFiltered = name.NullOrEmpty() ? "NULL NAME" : name;
             bool isOpen = openEntries.Contains(nameFiltered);
-            if (GUILayout.Button(nameFiltered, isOpen ? AltUI.LabelBlueTitle : AltUI.LabelWhiteTitle))
+            if (GUILayout.Button(nameFiltered, isOpen ? AltUI.LabelBlueTitle : AltUI.LabelWhiteTitleBlueHover, 
+                GUILayout.ExpandWidth(true)))
             {
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
                 if (isOpen)
@@ -478,9 +481,7 @@ namespace TerraTechETCUtil
             if (isOpen)
             {
                 if (infos == null)
-                {
                     GUILayout.Label("INFO IS NULL", AltUI.LabelRed);
-                }
                 else
                 {
                     foreach (var item in infos)
@@ -514,7 +515,7 @@ namespace TerraTechETCUtil
                                     GUILayout.BeginVertical(AltUI.TextfieldBordered);
                                     foreach (var item2 in sLCase)
                                     {
-                                        GUILayout.Label(item2, AltUI.LabelBlack);
+                                        GUILayout.Label(item2, AltUI.LabelBlackWrap);
                                     }
                                     GUILayout.EndVertical();
                                 }

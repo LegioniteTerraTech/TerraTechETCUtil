@@ -128,30 +128,9 @@ namespace TerraTechETCUtil
                 return NullSprite;
             return null;
         }
-        /// <summary>
-        /// Log the contents of a GameObject's components of type <typeparamref name="T"/> 
-        /// to output_log.txt at <see cref="Application.consoleLogPath"/>
-        /// </summary>
-        /// <typeparam name="T">Component type to log</typeparam>
-        /// <param name="GO"></param>
-        public static void PrintAllComponentsGameObjectDepth<T>(GameObject GO) where T : Component
-        {
-            Debug_TTExt.Log("-------------------------------------------");
-            Debug_TTExt.Log("PrintAllComponentsGameObjectDepth - For " + typeof(T).Name);
-            Debug_TTExt.Log(" -- " + GO.name);
-            foreach (var item in GO.GetComponentsInChildren<T>(true))
-            {
-                Debug_TTExt.Log("-------------------------------------------");
-                Debug_TTExt.Log(" - " + item.gameObject.name);
-                Transform trans = item.transform.parent;
-                while (trans != null)
-                {
-                    Debug_TTExt.Log("  " + trans.gameObject.name);
-                    trans = trans.parent;
-                }
-            }
-            Debug_TTExt.Log("-------------------------------------------");
-        }
+        /// <inheritdoc cref=" Utilities.PrintAllComponentsGameObjectDepth{T}(GameObject)"/>
+        public static void PrintAllComponentsGameObjectDepth<T>(GameObject GO) where T : Component =>
+            Utilities.PrintAllComponentsGameObjectDepth<T>(GO);
 
         /// <summary>
         /// Show a popup in the style of the vanilla UI shown when hovering over <see cref="Visible"/>s
@@ -444,10 +423,10 @@ namespace TerraTechETCUtil
         /// </summary>
         /// <param name="pos">The Window's Rect on the screen</param>
         /// <returns>If the mouse is DIRECTLY within the specified rect on the screen</returns>
-        public static bool MouseIsOverSubMenu(Rect pos)
+        public static bool MouseIsOverGUIMenu(Rect pos)
         {
-            Vector3 Mous = Input.mousePosition;
-            Mous.y = Display.main.renderingHeight - Mous.y;
+            Vector3 Mous = Input.mousePosition * ManModGUI.GUIScaleInv;
+            Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
             float xMenuMin = pos.x;
             float xMenuMax = pos.x + pos.width;
             float yMenuMin = pos.y;
@@ -465,16 +444,26 @@ namespace TerraTechETCUtil
         /// </summary>
         /// <param name="pos">The Rect to clamp within the screen bounds</param>
         /// <param name="centerOnMouse">If it should re-center on the mouse, then clamp to screen</param>
-        public static void ClampMenuToScreen(ref Rect pos, bool centerOnMouse)
+        public static void ClampGUIToScreen(ref Rect pos, bool centerOnMouse)
         {
             if (centerOnMouse)
             {
-                Vector3 Mous = Input.mousePosition;
+                Vector3 Mous = Input.mousePosition * ManModGUI.GUIScaleInv;
                 pos.x = Mous.x - (pos.width / 2);
-                pos.y = Display.main.renderingHeight - Mous.y - 90;
+                pos.y = ManModGUI.GameWindowScaledHeight - Mous.y - 90;
             }
-            pos.x = Mathf.Clamp(pos.x, 0, Display.main.renderingWidth - pos.width);
-            pos.y = Mathf.Clamp(pos.y, 0, Display.main.renderingHeight - pos.height);
+            pos.x = Mathf.Clamp(pos.x, 0, ManModGUI.GameWindowScaledWidth - pos.width);
+            pos.y = Mathf.Clamp(pos.y, 0, ManModGUI.GameWindowScaledHeight - pos.height);
+        }
+        /// <summary>
+        /// Clamps the given Rect to at lesst be partially within bounds of the screen.  
+        /// This may not be possible if the screen is too small to fit the Rect entirely.
+        /// </summary>
+        /// <param name="pos">The Rect to clamp within the screen bounds</param>
+        public static void ClampGUIToScreenNonStrict(ref Rect pos)
+        {
+            pos.x = Mathf.Clamp(pos.x, 10 - pos.width, ManModGUI.GameWindowScaledWidth - 10);
+            pos.y = Mathf.Clamp(pos.y, 10 - pos.height, ManModGUI.GameWindowScaledHeight - 10);
         }
     }
 }

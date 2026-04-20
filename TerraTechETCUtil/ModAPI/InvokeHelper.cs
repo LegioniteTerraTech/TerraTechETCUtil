@@ -29,7 +29,7 @@ namespace TerraTechETCUtil
         private Dictionary<MethodInfo, InvokeRepeater> invokeSingleRepeat = new Dictionary<MethodInfo, InvokeRepeater>();
         private Dictionary<MethodInfo, IInvokeable> invokeSingles = new Dictionary<MethodInfo, IInvokeable>();
         private Dictionary<MethodInfo, List<IInvokeable>> invokes = new Dictionary<MethodInfo, List<IInvokeable>>();
-        private static void InsureInit()
+        internal static void InsureInit()
         {
             if (inst)
                 return;
@@ -560,8 +560,9 @@ namespace TerraTechETCUtil
         private void OnGUI()
         {
             if (WarningPopup)
-                AltUI.Window(IDErrorWindow, WarningPopupRect, WindowDisp, WarningIsError ? "Errors" : "Warnings", HideErrorPopup);
-            ManModGUI.UpdateMouseOverAnyWindow();
+                AltUI.Window(IDErrorWindow, WarningPopupRect, WindowDisp, WarningIsError ? "Errors" : "Warnings",
+                    HideErrorPopup, true, true);
+            ManModGUI.UpdateThisRemote();
         }
 
 
@@ -584,10 +585,10 @@ namespace TerraTechETCUtil
         internal static void ShowErrorPopup(string Warning, bool IsSeriousError = false, Action OnFixRequested = null)
         {
             InsureInit();
-            WarningPopupRect.width = Mathf.Min(Display.main.renderingWidth - 200, 800);
-            WarningPopupRect.height = Mathf.Min(Display.main.renderingHeight - 200, 600);
-            WarningPopupRect.x = (Display.main.renderingWidth - WarningPopupRect.width) * 0.5f;
-            WarningPopupRect.y = (Display.main.renderingHeight - WarningPopupRect.height) * 0.5f;
+            WarningPopupRect.width = Mathf.Min(ManModGUI.GameWindowScaledWidth - 200, 800);
+            WarningPopupRect.height = Mathf.Min(ManModGUI.GameWindowScaledHeight - 200, 600);
+            WarningPopupRect.x = (ManModGUI.GameWindowScaledWidth - WarningPopupRect.width) * 0.5f;
+            WarningPopupRect.y = (ManModGUI.GameWindowScaledHeight - WarningPopupRect.height) * 0.5f;
             WarningPopup = true;
             Warnings.Add(new WarningLogged()
             {
@@ -625,7 +626,6 @@ namespace TerraTechETCUtil
             }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-            GUI.DragWindow();
         }
         private void HideErrorPopup()
         {

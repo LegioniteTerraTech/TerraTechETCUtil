@@ -100,11 +100,30 @@ namespace TerraTechETCUtil
         /// </summary>
         public static bool SetupAltWins = false;
 
+        /// <summary>
+        /// The scale of the managed UI systems
+        /// </summary>
+        public static float GUIScale = 1f;
+        /// <summary>
+        /// The inverted scale of the managed UI systems
+        /// </summary>
+        public static float GUIScaleInv => 1f / GUIScale;
+        /// <summary>
+        /// The width of the entire screen relative to the <see cref="ManModGUI"/> rescaled UI
+        /// </summary>
+        public static float GameWindowScaledWidth => Display.main.renderingWidth * GUIScaleInv;
+        /// <summary>
+        /// The height of the entire screen relative to the <see cref="ManModGUI"/> rescaled UI
+        /// </summary>
+        public static float GameWindowScaledHeight => Display.main.renderingHeight * GUIScaleInv;
 
         private static int IDCur = IDOffset;
         private static GUIPopupDisplay currentGUIWindow;
         private static int updateClock = 0;
         private static int updateClockDelay = 50;
+        private static float lastGUIScale = 1f;
+
+        private const float guiAlphaDelta = 4f;
 
         private static HashSet<ModBase> registered = new HashSet<ModBase>();
         private static List<Action> EscHoldup = new List<Action>();
@@ -284,8 +303,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void KeepWithinScreenBounds(GUIPopupDisplay disp)
         {
-            disp.Window.x = Mathf.Clamp(disp.Window.x, 0, Display.main.renderingWidth - disp.Window.width);
-            disp.Window.y = Mathf.Clamp(disp.Window.y, 0, Display.main.renderingHeight - disp.Window.height);
+            disp.Window.x = Mathf.Clamp(disp.Window.x, 0, GameWindowScaledWidth - disp.Window.width);
+            disp.Window.y = Mathf.Clamp(disp.Window.y, 0, GameWindowScaledHeight - disp.Window.height);
         }
         /// <summary>
         /// Keep the popup at least partially within screen bounds
@@ -293,8 +312,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void KeepWithinScreenBoundsNonStrict(GUIPopupDisplay disp)
         {
-            disp.Window.x = Mathf.Clamp(disp.Window.x, 10 - disp.Window.width, Display.main.renderingWidth - 10);
-            disp.Window.y = Mathf.Clamp(disp.Window.y, 10 - disp.Window.height, Display.main.renderingHeight - 10);
+            disp.Window.x = Mathf.Clamp(disp.Window.x, 10 - disp.Window.width, GameWindowScaledWidth - 10);
+            disp.Window.y = Mathf.Clamp(disp.Window.y, 10 - disp.Window.height, GameWindowScaledHeight - 10);
         }
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
@@ -303,8 +322,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void ChangePopupPositioning(Vector2 screenPosPercent, GUIPopupDisplay disp)
         {
-            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPosPercent.x;
-            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPosPercent.y;
+            disp.Window.x = (GameWindowScaledWidth - disp.Window.width) * screenPosPercent.x;
+            disp.Window.y = (GameWindowScaledHeight - disp.Window.height) * screenPosPercent.y;
         }
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
@@ -313,8 +332,8 @@ namespace TerraTechETCUtil
         /// <param name="squareDelta"></param>
         public static bool PopupPositioningApprox(GUIPopupDisplay disp, float squareDelta = 0.1f)
         {
-            float valX = disp.Window.x / (Display.main.renderingWidth - disp.Window.width);
-            float valY = disp.Window.y / (Display.main.renderingHeight - disp.Window.height);
+            float valX = disp.Window.x / (GameWindowScaledWidth - disp.Window.width);
+            float valY = disp.Window.y / (GameWindowScaledHeight - disp.Window.height);
             return valX > -squareDelta && valX < squareDelta && valY > -squareDelta && valY < squareDelta;
         }
         /// <summary>
@@ -380,7 +399,8 @@ namespace TerraTechETCUtil
         /// </summary>
         public static bool IsMouseOverModGUI { get; private set; } = false;
         /// <summary>
-        /// True if the <see cref="ManModGUI"/> is reserving the mouse and keyboard controls for use on the UI elements
+        /// True if the <see cref="ManModGUI"/> is reserving the mouse and keyboard controls for use on 
+        /// <b>it's own</b> UI elements
         /// </summary>
         public static bool UIKickoffState { get; private set; } = false;
         /// <summary>
@@ -394,7 +414,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Is the interaction with the world blocked?
         /// </summary>
-        public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked || IsMouseOverModGUI;
+        public static bool IsWorldInteractionBlocked => ManPointer.inst.IsInteractionBlocked;
         /// <summary>
         /// Is the UI interaction blocked? (EG. Dragging block)
         /// </summary>
@@ -584,34 +604,37 @@ namespace TerraTechETCUtil
             else if (IsMouseOverAnyModGUI > 0)
                 IsMouseOverAnyModGUI--;
             var buildMode = ManPointer.inst.BuildMode;
-            bool IsInteracting = Input.GetMouseButton(1) ||Input.GetMouseButton(2) ||
+            bool IsInteracting = Input.GetMouseButton(1) || Input.GetMouseButton(2) ||
                 (buildMode == ManPointer.BuildingMode.Grab && ManPointer.inst.DraggingItem != null) ||
                 buildMode == ManPointer.BuildingMode.PaintBlock ||
                 buildMode == ManPointer.BuildingMode.PaintSkin ||
                 buildMode == ManPointer.BuildingMode.PaintSkinTech;
-            if (UIFadeState && !IsInteracting)
-            {
-                AltUI.UIAlphaAuto = 1f;
-                UIFadeState = false;
-            }
-            if (UIKickoffState != IsMouseOverModGUI)
-            {
-                if (IsMouseOverModGUI && IsInteracting)
-                {   // Hold off on our UI and fade it for now!
-                    if (!UIFadeState)
-                    {
-                        AltUI.UIAlphaAuto = 0.2f;
-                        UIFadeState = true;
-                    }
+            if (IsInteracting)
+            {   // Ignore while mouse action
+                if (UIKickoffState)
+                {   // We are NOT over the mod gui but previously was on the UI
+                    AltUI.UIAlphaAuto = Mathf.Clamp(AltUI.UIAlphaAuto + (guiAlphaDelta * Time.deltaTime), AltUI.UIAlphaAutoFadeValue, 1f);
                 }
                 else
-                {
-                    UIKickoffState = IsMouseOverModGUI;
-                    //Debug_TTExt.Log("ManModGUI.UI_released - " + mouseOverMenu);
-                    // The below does not work properly.  AT ALL
-                    //ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, IsMouseOverModGUI);
+                {   // We are over the mod gui but previously was NOT on the UI
                     if (IsMouseOverModGUI)
                     {
+                        UIFadeState = true;
+                        AltUI.UIAlphaAuto = AltUI.UIAlphaAutoFadeValue;
+                    }
+                    else
+                        AltUI.UIAlphaAuto = Mathf.Clamp(AltUI.UIAlphaAuto - (guiAlphaDelta * Time.deltaTime), AltUI.UIAlphaAutoFadeValue, 1f);
+                }
+            }
+            else
+            {   // No mouse action
+                UIFadeState = false;
+                AltUI.UIAlphaAuto = Mathf.Clamp(AltUI.UIAlphaAuto + (guiAlphaDelta * Time.deltaTime), AltUI.UIAlphaAutoFadeValue, 1f);
+                if (UIKickoffState != IsMouseOverModGUI)
+                {
+                    UIKickoffState = IsMouseOverModGUI;
+                    if (IsMouseOverModGUI)
+                    {   // Hold off on our UI and fade it for now!
                         HideAllObstructingUI();
                         //ForceReleaseRightMouse();
                         //ForceReleaseMiddleMouse();
@@ -619,18 +642,31 @@ namespace TerraTechETCUtil
                     }
                     else
                     {
+                        //Debug_TTExt.Log("ManModGUI.UI_released - " + mouseOverMenu);
+                        // The below does not work properly.  AT ALL
+                        //ManPointer.inst.PreventInteraction(ManPointer.PreventChannel.HUD, IsMouseOverModGUI);
+
                         //TankCamera.inst.SetMouseControlEnabled(true); // Already patched in AllUIPatches
                         UIHelpersExt.ReleaseControl();
                         TryReopenPreviouslyClosedUI();
                     }
                 }
-            }
+            } 
         }
-        internal static void UpdateMouseOverAnyWindow()
+        internal static void UpdateThisRemote()
+        {
+            if (lastGUIScale != GUIScale)
+            {
+                lastGUIScale = GUIScale;
+                AltUI.UIScalingMatrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(GUIScale, GUIScale, 1f));
+            }
+            UpdateMouseOverAnyWindow();
+        }
+        private static void UpdateMouseOverAnyWindow()
         {
             foreach (var item in AllPopups)
             {
-                if (item.isOpen && UIHelpersExt.MouseIsOverSubMenu(item.Window))
+                if (item.isOpen && UIHelpersExt.MouseIsOverGUIMenu(item.Window))
                 {
                     IsMouseOverAnyModGUI = 2;
                     break;
@@ -809,6 +845,18 @@ namespace TerraTechETCUtil
         public static void ShowErrorPopup(string Warning, bool IsSeriousError = false, Action OnFixRequested = null) =>
             InvokeHelper.ShowErrorPopup(Warning, IsSeriousError, OnFixRequested);
 
+        /// <summary>
+        /// Focus a popup and rise it to top.  Does not unhide.
+        /// </summary>
+        /// <param name="disp">Specific window instance target</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static void FocusAndRiseToTop(GUIPopupDisplay disp)
+        {
+            if (disp == null)
+                throw new ArgumentNullException(nameof(disp));
+            GUI.BringWindowToFront(disp.ID);
+            GUI.FocusWindow(disp.ID);
+        }
 
         /// <summary>
         /// Show a specific popup
@@ -824,7 +872,10 @@ namespace TerraTechETCUtil
             {
                 //Debug_TTExt.Log("TerraTechETCUtil: ShowPopup - Window is already open");
                 if (focusImmediately)
+                {
+                    GUI.BringWindowToFront(disp.ID);
                     GUI.FocusWindow(disp.ID);
+                }
                 return false;
             }
             if (MaxPopupsActive <= numActivePopups)
@@ -854,8 +905,8 @@ namespace TerraTechETCUtil
                 screenPosPercent.x = 1;
             if (screenPosPercent.y > 1)
                 screenPosPercent.y = 1;
-            disp.Window.x = (Display.main.renderingWidth - disp.Window.width) * screenPosPercent.x;
-            disp.Window.y = (Display.main.renderingHeight - disp.Window.height) * screenPosPercent.y;
+            disp.Window.x = (GameWindowScaledWidth - disp.Window.width) * screenPosPercent.x;
+            disp.Window.y = (GameWindowScaledHeight - disp.Window.height) * screenPosPercent.y;
 
             return shown;
         }
@@ -914,8 +965,8 @@ namespace TerraTechETCUtil
                 screenPosPercent.x = 1;
             if (screenPosPercent.y > 1)
                 screenPosPercent.y = 1;
-            currentGUIWindow.Window.x = (Display.main.renderingWidth - currentGUIWindow.Window.width) * screenPosPercent.x;
-            currentGUIWindow.Window.y = (Display.main.renderingHeight - currentGUIWindow.Window.height) * screenPosPercent.y;
+            currentGUIWindow.Window.x = (GameWindowScaledWidth - currentGUIWindow.Window.width) * screenPosPercent.x;
+            currentGUIWindow.Window.y = (GameWindowScaledHeight - currentGUIWindow.Window.height) * screenPosPercent.y;
 
             return shown;
         }
@@ -1049,10 +1100,11 @@ namespace TerraTechETCUtil
 
     /// <summary>
     /// This manages the window that HOLDS the GUIMiniMenu.
-    /// <b>Use GUIMiniMenu for the window contents!</b>
+    /// <para><b>Use <see cref="GUIMiniMenu"/> and it's derivatives for the window contents!</b></para>
     /// </summary>
     public class GUIPopupDisplay : MonoBehaviour
     {
+
         internal int ID = ManModGUI.IDOffset;
         /// <summary>
         /// The gameobject hosting this
@@ -1082,7 +1134,7 @@ namespace TerraTechETCUtil
         /// The local player has their cursor hovering over this window.
         /// <para>Does not check if this is the foremost window they are hovering over!</para>
         /// </summary>
-        public bool CursorWithinWindow => UIHelpersExt.MouseIsOverSubMenu(Window);
+        public bool CursorWithinWindow => UIHelpersExt.MouseIsOverGUIMenu(Window);
         /// <summary>
         /// The GUI menu assigned to this display
         /// </summary>
@@ -1122,75 +1174,87 @@ namespace TerraTechETCUtil
                 if (!ManModGUI.SetupAltWins)
                 {
                     AltUI.StartUI(alpha, alpha);
-                    ManModGUI.styleDescLargeFont = new GUIStyle(GUI.skin.textField);
-                    ManModGUI.styleDescLargeFont.fontSize = 16;
-                    ManModGUI.styleDescLargeFont.alignment = TextAnchor.MiddleLeft;
-                    ManModGUI.styleDescLargeFont.wordWrap = true;
-                    ManModGUI.styleDescLargeFontScroll = new GUIStyle(ManModGUI.styleDescLargeFont);
-                    ManModGUI.styleDescLargeFontScroll.alignment = TextAnchor.UpperLeft;
-                    ManModGUI.styleDescFont = new GUIStyle(GUI.skin.textField);
-                    ManModGUI.styleDescFont.fontSize = 12;
-                    ManModGUI.styleDescFont.alignment = TextAnchor.UpperLeft;
-                    ManModGUI.styleDescFont.wordWrap = true;
-                    ManModGUI.styleLargeFont = new GUIStyle(GUI.skin.label);
-                    ManModGUI.styleLargeFont.fontSize = 16;
-                    ManModGUI.styleHugeFont = new GUIStyle(GUI.skin.button);
-                    ManModGUI.styleHugeFont.fontSize = 20;
-                    ManModGUI.styleGinormusFont = new GUIStyle(GUI.skin.button);
-                    ManModGUI.styleGinormusFont.fontSize = 38;
-                    ManModGUI.SetupAltWins = true;
+                    try
+                    {
+                        ManModGUI.styleDescLargeFont = new GUIStyle(GUI.skin.textField);
+                        ManModGUI.styleDescLargeFont.fontSize = 16;
+                        ManModGUI.styleDescLargeFont.alignment = TextAnchor.MiddleLeft;
+                        ManModGUI.styleDescLargeFont.wordWrap = true;
+                        ManModGUI.styleDescLargeFontScroll = new GUIStyle(ManModGUI.styleDescLargeFont);
+                        ManModGUI.styleDescLargeFontScroll.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styleDescFont = new GUIStyle(GUI.skin.textField);
+                        ManModGUI.styleDescFont.fontSize = 12;
+                        ManModGUI.styleDescFont.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styleDescFont.wordWrap = true;
+                        ManModGUI.styleLargeFont = new GUIStyle(GUI.skin.label);
+                        ManModGUI.styleLargeFont.fontSize = 16;
+                        ManModGUI.styleHugeFont = new GUIStyle(GUI.skin.button);
+                        ManModGUI.styleHugeFont.fontSize = 20;
+                        ManModGUI.styleGinormusFont = new GUIStyle(GUI.skin.button);
+                        ManModGUI.styleGinormusFont.fontSize = 38;
+                        ManModGUI.SetupAltWins = true;
 
-                    ManModGUI.styleBlueFont = new GUIStyle(AltUI.TextfieldBlue);
-                    ManModGUI.styleBlueFont.fontSize = 12;
-                    ManModGUI.styleBlueFont.alignment = TextAnchor.UpperLeft;
-                    ManModGUI.styleBlueFont.wordWrap = true;
+                        ManModGUI.styleBlueFont = new GUIStyle(AltUI.TextfieldBlue);
+                        ManModGUI.styleBlueFont.fontSize = 12;
+                        ManModGUI.styleBlueFont.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styleBlueFont.wordWrap = true;
 
-                    ManModGUI.styleBorderedFont = new GUIStyle(AltUI.TextfieldBordered);
-                    ManModGUI.styleBorderedFont.fontSize = 12;
-                    ManModGUI.styleBorderedFont.wordWrap = true;
-                    ManModGUI.styleBorderedFont.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styleBorderedFont = new GUIStyle(AltUI.TextfieldBordered);
+                        ManModGUI.styleBorderedFont.fontSize = 12;
+                        ManModGUI.styleBorderedFont.wordWrap = true;
+                        ManModGUI.styleBorderedFont.alignment = TextAnchor.UpperLeft;
 
-                    ManModGUI.styledFont = new GUIStyle(AltUI.MenuGUI.label);
-                    ManModGUI.styledFont.fontSize = 12;
-                    ManModGUI.styledFont.wordWrap = true;
-                    ManModGUI.styledFont.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styledFont = new GUIStyle(AltUI.MenuGUI.label);
+                        ManModGUI.styledFont.fontSize = 12;
+                        ManModGUI.styledFont.wordWrap = true;
+                        ManModGUI.styledFont.alignment = TextAnchor.UpperLeft;
 
-                    ManModGUI.styleLargeFont = new GUIStyle(AltUI.MenuGUI.label);
-                    ManModGUI.styleLargeFont.fontSize = 16;
-                    ManModGUI.styleLargeFont.wordWrap = true;
-                    ManModGUI.styleLargeFont.alignment = TextAnchor.MiddleCenter;
+                        ManModGUI.styleLargeFont = new GUIStyle(AltUI.MenuGUI.label);
+                        ManModGUI.styleLargeFont.fontSize = 16;
+                        ManModGUI.styleLargeFont.wordWrap = true;
+                        ManModGUI.styleLargeFont.alignment = TextAnchor.MiddleCenter;
 
-                    ManModGUI.styleBlackLargeFont = new GUIStyle(AltUI.TextfieldBlackHuge);
-                    ManModGUI.styleBlackLargeFont.fontSize = 16;
-                    ManModGUI.styleBlackLargeFont.wordWrap = true;
-                    ManModGUI.styleBlackLargeFont.alignment = TextAnchor.MiddleLeft;
+                        ManModGUI.styleBlackLargeFont = new GUIStyle(AltUI.TextfieldBlackHuge);
+                        ManModGUI.styleBlackLargeFont.fontSize = 16;
+                        ManModGUI.styleBlackLargeFont.wordWrap = true;
+                        ManModGUI.styleBlackLargeFont.alignment = TextAnchor.MiddleLeft;
 
-                    ManModGUI.styleScrollFont = new GUIStyle(AltUI.MenuGUI.label);
-                    ManModGUI.styleScrollFont.fontSize = 16;
-                    ManModGUI.styleScrollFont.wordWrap = true;
-                    ManModGUI.styleScrollFont.alignment = TextAnchor.UpperLeft;
+                        ManModGUI.styleScrollFont = new GUIStyle(AltUI.MenuGUI.label);
+                        ManModGUI.styleScrollFont.fontSize = 16;
+                        ManModGUI.styleScrollFont.wordWrap = true;
+                        ManModGUI.styleScrollFont.alignment = TextAnchor.UpperLeft;
 
-                    ManModGUI.styleLabelLargerFont = new GUIStyle(AltUI.MenuGUI.label);
-                    ManModGUI.styleLabelLargerFont.fontSize = 16;
+                        ManModGUI.styleLabelLargerFont = new GUIStyle(AltUI.MenuGUI.label);
+                        ManModGUI.styleLabelLargerFont.fontSize = 16;
 
-                    ManModGUI.styleButtonHugeFont = new GUIStyle(AltUI.MenuGUI.button);
-                    ManModGUI.styleButtonHugeFont.fontSize = 20;
+                        ManModGUI.styleButtonHugeFont = new GUIStyle(AltUI.MenuGUI.button);
+                        ManModGUI.styleButtonHugeFont.fontSize = 20;
 
-                    ManModGUI.styleButtonGinormusFont = new GUIStyle(AltUI.ButtonBlueLarge);
-                    ManModGUI.styleButtonGinormusFont.fontSize = 38;
+                        ManModGUI.styleButtonGinormusFont = new GUIStyle(AltUI.ButtonBlueLarge);
+                        ManModGUI.styleButtonGinormusFont.fontSize = 38;
 
-                    Debug_TTExt.Log("TerraTechETCUtil: ManModGUI performed first setup");
-                    AltUI.EndUI();
+                        Debug_TTExt.Log("TerraTechETCUtil: ManModGUI performed first setup");
+                    }
+                    finally
+                    {
+                        AltUI.EndUI();
+                    }
                 }
                 if (Window.height > 400)
                 {
-                    Window = AltUI.Window(ID, Window, GUIFormat.RunGUI, Header, alpha, Hide);
+                    Window = AltUI.Window(ID, Window, GUIFormat.RunGUI, Header, alpha, Hide, true, true);
                 }
                 else
                 {
                     AltUI.StartUI(alpha, alpha);
-                    Window = GUI.Window(ID, Window, GUIFormat.RunGUI, Header);
-                    AltUI.EndUI();
+                    try
+                    {
+                        Window = GUI.Window(ID, Window, GUIFormat.RunGUI, Header);
+                    }
+                    finally
+                    {
+                        AltUI.EndUI();
+                    }
                 }
             }
         }
@@ -1246,6 +1310,7 @@ namespace TerraTechETCUtil
             ID = IDSet;
             GUIFormat.Setup(stats);
         }
+
     }
 
     /// <summary>

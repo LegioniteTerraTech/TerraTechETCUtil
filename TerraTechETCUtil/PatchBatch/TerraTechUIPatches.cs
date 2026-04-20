@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TerraTechETCUtil
 {
-    internal class AllUIPatches
+    internal class TerraTechUIPatches
     {
         internal static class ManPointerPatches
         {
@@ -19,7 +19,15 @@ namespace TerraTechETCUtil
             {
                 return __instance.DraggingItem != null || !ManModGUI.IsMouseOverModGUI;
             }
+            /// <summary>
+            /// StopBeingDumbRadial
+            /// </summary>
+            internal static bool OpenMenuForTarget_Prefix(ref ManPointer __instance)
+            {
+                return __instance.DraggingItem != null || !ManModGUI.IsMouseOverModGUI;
+            }
         }
+
         internal static class TankControlPatches
         {
             internal static Type target = typeof(TankControl);
@@ -31,15 +39,28 @@ namespace TerraTechETCUtil
             {
                 return !ManModGUI.UIKickoffState;
             }
+            //OnMouseZoomEvent_Prefix()
         }
         internal static class TankCameraPatches
         {
             internal static Type target = typeof(TankCamera);
 
             /// <summary>
-            /// LockMouseWhenOverSubMenu3
+            /// DontOpenModalsWhenIAmOverIMGUI
             /// </summary>
-            internal static bool OnMouseZoomEvent_Prefix()
+            internal static bool ManualZoom_Prefix()
+            {
+                return !ManModGUI.UIKickoffState;
+            }
+        }
+        internal static class AdvertisingPanelPatches
+        {
+            internal static Type target = typeof(AdvertisingPanel);
+
+            /// <summary>
+            /// DontClickThePanelWhenIAmOverIMGUI
+            /// </summary>
+            internal static bool UI_OnBannerClicked_Prefix()
             {
                 return !ManModGUI.UIKickoffState;
             }

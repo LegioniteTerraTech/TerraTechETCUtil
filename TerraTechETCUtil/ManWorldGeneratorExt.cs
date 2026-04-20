@@ -50,7 +50,7 @@ namespace TerraTechETCUtil
             if (preInit)
                 return;
             preInit = true;
-            Debug_TTExt.Log("PreInit WorldTerraformer");
+            Debug_TTExt.Log("PreInit ManWorldGeneratorExt");
             TerrainModifier.TileHeight = TerrainOperations.TileHeightRescaled;
             ManGameMode.inst.ModeStartEvent.Subscribe(OnModeStart);
             MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(WorldVerticalExtender), "TerraTechModExt", true);
@@ -66,8 +66,25 @@ namespace TerraTechETCUtil
             mainInit = true;
             InsurePreInit();
             LegModExt.InsurePatches();
-            Debug_TTExt.Log("Init WorldTerraformer");
+            Debug_TTExt.Log("Init ManWorldGeneratorExt");
             InsureLowerTerrainClamps();
+            ManWorld.inst.TileManager.PauseGenerationOneFrame();
+            ManWorld.inst.TileManager.Reset();
+            if (CameraManager.inst.IsCurrent<TankCamera>())
+            {
+                var TC = CameraManager.inst.GetCamera<TankCamera>();
+                Vector3 posInWorld = TC.transform.position;
+                posInWorld.y = TerrainOperations.LerpToDefault(posInWorld.y);
+                Quaternion initialRot = TC.transform.rotation;
+                InvokeHelper.InvokeNextUpdate(() =>
+                {
+                    try
+                    {
+                        CameraManager.inst.ResetCamera(posInWorld, initialRot);
+                    }
+                    catch { }
+                });
+            }
         }
         /// <summary>
         /// De-Init this, undoing the terrain generation changes
@@ -84,7 +101,24 @@ namespace TerraTechETCUtil
             if (mainInit)
             {
                 mainInit = false;
-                Debug_TTExt.Log("De-Init WorldTerraformer");
+                ManWorld.inst.TileManager.PauseGenerationOneFrame();
+                ManWorld.inst.TileManager.Reset();
+                if (CameraManager.inst.IsCurrent<TankCamera>())
+                {
+                    var TC = CameraManager.inst.GetCamera<TankCamera>();
+                    Vector3 posInWorld = TC.transform.position;
+                    posInWorld.y = TerrainOperations.LerpToRescaled(posInWorld.y);
+                    Quaternion initialRot = TC.transform.rotation;
+                    InvokeHelper.InvokeNextUpdate(() =>
+                    {
+                        try
+                        {
+                            CameraManager.inst.ResetCamera(posInWorld, initialRot);
+                        }
+                        catch { }
+                    });
+                }
+                Debug_TTExt.Log("De-Init ManWorldGeneratorExt");
             }
         }
         /// <summary>

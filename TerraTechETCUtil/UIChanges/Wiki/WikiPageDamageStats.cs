@@ -41,6 +41,8 @@ namespace TerraTechETCUtil
             if (table == null)
                 table = (DamageMultiplierTable)dmgtable.GetValue(ManDamage.inst);
         }
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData) => InsureDamageLookup();
         /// <summary>
         /// Get the base game damage lookup table
         /// </summary>
@@ -88,7 +90,6 @@ namespace TerraTechETCUtil
             CustomDamageableLookup.Clear();
         }
 
-
         internal WikiPageDamageStats(string modID, LocExtString hintTitle, Sprite icon, ManIngameWiki.WikiPageGroup group = null) :
             base(modID, hintTitle, icon, group)
         { }
@@ -98,7 +99,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             return false;
         }
@@ -126,7 +127,6 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         protected override void DisplayGUI()
         {
-            InsureDamageLookup();
             GUILayout.Label(LOC_DamageDesc.ToString());
             GUILayout.BeginVertical(AltUI.TextfieldBorderedBlue);
             GUILayout.BeginHorizontal(AltUI.TextfieldBlackHuge, GUILayout.Height(heightTable));

@@ -6,6 +6,8 @@ using System.Reflection;
 using System.Reflection.Emit;
 using FMOD.Studio;
 using UnityEngine;
+using TerraTechETCUtil.PatchBatch;
+
 #if !EDITOR
 using HarmonyLib;
 #endif
@@ -178,12 +180,21 @@ namespace TerraTechETCUtil
                 }
                 try
                 {
-                    harmonyInstance.MassPatchAllWithin(typeof(AllUIPatches), modID, true);
-                    Debug_TTExt.Log("TerraTechETCUtil: Mass patched UI");
+                    harmonyInstance.MassPatchAllWithin(typeof(TerraTechUIPatches), modID, true);
+                    Debug_TTExt.Log("TerraTechETCUtil: Mass patched TerraTech UI");
                 }
                 catch (Exception e)
                 {
-                    throw new Exception("TerraTechETCUtil failed to perform UI mass patching", e);
+                    throw new Exception("TerraTechETCUtil failed to perform TerraTech UI mass patching", e);
+                }
+                try
+                {
+                    harmonyInstance.MassPatchAllWithin(typeof(UnityUIPatches), modID, true);
+                    Debug_TTExt.Log("TerraTechETCUtil: Mass patched Unity UI");
+                }
+                catch (Exception e)
+                {
+                    throw new Exception("TerraTechETCUtil failed to perform Unity UI mass patching", e);
                 }
                 try
                 {
@@ -227,7 +238,8 @@ namespace TerraTechETCUtil
             ResourcesHelper.ModsPostLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
             ManWorldGeneratorExt.DeInit();
 
-            harmonyInstance.MassUnPatchAllWithin(typeof(AllUIPatches), modID);
+            harmonyInstance.MassUnPatchAllWithin(typeof(UnityUIPatches), modID);
+            harmonyInstance.MassUnPatchAllWithin(typeof(TerraTechUIPatches), modID);
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), modID);
             try
             {

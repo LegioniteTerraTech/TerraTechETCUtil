@@ -251,8 +251,11 @@
     <Compile Include="ActiveGameInterop.cs" />
     <Compile Include="Audio\AudioInst.cs" />
     <Compile Include="Audio\AudioInstFile.cs" />
+    <Compile Include="ColorBytes.cs" />
+    <Compile Include="Documentation\GameObjectDocumentator.cs" />
     <Compile Include="Helpers\ResourcesHelper.cs" />
     <Compile Include="ListHashSet.cs" />
+    <Compile Include="PatchBatch\UnityUIPatches.cs" />
     <Compile Include="RawTechs\RawTechUtil.cs" />
     <Compile Include="RawTechs\RawTech.cs" />
     <Compile Include="RawTechs\RawTechBase.cs" />
@@ -264,7 +267,7 @@
     <Compile Include="UIChanges\GUIMiniMenu.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageTools.cs" />
     <Compile Include="PatchBatch\AllProjectilePatches.cs" />
-    <Compile Include="PatchBatch\AllUIPatches.cs" />
+    <Compile Include="PatchBatch\TerraTechUIPatches.cs" />
     <Compile Include="UIChanges\Wiki\ExtendedWiki.cs" />
     <Compile Include="UIChanges\GUIButtonMadness.cs" />
     <Compile Include="UIChanges\GUIModModal.cs" />

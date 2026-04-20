@@ -13,7 +13,7 @@ namespace TerraTechETCUtil
     /// <summary>
     /// <para>Wiki page for chunk information</para>
     /// </summary>
-    public class WikiPageChunk : ManIngameWiki.WikiPage
+    public class WikiPageChunk : ManIngameWiki.WikiPage<ChunkTypes, ResourcePickup>
     {
         /// <summary>
         /// An additional event displayer for mods to add their own wiki data
@@ -37,8 +37,6 @@ namespace TerraTechETCUtil
         public static Func<ChunkTypes, string> GetChunkData = null;
         /// <inheritdoc cref="WikiPageBiome.GetBiomeModName"/>
         public static Func<int, string> GetChunkModName = GetChunkModNameDefault;
-        /// <inheritdoc cref="WikiPageBiome.biomeInst"/>
-        public int chunkID;
         /// <inheritdoc cref="WikiPageBiome.desc"/>
         public string desc = "unset";
         internal ChunkDataInfo mainInfo;
@@ -46,25 +44,136 @@ namespace TerraTechETCUtil
         internal ChunkDataInfo damageable;
         internal ChunkDataInfo[] modules;
 
+        /// <inheritdoc />
+        public override bool HasInst() => _inst != null;
+        /// <inheritdoc />
+        protected override void OnBeforeDataRequested(bool getFullData)
+        {
+            _inst = ResourceManager.inst.GetResourceDef(ID)?.basePrefab?.GetComponent<ResourcePickup>();
+            if (getFullData && modules == null)
+            {
+                var prefabBase = ResourceManager.inst.GetResourceDef(ID);
+                if (prefabBase != null && prefabBase.basePrefab != null)
+                {
+                    ResourcePickup prefab = prefabBase.basePrefab.GetComponent<ResourcePickup>();
+                    try
+                    {
+                        var modulesC = ChunkDataInfo.TryGetModules(prefab);
+                        foreach (var item in modulesC)
+                        {
+                            if (item.name == "Chunk")
+                            {
+                                item.infos.Add("Base Name", prefab.name);
+                                item.infos.Add("Chunk ID", _inst);
+                                item.infos.Add("Is Vanilla", (int)ID <= Enum.GetValues(typeof(ChunkTypes)).Length);
+                                item.infos.Add("Cost", RecipeManager.inst.GetChunkPrice(ID));
+
+                                bool GetFromBlock = false;
+
+                                List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
+                                int chunkTypeFlags = ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<ChunkCategory>(
+                                    ItemTypeInfo.GetHashCode(ObjectTypes.Chunk, (int)ID));
+                                if ((chunkTypeFlags & (int)ChunkCategory.Refined) != 0)
+                                {
+                                    item.infos.Add("Type", "Refined");
+                                    WikiPageChunk WPC = ManIngameWiki.GetChunkPage(
+                                        StringLookup.GetItemName(ObjectTypes.Chunk, (int)ResourceManager.inst.GetRawResource(ID)));
+                                    if (WPC != null)
+                                        links.Add(new ManIngameWiki.WikiLink(WPC));
+                                }
+                                else if ((chunkTypeFlags & (int)ChunkCategory.Component) != 0)
+                                {
+                                    GetFromBlock = true;
+                                    item.infos.Add("Type", "Component");
+                                }
+                                else if ((chunkTypeFlags & (int)ChunkCategory.Raw) != 0)
+                                    item.infos.Add("Type", "Raw");
+                                else
+                                    item.infos.Add("Type", "Unknown");
+                                item.infos.Add("Is Burnable", (chunkTypeFlags & (int)ChunkCategory.Fuel) != 0);
+
+                                foreach (var item2 in IterateForInfo<WikiPageScenery>())
+                                {
+                                    var prefab2 = item2.prefab;
+                                    if (prefab2 && prefab2.AllDispensableItems() != null &&
+                                        prefab2.AllDispensableItems().Contains(ID))
+                                    {
+                                        links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
+                                            StringLookup.GetItemName(ObjectTypes.Scenery, (int)item2.ID))));
+                                    }
+                                }
+                                if (GetFromBlock)
+                                {
+                                    foreach (var item2 in IterateForInfo<WikiPageBlock>())
+                                    {
+                                        var prefab2 = item2.blockInst;
+                                        if (prefab2 != null && prefab2.GetComponent<ModuleRecipeProvider>() != null)
+                                        {
+                                            bool gotOne = false;
+                                            foreach (var recipieList in prefab2.GetComponent<ModuleRecipeProvider>())
+                                            {
+                                                if (recipieList != null)
+                                                {
+                                                    foreach (var recipie in recipieList)
+                                                    {
+                                                        if (recipie?.m_OutputItems != null && recipie.m_OutputItems.Any(x => x?.m_Item != null &&
+                                                            x.m_Item.ObjectType == ObjectTypes.Chunk && x.m_Item.ItemType == (int)ID))
+                                                        {
+                                                            gotOne = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                if (gotOne)
+                                                    break;
+                                            }
+                                            if (gotOne)
+                                            {
+                                                links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
+                                                    StringLookup.GetItemName(ObjectTypes.Block, (int)item2.inst))));
+                                            }
+                                        }
+                                    }
+                                }
+
+                                item.infos.Add("Sources", links);
+
+                                mainInfo = item;
+                            }
+                            else if (item.name == "Armoring")
+                                damageable = item;
+                            else if (item.name == "Durability")
+                                damage = item;
+                            else
+                                Combiler.Add(item);
+                        }
+                        modules = Combiler.ToArray();
+                    }
+                    finally
+                    {
+                        Combiler.Clear();
+                    }
+                }
+            }
+        }
+
         /// <inheritdoc cref="ManIngameWiki.WikiPage.WikiPage(string, LocExtString, Sprite, ManIngameWiki.WikiPageGroup)"/>
         /// <summary>
         /// 
         /// </summary>
         /// <param name="ChunkID">The chunk ID (<see cref="ChunkTypes"/>) to affiliate with this page</param>
         public WikiPageChunk(int ChunkID) :
-            base(GetChunkModName(ChunkID), GetChunkName(ChunkID),
+            base(GetChunkModName(ChunkID), (ChunkTypes)ChunkID, GetChunkName(ChunkID),
             ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), ManIngameWiki.LOC_Chunks, ManIngameWiki.ChunksSprite)
         {
-            chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
 
         /// <inheritdoc cref=" WikiPageChunk.WikiPageChunk(int)"/>
         public WikiPageChunk(int ChunkID, ManIngameWiki.WikiPageGroup group) : 
-            base(GetChunkModName(ChunkID), GetChunkName(ChunkID),
+            base(GetChunkModName(ChunkID), (ChunkTypes)ChunkID, GetChunkName(ChunkID),
             ManUI.inst.GetSprite(ObjectTypes.Chunk, ChunkID), group)
         {
-            chunkID = ChunkID;
             desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, ChunkID);
         }
         /// <inheritdoc/>
@@ -85,7 +194,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void DisplaySidebar() => ButtonGUIDisp();
         /// <inheritdoc/>
-        public override bool OnWikiClosed()
+        public override bool OnWikiClosedOrDeallocateMemory()
         {
             if (mainInfo != null)
                 mainInfo = null;
@@ -126,7 +235,7 @@ namespace TerraTechETCUtil
         {
             if (page is WikiPageChunk WPC)
             {
-                ChunkTypes CT = (ChunkTypes)WPC.chunkID;
+                ChunkTypes CT = WPC.ID;
                 int ignoreExtra = 0;
                 var stringSections = searchText.Split(' ');
                 foreach (var stringSection in stringSections)
@@ -227,10 +336,10 @@ namespace TerraTechETCUtil
                     return true;
                 string leftOverText = searchText.Substring(ignoreExtra);
                 if (int.TryParse(leftOverText, out int potID) &&
-                    potID == WPC.chunkID)
+                    potID == (int)WPC.ID)
                     return true;
                 if (Enum.TryParse(leftOverText, out ChunkTypes potIDEnum) &&
-                    ((int)potIDEnum) == WPC.chunkID)
+                    ((int)potIDEnum) == (int)WPC.ID)
                     return true;
                 return pageName.ToLower().Contains(searchText.Substring(ignoreExtra));
             }
@@ -241,122 +350,16 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void OnBeforeDisplay()
         {
-            desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, chunkID);
+            desc = StringLookup.GetItemDescription(ObjectTypes.Chunk, (int)ID);
         }
         /// <inheritdoc/>
         protected override void DisplayGUI()
         {
-            if (modules == null)
-            {
-                ChunkTypes CT = (ChunkTypes)chunkID;
-                var prefabBase = ResourceManager.inst.GetResourceDef(CT);
-                if (prefabBase != null && prefabBase.basePrefab != null)
-                {
-                    ResourcePickup prefab = prefabBase.basePrefab.GetComponent<ResourcePickup>();
-                    try
-                    {
-                        var modulesC = ChunkDataInfo.TryGetModules(prefab);
-                        foreach (var item in modulesC)
-                        {
-                            if (item.name == "Chunk")
-                            {
-                                item.infos.Add("Base Name", prefab.name);
-                                item.infos.Add("Chunk ID", chunkID);
-                                item.infos.Add("Is Vanilla", chunkID <= Enum.GetValues(typeof(ChunkTypes)).Length);
-                                item.infos.Add("Cost", RecipeManager.inst.GetChunkPrice(CT));
-
-                                bool GetFromBlock = false;
-
-                                List<ManIngameWiki.WikiLink> links = new List<ManIngameWiki.WikiLink>();
-                                int chunkTypeFlags = ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<ChunkCategory>(
-                                    ItemTypeInfo.GetHashCode(ObjectTypes.Chunk, chunkID));
-                                if ((chunkTypeFlags & (int)ChunkCategory.Refined) != 0)
-                                {
-                                    item.infos.Add("Type", "Refined");
-                                    WikiPageChunk WPC = ManIngameWiki.GetChunkPage(
-                                        StringLookup.GetItemName(ObjectTypes.Chunk, (int)ResourceManager.inst.GetRawResource(CT)));
-                                    if (WPC != null)
-                                        links.Add(new ManIngameWiki.WikiLink(WPC));
-                                }
-                                else if ((chunkTypeFlags & (int)ChunkCategory.Component) != 0)
-                                {
-                                    GetFromBlock = true;
-                                    item.infos.Add("Type", "Component");
-                                }
-                                else if ((chunkTypeFlags & (int)ChunkCategory.Raw) != 0)
-                                    item.infos.Add("Type", "Raw");
-                                else
-                                    item.infos.Add("Type", "Unknown");
-                                item.infos.Add("Is Burnable", (chunkTypeFlags & (int)ChunkCategory.Fuel) != 0);
-
-                                foreach (var item2 in IterateForInfo<WikiPageScenery>())
-                                {
-                                    var prefab2 = item2.prefab;
-                                    if (prefab2 && prefab2.AllDispensableItems() != null &&
-                                        prefab2.AllDispensableItems().Contains(CT))
-                                    {
-                                        links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
-                                            StringLookup.GetItemName(ObjectTypes.Scenery, item2.sceneryID))));
-                                    }
-                                }
-                                if (GetFromBlock)
-                                {
-                                    foreach (var item2 in IterateForInfo<WikiPageBlock>())
-                                    {
-                                        var prefab2 = item2.inst;
-                                        if (prefab2 != null && prefab2.GetComponent<ModuleRecipeProvider>() != null)
-                                        {
-                                            bool gotOne = false;
-                                            foreach (var recipieList in prefab2.GetComponent<ModuleRecipeProvider>())
-                                            {
-                                                if (recipieList != null)
-                                                {
-                                                    foreach (var recipie in recipieList)
-                                                    {
-                                                        if (recipie?.m_OutputItems != null && recipie.m_OutputItems.Any(x => x?.m_Item != null &&
-                                                            x.m_Item.ObjectType == ObjectTypes.Chunk && x.m_Item.ItemType == chunkID))
-                                                        {
-                                                            gotOne = true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                if (gotOne)
-                                                    break;
-                                            }
-                                            if (gotOne)
-                                            {
-                                                links.Add(new ManIngameWiki.WikiLink(ManIngameWiki.GetPage(
-                                                    StringLookup.GetItemName(ObjectTypes.Block, item2.blockID))));
-                                            }
-                                        }
-                                    }
-                                }
-
-                                item.infos.Add("Sources", links);
-
-                                mainInfo = item;
-                            }
-                            else if (item.name == "Armoring")
-                                damageable = item;
-                            else if (item.name == "Durability")
-                                damage = item;
-                            else
-                                Combiler.Add(item);
-                        }
-                        modules = Combiler.ToArray();
-                    }
-                    finally
-                    {
-                        Combiler.Clear();
-                    }
-                }
-            }
             GUILayout.BeginHorizontal();
             AltUI.Sprite(icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(128), GUILayout.Width(128));
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (AdditionalDisplayOnUI.HasSubscribers())
-                AdditionalDisplayOnUI.Send((ChunkTypes)chunkID);
+                AdditionalDisplayOnUI.Send(ID);
             if (mainInfo != null)
                 mainInfo.DisplayGUI();
             if (damage != null)
@@ -366,7 +369,7 @@ namespace TerraTechETCUtil
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
 
-            GUILayout.Label(desc, AltUI.TextfieldBlackHuge);
+            GUILayout.Label(desc, AltUI.TextfieldBlackHuge, GUILayout.ExpandHeight(false));
 
             GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (modules != null && modules.Any())
@@ -389,7 +392,7 @@ namespace TerraTechETCUtil
                 if (AltUI.Button("ENTIRE CHUNK JSON to system clipboard", ManSFX.UISfxType.Craft))
                 {
                     AutoDataExtractor.clipboard.Clear();
-                    AutoDataExtractor.clipboard.Append(GetChunkData.Invoke((ChunkTypes)chunkID));
+                    AutoDataExtractor.clipboard.Append(GetChunkData.Invoke(ID));
                     GUIUtility.systemCopyBuffer = AutoDataExtractor.clipboard.ToString();
                     ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
                 }

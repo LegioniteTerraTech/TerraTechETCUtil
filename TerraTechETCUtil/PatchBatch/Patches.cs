@@ -16,6 +16,21 @@ namespace TerraTechETCUtil
     /// </summary>
     public class Patches
     {
+        [HarmonyPatch(typeof(ManPointer))]
+        [HarmonyPatch("IsInteractionBlocked", MethodType.Getter)]//
+        [HarmonyPriority(135)]
+        internal static class MakeSureModUIBlocksMouse
+        {
+            internal static bool Prefix(bool __result)
+            {
+                if (ManModGUI.UIKickoffState)
+                {
+                    __result = true;
+                    return false;
+                }
+                return true;
+            }
+        }
         [HarmonyPatch(typeof(ManSpawn))]
         [HarmonyPatch("SpawnTankFromTechData")]//
         [HarmonyPriority(151)]

@@ -70,6 +70,10 @@ namespace TerraTechETCUtil
         const float QuarterHeightDelta = QuarterHeight - QuarterHeightMid;
         /// <summary>
         /// Get the terrain height relative to the special beaching modifier
+        /// <para>Used in:<list type="bullet">
+        /// <item><see cref="WorldVerticalExtender.MapGeneratorPatches.GeneratePoint_Transpiler(IEnumerable{HarmonyLib.CodeInstruction})"/></item>
+        /// <item><see cref="WorldVerticalExtender.MapGeneratorPatches.GeneratePointLegacy_Transpiler(IEnumerable{HarmonyLib.CodeInstruction})"/></item>
+        /// </list></para>
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>

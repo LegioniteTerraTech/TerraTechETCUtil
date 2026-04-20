@@ -9,6 +9,8 @@ namespace TerraTechETCUtil
 {
     /// <summary>
     /// The manager for <see cref="UsageHint"/>s that adds modded hints to <see cref="ManHints"/>
+    /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
+    /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
     /// </summary>
     public class ExtUsageHint : ITinySettings
     {
@@ -18,6 +20,8 @@ namespace TerraTechETCUtil
         public const string prefix = "ⁿ_";
         /// <summary>
         /// A usage hint automatically integrated with <see cref="ManHints"/> managed by <see cref="ExtUsageHint"/>
+        /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
+        /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
         /// </summary>
         public class UsageHint
         {
@@ -55,7 +59,9 @@ namespace TerraTechETCUtil
             /// </summary>
             public int assignedID { get; internal set; }
             /// <summary>
-            /// Create a new hint for use on the UI system
+            /// Create a new hint for use on the UI system.
+            /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
+            /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
             /// </summary>
             /// <param name="ModID">ModID from the mod adding this</param>
             /// <param name="StringID">Specific ID used to store and identify the hint in serialization save and load.
@@ -109,6 +115,13 @@ namespace TerraTechETCUtil
         private static Dictionary<GameHints.HintID, Action> extHintsActive = new Dictionary<GameHints.HintID, Action>();
         private static Dictionary<string, int> extHintsIDLookup = new Dictionary<string, int>();
         private static Dictionary<int, string> extHintsIDLookupInv = new Dictionary<int, string>();
+
+        /// <summary>
+        /// If <see cref="ExtUsageHint"/> is enabled in the current game state. Unlike <seealso cref="ManHints"/>,
+        /// it also supports multiplayer.
+        /// </summary>
+        public static bool HintsEnabledPlusMultiplayer => ManProfile.inst.GetCurrentUser() != null &&
+            ManProfile.inst.GetCurrentUser().m_GameplaySettings.m_ShowGameplayHints;
 
         private static HashSet<string> HintsSeen = new HashSet<string>();
         /// <summary>
@@ -383,7 +396,7 @@ namespace TerraTechETCUtil
                 ", hintHud " + ManHUD.inst.IsHudElementVisible(ManHUD.HUDElementType.HintFloating) + ", registered " + extHints.Exists(x => x.m_HintId.Value == (int)hintID) +
                 ", active " + extHintsActive.ContainsKey(hintID));
             */
-            if (ManHints.inst.HintsEnabled && ManHUD.inst.IsVisible && ManGameMode.inst.GetIsInPlayableMode())
+            if (HintsEnabledPlusMultiplayer && ManHUD.inst.IsVisible && ManGameMode.inst.GetIsInPlayableMode())
             {
                 ManHints.HintDefinition hintDef = extHints.Find(x => x.m_HintId.Value == (int)hintID);
                 if (hintDef != null)
@@ -423,7 +436,7 @@ namespace TerraTechETCUtil
                 }
                 else
                     Debug_TTExt.Log("ShowHint FAILED call for hintID " + hintID + " - time " +
-                        displayTime + ", manHints " + ManHints.inst.HintsEnabled +
+                        displayTime + ", manHints " + HintsEnabledPlusMultiplayer +
                         ", hintHud " + ManHUD.inst.IsHudElementVisible(ManHUD.HUDElementType.HintFloating) + ", registered " + extHints.Exists(x => x.m_HintId.Value == (int)hintID) +
                         ", active " + extHintsActive.ContainsKey(hintID));
             }

@@ -29,6 +29,13 @@ namespace TerraTechETCUtil
         /// </summary>
         public static Event<Wiki> WikiTopBarEvent = new Event<Wiki>();
         private static byte renderedIcon = 0;
+
+        /// <summary>
+        /// The exact width of the sidebar.  Buttons placed there must respect this.
+        /// </summary>
+        public const int WikiSidebarWidth = 320;
+
+        private static int openGetDataLayer1 = 0;
         internal static HashSet<string> ModulesOpened = new HashSet<string>();
         /// <summary>
         /// True if the language the user is using is not any form of English
@@ -151,9 +158,33 @@ namespace TerraTechETCUtil
             }
             /// <summary>
             /// Display this BIG in the GUI.
+            /// <para>text [IMAGE]</para>
             /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
             /// </summary>
             public bool OnGUILarge(GUIStyle style, GUIStyle styleText)
+            {
+                if (Icon == null)
+                {
+                    GUILayout.BeginHorizontal(AltUI.ButtonGrey);
+                    GUILayout.Label("Error", styleText);
+                    GUILayout.EndHorizontal();
+                    AltUI.Tooltip.GUITooltip(AltUI.EnemyString("Icon Missing"));
+                    return false;
+                }
+                else
+                {
+                    GUILayout.BeginHorizontal(style);
+                    GUILayout.Label(Description, styleText);
+                    AltUI.Sprite(Icon, AltUI.TRANSPARENT, GUILayout.Height(32), GUILayout.Width(32));
+                    GUILayout.EndHorizontal();
+                    return GUI.Button(GUILayoutUtility.GetLastRect(), string.Empty, AltUI.TRANSPARENT);
+                }
+            }/// <summary>
+             /// Display this BIG in the GUI inverted.
+             /// <para>[IMAGE] text</para>
+             /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+             /// </summary>
+            public bool OnGUILargeInv(GUIStyle style, GUIStyle styleText)
             {
                 if (Icon == null)
                 {
@@ -218,9 +249,37 @@ namespace TerraTechETCUtil
             }
             /// <summary>
             /// Display this BIG in the GUI.
+            /// <para>text [IMAGE]</para>
             /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
             /// </summary>
             public bool OnGUILarge(GUIStyle style, GUIStyle styleText)
+            {
+                if (linked == null)
+                {
+                    GUILayout.BeginHorizontal(AltUI.ButtonGrey);
+                    GUILayout.Label("Error", styleText);
+                    GUILayout.EndHorizontal();
+                    AltUI.Tooltip.GUITooltip("Link Broken");
+                    return false;
+                }
+                else
+                {
+                    GUILayout.BeginHorizontal(style);
+                    GUILayout.Label(linked.displayName, styleText);
+                    if (linked.icon != null && linked.icon != UIHelpersExt.NullSprite)
+                        AltUI.Sprite(linked.icon, AltUI.TRANSPARENT, GUILayout.Height(32), GUILayout.Width(32));
+                    else
+                        linked.GetIcon();
+                    GUILayout.EndHorizontal();
+                    return GUI.Button(GUILayoutUtility.GetLastRect(), string.Empty, AltUI.TRANSPARENT);
+                }
+            }
+            /// <summary>
+            /// Display this BIG in the GUI inverted.
+            /// <para>[IMAGE] text</para>
+            /// <para><b>Use only in OnGUI() IMGUI calls</b></para>
+            /// </summary>
+            public bool OnGUILargeInv(GUIStyle style, GUIStyle styleText)
             {
                 if (linked == null)
                 {
@@ -269,9 +328,10 @@ namespace TerraTechETCUtil
             /// </summary>
             public string displayName => titleLoc != null ? titleLoc.ToString() : title;
             /// <summary>
-            /// Override action to replace the info dialog of the page
+            /// Override action to replace the entire contents of the page
             /// </summary>
             public Action infoOverride = null;
+
             /// <summary>
             /// Creates a WikiPage.
             /// <para>If needed this automatically creates the wiki it is targeting.</para>
@@ -470,10 +530,7 @@ namespace TerraTechETCUtil
             public void ExternalDisplayGUI()
             {
                 InsureUpdateGameModeSwitch();
-                if (infoOverride != null)
-                    infoOverride();
-                else
-                    DisplayGUI();
+                DoDisplayGUI();
             }
             internal void DoDisplayGUI()
             {
@@ -615,7 +672,34 @@ namespace TerraTechETCUtil
                 }
             }
             /// <summary>
+            /// Call this before the page's data is needed - when the page is about to be accessed.
+            /// <para><b>Automatically avoids recursive calling</b></para>
+            /// <para>Aquire needed page data in this call. <b>Not called in OnGUI()</b></para>
+            /// <para>Called always before <seealso cref="OnBeforeDisplay"/></para>
+            /// </summary>
+            public void RequestInstDataReady()
+            {
+                if (openGetDataLayer1 > 1)
+                    return;
+                openGetDataLayer1++;
+                try
+                {
+                    OnBeforeDataRequested(openGetDataLayer1 == 1);
+                }
+                finally
+                {
+                    openGetDataLayer1--;
+                }
+            }
+            /// <summary>
+            /// Called before the page's data is needed - when the page is about to be accessed.
+            /// <para>Aquire needed page data in this call. <b>Not called in OnGUI()</b></para>
+            /// <para>Called always before <seealso cref="OnBeforeDisplay"/></para>
+            /// </summary>
+            protected abstract void OnBeforeDataRequested(bool getFullData);
+            /// <summary>
             /// Called before the page is displayed to the user.  Useful for last-second actions!
+            /// <para><seealso cref="OnBeforeDisplay"/> is called before this</para>
             /// </summary>
             public virtual void OnBeforeDisplay() { }
             /// <summary>
@@ -625,11 +709,12 @@ namespace TerraTechETCUtil
             /// <param name="mode"></param>
             public virtual void OnGameModeSwitch(Mode mode) { }
             /// <summary>
-            /// Called when the whole Wiki is closed.  
+            /// Called when the whole Wiki is closed or when you need to unload the page after loading it through 
+            /// <b>inst</b> for <see cref="WikiPage{T,V}"/>  
             ///   Useful to save memory.
             /// </summary>
-            /// <returns></returns>
-            public abstract bool OnWikiClosed();
+            /// <returns>true if it deallocated something, otherwise <b>false</b></returns>
+            public abstract bool OnWikiClosedOrDeallocateMemory();
 
             /// <summary>
             /// Replace a target wiki page
@@ -676,8 +761,10 @@ namespace TerraTechETCUtil
             /// </summary>
             protected void ButtonGUIDisp()
             {
-                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
-                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35));
+                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue,
+                    GUILayout.Height(35), GUILayout.MaxWidth(WikiSidebarWidth));
+                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
+                GUILayout.FlexibleSpace();
                 bool selected = false;
                 if (icon && AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35)))
                     selected = true;
@@ -700,8 +787,10 @@ namespace TerraTechETCUtil
                     renderedIcon = 14;
                     GetIcon();
                 }
-                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
-                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35));
+                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue,
+                    GUILayout.Height(35), GUILayout.MaxWidth(WikiSidebarWidth));
+                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
+                GUILayout.FlexibleSpace();
                 bool selected = false;
                 if (icon)
                 {
@@ -818,6 +907,93 @@ namespace TerraTechETCUtil
                 return false;
             }
         }
+
+        /// <summary>
+        /// <inheritdoc cref="WikiPage"/>
+        /// <para>The version which maintains the id for lookup and a cached instance of it</para>
+        /// </summary>
+        public abstract class WikiPage<T, V> : WikiPage
+        {
+            /// <summary>
+            /// The main identification ID the game uses for this page.
+            /// </summary>
+            public readonly T ID;
+            /// <summary>
+            /// The main identification the game uses for this page.
+            /// <para>Use <see cref="inst"/> to access this externally, otherwise use <see cref="_inst"/> 
+            /// for accessing in functions related to  <see cref="ManIngameWiki"/></para>
+            /// </summary>
+            protected V _inst;
+            /// <summary>
+            /// The main identification the game uses for this page.
+            /// <para><b>CAN RETURN NULL</b></para>
+            /// <para>The prefab instance the page references in it's data. 
+            /// Calling this only guarantees the immedeate page, and <b>not any pages linked to it.</b></para>
+            /// <para>Use <see cref="inst"/> to access this externally, otherwise use <see cref="_inst"/> 
+            /// for accessing in functions related to  <see cref="ManIngameWiki"/></para>
+            /// <para>Be sure to call <seealso cref="WikiPage.OnWikiClosedOrDeallocateMemory"/> 
+            /// after using it outside of the wiki page itself!</para>
+            /// </summary>
+            public V inst {
+                get {
+                    if (!HasInst())
+                        RequestInstDataReady();
+                    return _inst;
+                }
+            }
+            /// <summary>
+            /// Returns if our <see cref="inst"/> is valid
+            /// </summary>
+            /// <returns>True if it can be accessed and/or is accurate</returns>
+            public abstract bool HasInst();
+
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, LocExtString Title, Sprite Icon) : base(ModID, Title, Icon)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, string Title, Sprite Icon) : base(ModID, Title, Icon)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, LocExtString Title, Sprite Icon, WikiPageGroup group) : base(ModID, Title, Icon, group)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, string Title, Sprite Icon, WikiPageGroup group) : base(ModID, Title, Icon, group)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, LocExtString Title, Sprite Icon, string WikiGroupName, Sprite IconGroup) :
+                base(ModID, Title, Icon, WikiGroupName, IconGroup)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, LocExtString Title, Sprite Icon, LocExtString WikiGroupName, Sprite IconGroup) :
+                base(ModID, Title, Icon, WikiGroupName, IconGroup)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, string Title, Sprite Icon, string WikiGroupName, Sprite IconGroup) :
+                base(ModID, Title, Icon, WikiGroupName, IconGroup)
+            {
+                ID = id;
+            }
+            /// <inheritdoc />
+            protected WikiPage(string ModID, T id, string Title, Sprite Icon, LocExtString WikiGroupName, Sprite IconGroup) :
+                base(ModID, Title, Icon, WikiGroupName, IconGroup)
+            {
+                ID = id;
+            }
+
+
+        }
         /// <summary>
         /// The basis for a wikipage that serves as a hub for other wikipages
         /// </summary>
@@ -909,6 +1085,11 @@ namespace TerraTechETCUtil
 
             /// <inheritdoc />
             public override void GetIcon() { }
+
+            /// <inheritdoc />
+            protected override void OnBeforeDataRequested(bool getFullData)
+            { 
+            }
             /// <inheritdoc />
             public override void DisplaySidebar()
             {
@@ -921,11 +1102,12 @@ namespace TerraTechETCUtil
             /// </summary>
             protected void DisplaySidebarStart()
             {
-                GUILayout.BeginHorizontal(open ? AltUI.ButtonBlueActive : AltUI.ButtonBlue, GUILayout.Height(35));
-                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35));
+                GUILayout.BeginHorizontal(open ? AltUI.ButtonBlueActive : AltUI.ButtonBlue, 
+                    GUILayout.Height(35), GUILayout.MaxWidth(WikiSidebarWidth));
+                GUILayout.Label(displayName, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.ExpandWidth(true));
                 bool selected = false;
                 if (icon)
-                    selected = AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
+                    selected = AltUI.SpriteButton(icon, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
                 GUILayout.EndHorizontal();
                 Rect lastRect = GUILayoutUtility.GetLastRect();
                 if (GUI.Button(lastRect, string.Empty, AltUI.TRANSPARENT) || selected)
@@ -984,11 +1166,12 @@ namespace TerraTechETCUtil
                 }
             }
             /// <inheritdoc />
-            public override bool OnWikiClosed()
+            public override bool OnWikiClosedOrDeallocateMemory()
             {
-                PageHunter.Abort();
+                bool hadData = PageHunter != null;
+                PageHunter?.Abort();
                 PageHunter = null;
-                return false;
+                return hadData;
             }
         }
         /// <summary>
@@ -1031,18 +1214,31 @@ namespace TerraTechETCUtil
             public WikiPageMainDefault(string ModID, LocExtString Title, Sprite Icon = null) : base(ModID, Title, Icon, null)
             {
             }
+
+            /// <inheritdoc />
+            protected override void OnBeforeDataRequested(bool getFullData)
+            {
+            }
             ///<inheritdoc/>
             public override void DisplaySidebar()
             {
-                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue, GUILayout.Height(35));
-                if (AltUI.Button("<b>Home</b>", ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35)))
-                    GoHere();
-                if (icon && AltUI.Button(icon, ManSFX.UISfxType.Select, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35)))
-                    GoHere();
+                GUILayout.BeginHorizontal(CurrentWikiPage == this ? AltUI.ButtonGreen : AltUI.ButtonBlue,
+                    GUILayout.Height(35), GUILayout.MaxWidth(WikiSidebarWidth));
+                GUILayout.Label("<b>Home</b>", AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35));
+                GUILayout.FlexibleSpace();
+                bool selected = false;
+                if (icon && AltUI.SpriteButton(icon, AltUI.LabelWhite, GUILayout.Height(35), GUILayout.Width(35)))
+                    selected = true;
                 GUILayout.EndHorizontal();
+                Rect lastRect = GUILayoutUtility.GetLastRect();
+                if (GUI.Button(lastRect, string.Empty, AltUI.TRANSPARENT) || selected)
+                {
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Select);
+                    GoHere();
+                }
             }
             ///<inheritdoc/>
-            public override bool OnWikiClosed()
+            public override bool OnWikiClosedOrDeallocateMemory()
             {
                 return false;
             }
@@ -1067,20 +1263,29 @@ namespace TerraTechETCUtil
                 base(ModID, Title, Icon, Group, hoverUISearch, preSearchQuery, postSearchQuery)
             {
             }
-            
-            protected override void DisplaySidebarOnOpen()
+
+            private void RepopulateIfNeeded()
             {
-                base.DisplaySidebarOnOpen();
                 if (!_NestedPages.Any())
                 {
                     foreach (var page in IterateForInfo<T>())
                         _NestedPages.Add(page);
                 }
             }
-            public override bool OnWikiClosed()
+            public override void DisplaySidebar()
+            {
+                RepopulateIfNeeded();
+                base.DisplaySidebar();
+            } 
+            protected override void DisplaySidebarOnOpen()
+            {
+                base.DisplaySidebarOnOpen();
+                RepopulateIfNeeded();
+            }
+            public override bool OnWikiClosedOrDeallocateMemory()
             {
                 _NestedPages.Clear();
-                return base.OnWikiClosed();
+                return base.OnWikiClosedOrDeallocateMemory();
             }
         }
 
@@ -1328,7 +1533,7 @@ namespace TerraTechETCUtil
                         if (ManSpawn.inst.IsBlockAllowedInLaunchedConfig(BT) &&
                              ManSpawn.inst.GetCategory(BT) != BlockCategories.Null &&
                             !wiki.ALLPages.ContainsKey(StringLookup.GetItemName(ObjectTypes.Block, step)))
-                            new WikiPageBlock(step, blocks);
+                            new WikiPageBlock(step, step.ToString(), blocks);
                     }
                 }
                 catch (Exception e)
@@ -1522,7 +1727,7 @@ namespace TerraTechETCUtil
                             foreach (var item in contents.m_Blocks)
                             {
                                 if (!wiki.ALLPages.ContainsKey(item.m_BlockDisplayName))
-                                    new WikiPageBlock(ManMods.inst.GetBlockID(item.name), blocks);
+                                    new WikiPageBlock(ManMods.inst.GetBlockID(item.name), item.name, blocks);
                             }
                         }
                     }
@@ -1983,8 +2188,8 @@ namespace TerraTechETCUtil
         public static Dictionary<string, Wiki> AllWikis => Wikis;
 
         private static LocExtStringMod LOC_WikiMainName = new LocExtStringMod(new Dictionary<Languages, string>
-            {{ Languages.US_English, "Terra Tech Wiki V0.6" },
-            {Languages.Japanese, "テラテックウィキ V0.6" }});
+            {{ Languages.US_English, "Terra Tech Wiki V0.7" },
+            {Languages.Japanese, "テラテックウィキ V0.7" }});
         private static WikiPage DefaultWikiPage = new WikiPageMainDefault(VanillaGameName,
             LOC_WikiMainName, WikiSprite);
 
@@ -2006,13 +2211,16 @@ namespace TerraTechETCUtil
                     if (backtrace.Count > 64)
                         backtrace.RemoveAt(0);
                     if (value != null)
+                    {
+                        value.RequestInstDataReady();
                         value.OnBeforeDisplay();
+                    }
                 }
                 curWikiPage = value;
                 if (!assignedQuit)
                 {
                     assignedQuit = true;
-                    Application.quitting += SaveState;
+                    Application.quitting += SaveBrowsingState;
                 }
             }
         }
@@ -2056,11 +2264,12 @@ namespace TerraTechETCUtil
 
 
         private static GUIInst instGUI;
+        private static Rect guiWindowBasis = new Rect(20, 20, 1000, 600);
         private static Rect guiWindow = new Rect(20, 20, 1000, 600);
         private const int ExtWikiID = 1002248;
 
         private static LocExtStringMod LOC_WikiTopName = new LocExtStringMod(new Dictionary<Languages, string>
-            {{ Languages.US_English, "Mod Wiki" },
+            {{ Languages.US_English, "MOD WIKI" },
             {Languages.Japanese, "改造ウィキ" }});
         internal class GUIInst : MonoBehaviour
         {
@@ -2112,8 +2321,11 @@ namespace TerraTechETCUtil
                 {
                     if (_WikiWindowOpen)
                     {
+                        float invScale = 1f / ManModGUI.GUIScale;
+                        guiWindow.width = guiWindowBasis.width * invScale;
+                        guiWindow.height = guiWindowBasis.height * invScale;
                         guiWindow = AltUI.Window(ExtWikiID, guiWindow, GUILayouter, 
-                            LOC_WikiTopName.ToString(), CloseGUI, ExtraGUITopBar);
+                            LOC_WikiTopName.ToString(), CloseGUI, ExtraGUITopBar, true, true);
                     }
                 }
                 catch (ExitGUIException e)
@@ -2141,18 +2353,28 @@ namespace TerraTechETCUtil
                 {
                     if (GUILayout.Button("<", AltUI.ButtonOrangeLarge, GUILayout.Width(40)))
                         CurrentWikiPage.GoBack();
+                    AltUI.Tooltip.GUITooltip(LOC_WikiGoBack.ToString() +
+                        (backtrace.LastOrDefault()?.displayName != null ?
+                        ("\n" + backtrace.LastOrDefault().displayName) : string.Empty));
                 }
                 else
+                {
                     GUILayout.Button("<", AltUI.ButtonGreyLarge, GUILayout.Width(40));
-                AltUI.Tooltip.GUITooltip(LOC_WikiGoBack.ToString());
+                    AltUI.Tooltip.GUITooltip(LOC_WikiGoBack.ToString());
+                }
                 if (foretrace.Any())
                 {
                     if (GUILayout.Button(">", AltUI.ButtonOrangeLarge, GUILayout.Width(40)))
                         CurrentWikiPage.GoForward();
+                    AltUI.Tooltip.GUITooltip(LOC_WikiGoForward.ToString() +
+                        (foretrace.LastOrDefault()?.displayName != null ? 
+                        ("\n" + foretrace.LastOrDefault().displayName) : string.Empty));
                 }
                 else
+                {
                     GUILayout.Button(">", AltUI.ButtonGreyLarge, GUILayout.Width(40));
-                AltUI.Tooltip.GUITooltip(LOC_WikiGoForward.ToString());
+                    AltUI.Tooltip.GUITooltip(LOC_WikiGoForward.ToString());
+                }
             }
             if (GUILayout.Button(LOC_WikiContents.ToString(), inst.sideOpen ? AltUI.ButtonBlueLargeActive : AltUI.ButtonBlueLarge, GUILayout.Width(240)))
                 inst.sideOpen = !inst.sideOpen;
@@ -2164,8 +2386,8 @@ namespace TerraTechETCUtil
             GUILayout.BeginHorizontal();
             if (inst.sideOpen)
             {
-                GUILayout.BeginVertical(GUILayout.Width(320));
-                scrollSide = GUILayout.BeginScrollView(scrollSide);
+                GUILayout.BeginVertical(GUILayout.Width(WikiSidebarWidth));
+                scrollSide = GUILayout.BeginScrollView(scrollSide, GUILayout.Width(WikiSidebarWidth));
                 DisplayGlobalWiki();
                 foreach (var item in Wikis.Values.Where(x => x.ModID != GlobalName))
                 {
@@ -2186,7 +2408,6 @@ namespace TerraTechETCUtil
             GUILayout.EndHorizontal();
 
             //tooltip.EndDisplayGUIToolTip();
-            GUI.DragWindow();
         }
         private static void DisplayGlobalWiki() =>
             GlobalWiki?.MainPage?.DisplaySidebar();
@@ -2227,11 +2448,11 @@ namespace TerraTechETCUtil
             if (instGUI == null)
             {
                 instGUI = new GameObject("ManIngameWiki").AddComponent<GUIInst>();
-                LoadPage();
                 Debug_TTExt.Log("TerraTechETCUtil: InitWiki()");
                 ManGameMode.inst.ModeStartEvent.Subscribe(OnGameModeSwitch);
                 //WikiPageBlock.GetImagesForPending();
                 GlobalWiki = InsureWiki(GlobalName);
+                InvokeHelper.InvokeNextUpdate(LoadPage);
             }
             //InvokeHelper.InvokeSingleRepeat(SpamIt, 0.1f);
             /*
@@ -2270,7 +2491,7 @@ namespace TerraTechETCUtil
             {
                 foreach (var item2 in item.ALLPages.Values)
                 {
-                    if (item2.OnWikiClosed())
+                    if (item2.OnWikiClosedOrDeallocateMemory())
                         released = true;
                 }
             }
@@ -2278,7 +2499,7 @@ namespace TerraTechETCUtil
                 GC.Collect();
         }
 
-        private static void SaveState()
+        private static void SaveBrowsingState()
         {
             if (curWikiPage != null)
             {

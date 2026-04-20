@@ -307,9 +307,9 @@ namespace TerraTechETCUtil
                 try
                 {
                     if (failed)
-                        guiWindow = AltUI.Window(ExtDebugID, guiWindow, DoGUI, "Mod Startup Error", CloseGUI);
+                        guiWindow = AltUI.Window(ExtDebugID, guiWindow, DoGUI, "Mod Startup Error", CloseGUI, true, true);
                     else
-                        guiWindow = AltUI.Window(ExtDebugID, guiWindow, DoGUI, "Mod Startup", CloseGUI);
+                        guiWindow = AltUI.Window(ExtDebugID, guiWindow, DoGUI, "Mod Startup", CloseGUI, true, true);
                 }
                 catch (ExitGUIException e) 
                 {
@@ -459,8 +459,7 @@ namespace TerraTechETCUtil
                     Debug_TTExt.Assert("Failed to save startup settings to file!");
             }
             GUILayout.EndScrollView();
-            UIHelpersExt.ClampMenuToScreen(ref guiWindow, false);
-            GUI.DragWindow(guiWindow);
+            UIHelpersExt.ClampGUIToScreen(ref guiWindow, false);
         }
         internal static void CloseGUI()
         {

@@ -21,6 +21,15 @@ namespace TerraTechETCUtil
         /// <summary> Default title font size </summary>
         public const int TitleFontSize = 32;
 
+        /// <summary>
+        /// The size of the UI scale, in terms of elements
+        /// </summary>
+        public static float UIScaling => ManModGUI.GUIScale;
+        /// <summary>
+        /// The size of the UI scale via matrix
+        /// </summary>
+        public static Matrix4x4 UIScalingMatrix = default;
+
         /// <summary> Global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>default fixed value</b> </summary>
         public static float UIAlpha = 0.725f;
         /// <summary> Color text tag </summary>
@@ -196,10 +205,6 @@ namespace TerraTechETCUtil
             return styleBatch;
         }
 
-        private static void NewGUIButton()
-        {
-        }
-
 
         // -------------- Menus --------------
         /// <summary> GUI Style present </summary>
@@ -242,7 +247,7 @@ namespace TerraTechETCUtil
             TRANSPARENT.fontSize = 18;
             MenuTransparentStyle = new GUIStyleState() { background = TransparentTex, textColor = ColorDefaultGrey, };
             TRANSPARENT.overflow = new RectOffset(0, 0, 0, 0);
-            TRANSPARENT.padding = new RectOffset(2,2,2,2);
+            TRANSPARENT.padding = new RectOffset(1,1,1,1);
             TRANSPARENT.border = new RectOffset(0,0,0,0);
             TRANSPARENT.normal = MenuTransparentStyle;
             TRANSPARENT.hover = MenuTransparentStyle;
@@ -281,8 +286,8 @@ namespace TerraTechETCUtil
             MenuLeftStyleLeft = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
             //MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 16, MenuTexRectLeft.width / 16, MenuTexRectLeft.height / 18, MenuTexRectLeft.height / 18);
             //MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
-            MenuLeft.padding = new RectOffset(MenuTexRectLeft.width / 32, MenuTexRectLeft.width / 32, MenuTexRectLeft.height / 36, MenuTexRectLeft.height / 36);
-            MenuLeft.border = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
+            MenuLeft.padding = new RectOffset(0, 0, 0, 0);
+            MenuLeft.border = new RectOffset(12, 12, 12, 12);
             MenuLeft.normal = MenuLeftStyleLeft;
             MenuLeft.hover = MenuLeftStyleLeft;
             MenuLeft.active = MenuLeftStyleLeft;
@@ -295,10 +300,14 @@ namespace TerraTechETCUtil
 
             MenuRight = new GUIStyle(MenuCenter);
             MenuRightStyle = new GUIStyleState() { background = MenuTexRectRight, textColor = new Color(0, 0, 0, 1), };
+            /*
             MenuRight.padding = new RectOffset(MenuTexRectRight.width / 6, MenuTexRectRight.width / 6, 
                 MenuTexRectRight.height / 12, MenuTexRectRight.height / 12);
             MenuRight.border = new RectOffset(Mathf.RoundToInt(MenuTexRectRight.width / 2.25f), 
                 Mathf.RoundToInt(MenuTexRectRight.width / 2.25f), MenuTexRectRight.height / 6, MenuTexRectRight.height / 6);
+            */
+            MenuLeft.padding = new RectOffset(0, 0, 0, 0);
+            MenuLeft.border = new RectOffset(12, 12, 12, 12);
             MenuRight.normal = MenuRightStyle;
             MenuRight.hover = MenuRightStyle;
             MenuRight.active = MenuRightStyle;
@@ -349,227 +358,223 @@ namespace TerraTechETCUtil
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlack;
         /// <summary> GUI Style present </summary>
-        public static GUIStyle LabelBlackNoStretch;
+        public static GUIStyle LabelBlackWrap;
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlackTitle;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelBlackTitleWrap;
 
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlue;
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelBlueTitle;
         /// <summary> GUI Style present </summary>
-
+        public static GUIStyle LabelBlueTitleWrap;
         /// <summary> GUI Style present </summary>
-        public static GUIStyle LabelWhite;
-        /// <summary> GUI Style present </summary>
-        public static GUIStyle LabelWhiteTitle;
+        public static GUIStyle LabelBlueTitleWhiteHover;
 
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelRed;
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelRedTitle;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelRedTitleWrap;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelRedTitleWhiteHover;
 
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelGold;
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelGoldTitle;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelGoldTitleWrap;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelGoldTitleWhiteHover;
+
+
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhite;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteTitle;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteTitleWrap;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteTitleRedHover;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteTitleBlueHover;
+        /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteTitleGoldHover;
         private static void MakeLabels()
         {
-
             GUIStyle TextBase = new GUIStyle(GUI.skin.label);
-            TextBase.alignment = TextAnchor.MiddleLeft;
-            TextBase.fontStyle = FontStyle.Normal;
-            TextBase.normal.textColor = ColorDefaultGrey;
+            TextBase.border = new RectOffset(0, 0, 0, 0);
+            TextBase.overflow = new RectOffset(0, 0, 0, 0);
+            TextBase.margin = new RectOffset(0, 0, 0, 0);
+            TextBase.padding = new RectOffset(0, 0, 0, 0);
+            TextBase.contentOffset = Vector2.zero;
+            TextBase.stretchHeight = false;
+            TextBase.stretchWidth = false;
             TextBase.font = ExoFontSemiBold;
+            TextBase.fontStyle = FontStyle.Normal;
+            TextBase.alignment = TextAnchor.MiddleLeft;
             TextBase.clipping = TextClipping.Overflow;
+            TextBase.wordWrap = false;
+            TextBase.richText = true;
+
+            GUIStyle TextBaseInteractiveTitle = new GUIStyle(GUI.skin.button);
+            TextBaseInteractiveTitle.border = new RectOffset(0, 0, 0, 0);
+            TextBaseInteractiveTitle.overflow = new RectOffset(0, 0, 0, 0);
+            TextBaseInteractiveTitle.margin = new RectOffset(0, 0, 0, 0);
+            TextBaseInteractiveTitle.padding = new RectOffset(0, 0, 0, 0);
+            TextBaseInteractiveTitle.contentOffset = Vector2.zero;
+            TextBaseInteractiveTitle.stretchHeight = false;
+            TextBaseInteractiveTitle.stretchWidth = false;
+            TextBaseInteractiveTitle.font = ExoFontSemiBoldItalic;
+            TextBaseInteractiveTitle.fontSize = TitleFontSize;
+            TextBaseInteractiveTitle.fontStyle = FontStyle.Normal;
+            TextBaseInteractiveTitle.alignment = TextAnchor.MiddleLeft;
+            TextBaseInteractiveTitle.clipping = TextClipping.Overflow;
+            TextBaseInteractiveTitle.wordWrap = false;
+            TextBaseInteractiveTitle.richText = true;
+
 
             // Setup Label Black
             GUIStyle styleBatch = new GUIStyle(TextBase);
-            LabelBlack = styleBatch;
             GUIStyleState styleStateBatch = new GUIStyleState()
             {
                 background = null,
                 textColor = ColorDefaultGrey,
             };
-            var LabelBlackStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelBlack = styleBatch;
 
+            // Setup Label Black with word wrap
             styleBatch = new GUIStyle(LabelBlack);
-            LabelBlackNoStretch = styleBatch;
-            LabelBlackNoStretch.stretchHeight = false;
-            LabelBlackNoStretch.stretchWidth = false;
+            styleBatch.wordWrap = true;
+            LabelBlackWrap = styleBatch;
 
             // Setup Label BlackTitle
             styleBatch = new GUIStyle(TextBase);
+            styleBatch.padding = new RectOffset(0, 0, 0, 0);
             styleBatch.font = ExoFontSemiBoldItalic;
             styleBatch.fontSize = TitleFontSize;
-            styleBatch.border = new RectOffset(64, 0, 0, 0);
+            styleBatch.fontStyle = FontStyle.Normal;
+            styleBatch.wordWrap = false;
+            styleBatch.stretchHeight = false;
+            styleBatch.stretchWidth = false;
+            //styleBatch.border = new RectOffset(64, 0, 0, 0);
+            AssignStyleQuick(styleBatch, styleStateBatch);
             LabelBlackTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = null,
-                textColor = ColorDefaultGrey,
-            };
-            var LabelBlackTitleStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+
+            styleBatch = new GUIStyle(styleBatch);
+            styleBatch.wordWrap = true;
+            LabelBlackTitleWrap = styleBatch;
+
 
             // Setup Label Blue
             styleBatch = new GUIStyle(TextBase);
-            LabelBlue = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = null,
                 textColor = ColorDefaultBlue,
             };
-            var LabelBlueStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelBlue = styleBatch;
 
             // Setup Label BlueTitle
             styleBatch = new GUIStyle(LabelBlackTitle);
+            AssignStyleQuick(styleBatch, styleStateBatch);
             LabelBlueTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = null,
-                textColor = ColorDefaultBlue,
-            };
-            var LabelBlueStyleTitle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
 
-            // Setup Label White
-            styleBatch = new GUIStyle(TextBase);
-            LabelWhite = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = null,
-                textColor = ColorDefaultWhite,
-            };
-            var LabelWhiteStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            styleBatch = new GUIStyle(styleBatch);
+            styleBatch.wordWrap = true;
+            LabelBlueTitleWrap = styleBatch;
 
-            // Setup Label White Title
-            styleBatch = new GUIStyle(LabelBlackTitle);
-            LabelWhiteTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = null,
-                textColor = ColorDefaultWhite,
-            };
-            var LabelWhiteStyleTitle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
 
             // Setup Label Red
             styleBatch = new GUIStyle(TextBase);
-            LabelRed = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = null,
                 textColor = ColorDefaultRed,
             };
-            var LabelRedStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelRed = styleBatch;
 
             // Setup Label Red Title
             styleBatch = new GUIStyle(LabelBlackTitle);
+            AssignStyleQuick(styleBatch, styleStateBatch);
             LabelRedTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = null,
-                textColor = ColorDefaultRed,
-            };
-            var LabelRedStyleTitle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+
+            styleBatch = new GUIStyle(styleBatch);
+            styleBatch.wordWrap = true;
+            LabelRedTitleWrap = styleBatch;
+
 
             // Setup Label Gold
             styleBatch = new GUIStyle(TextBase);
-            LabelGold = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = null,
                 textColor = ColorDefaultGold,
             };
-            var LabelGoldStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelGold = styleBatch;
 
             // Setup Label Gold Title
             styleBatch = new GUIStyle(LabelBlackTitle);
+            AssignStyleQuick(styleBatch, styleStateBatch);
             LabelGoldTitle = styleBatch;
+
+            styleBatch = new GUIStyle(styleBatch);
+            styleBatch.wordWrap = true;
+            LabelGoldTitleWrap = styleBatch;
+
+
+            // Setup Label White
+            styleBatch = new GUIStyle(TextBase);
             styleStateBatch = new GUIStyleState()
             {
                 background = null,
-                textColor = ColorDefaultGold,
+                textColor = ColorDefaultWhite,
             };
-            var LabelGoldStyleTitle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelWhite = styleBatch;
+
+            // Setup Label White Title
+            styleBatch = new GUIStyle(LabelBlackTitle);
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            LabelWhiteTitle = styleBatch;
+
+            styleBatch = new GUIStyle(LabelWhiteTitle);
+            styleBatch.wordWrap = true;
+            LabelWhiteTitleWrap = styleBatch;
+
+
+            // Setup Interactive Hover Titles
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelWhiteTitle.normal, LabelBlueTitle.active);
+            LabelWhiteTitleBlueHover = styleBatch;
+
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelWhiteTitle.normal, LabelGoldTitle.active);
+            LabelWhiteTitleGoldHover = styleBatch;
+
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelWhiteTitle.normal, LabelRedTitle.active);
+            LabelWhiteTitleRedHover = styleBatch;
+
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelBlueTitle.normal, LabelWhiteTitle.active);
+            LabelBlueTitleWhiteHover = styleBatch;
+
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelGoldTitle.normal, LabelWhiteTitle.active);
+            LabelGoldTitleWhiteHover = styleBatch;
+
+            styleBatch = new GUIStyle(TextBaseInteractiveTitle);
+            AssignStyleHoverQuick(styleBatch, LabelRedTitle.normal, LabelWhiteTitle.active);
+            LabelRedTitleWhiteHover = styleBatch;
         }
 
 
@@ -587,86 +592,56 @@ namespace TerraTechETCUtil
         private static void MakeBoxes()
         {
             GUIStyle TextBase = new GUIStyle(TextfieldBlackHuge);
-            TextBase.alignment = TextAnchor.MiddleLeft;
-            TextBase.fontStyle = FontStyle.Normal;
-            TextBase.normal.textColor = ColorDefaultGrey;
+            TextBase.margin = new RectOffset(1, 1, 1, 1);
+            TextBase.overflow = new RectOffset(0, 0, 0, 0);
+            TextBase.padding = new RectOffset(8, 8, 4, 4);
+            TextBase.border = new RectOffset(9, 9, 9, 9);
+            TextBase.contentOffset = Vector2.zero;
+            TextBase.stretchWidth = true;
+            TextBase.stretchHeight = false;
             TextBase.font = ExoFontSemiBold;
+            TextBase.fontStyle = FontStyle.Normal;
+            TextBase.alignment = TextAnchor.MiddleLeft;
             TextBase.clipping = TextClipping.Overflow;
+            TextBase.wordWrap = true;
+            TextBase.richText = true;
+
 
             // Setup Label Black
             GUIStyle styleBatch = new GUIStyle(TextBase);
-            BoxBlack = styleBatch;
             GUIStyleState styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            var BoxBlackStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            BoxBlack = styleBatch;
 
             // Setup Label BlackTitle
             styleBatch = new GUIStyle(TextBase);
             styleBatch.font = ExoFontSemiBoldItalic;
             styleBatch.fontSize = TitleFontSize;
-            styleBatch.border = new RectOffset(64, 0, 0, 0);
+            styleBatch.stretchWidth = true;
+            styleBatch.stretchHeight = false;
+            styleBatch.wordWrap = false;
+            AssignStyleQuick(styleBatch, styleStateBatch);
             BoxBlackTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = TextfieldHTexMain,
-                textColor = ColorDefaultWhite,
-            };
-            var BoxBlackTitleStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+
 
             // Setup Label Blue
             styleBatch = new GUIStyle(TextBase);
-            BoxBlackTextBlue = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultBlue,
             };
-            var BoxBlackTextBlueStyle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            BoxBlackTextBlue = styleBatch;
 
             // Setup Label BlueTitle
             styleBatch = new GUIStyle(LabelBlackTitle);
+            AssignStyleQuick(styleBatch, styleStateBatch);
             BoxBlackTextBlueTitle = styleBatch;
-            styleStateBatch = new GUIStyleState()
-            {
-                background = TextfieldHTexMain,
-                textColor = ColorDefaultBlue,
-            };
-            var BoxBlackTextBlueStyleTitle = styleStateBatch;
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
         }
 
 
@@ -733,18 +708,23 @@ namespace TerraTechETCUtil
         private static void MakeButtons()
         {
             GUIStyle ButtonBase = new GUIStyle(GUI.skin.button);
-            ButtonBase.imagePosition = ImagePosition.ImageLeft;
             ButtonBase.overflow = new RectOffset(0, 0, 0, 0);
             ButtonBase.margin = new RectOffset(1, 1, 1, 1);
             ButtonBase.padding = new RectOffset(12, 12, 8, 8);
             ButtonBase.border = new RectOffset(12, 12, 12, 12);
-
+            ButtonBase.imagePosition = ImagePosition.ImageLeft;
+            ButtonBase.contentOffset = Vector2.zero;
             //ButtonBase.fixedWidth = 128;
             //ButtonBase.fixedHeight = 32;
             ButtonBase.stretchWidth = true;
             ButtonBase.stretchHeight = false;
-            ButtonBase.clipping = TextClipping.Overflow;
             ButtonBase.font = ExoFontBold;
+            ButtonBase.fontStyle = FontStyle.Normal;
+            ButtonBase.alignment = TextAnchor.MiddleCenter;
+            ButtonBase.clipping = TextClipping.Overflow;
+            ButtonBase.wordWrap = true;
+            ButtonBase.richText = true;
+            
 
             // Setup Button Sharp
             ButtonBlueLarge = new GUIStyle(ButtonBase);
@@ -754,31 +734,17 @@ namespace TerraTechETCUtil
             ButtonBlueLarge.fixedHeight = 0;
             ButtonBlueLarge.stretchWidth = true;
             ButtonBlueLarge.stretchHeight = true;
-            ButtonBlueLarge.overflow = new RectOffset(20, 20, 6, 30);
-            ButtonBlueLarge.border = new RectOffset(30, 50, 20, 60);
+            ButtonBlueLarge.padding = new RectOffset(8, 8, 2, 2);
+            ButtonBlueLarge.overflow = new RectOffset(18, 18, 6, 30);
+            ButtonBlueLarge.border = new RectOffset(26, 50, 14, 60);
             var ButtonSStyle = new GUIStyleState() { background = ButtonSTexMain, textColor = ColorDefaultWhite, };
             var ButtonSStyleHover = new GUIStyleState() { background = ButtonSTexHover, textColor = ColorDefaultWhite, };
-            ButtonBlueLarge.normal = ButtonSStyle;
-            ButtonBlueLarge.hover = ButtonSStyleHover;
-            ButtonBlueLarge.active = ButtonSStyle;
-            ButtonBlueLarge.focused = ButtonSStyle;
-            ButtonBlueLarge.onNormal = ButtonSStyle;
-            ButtonBlueLarge.onHover = ButtonSStyleHover;
-            ButtonBlueLarge.onActive = ButtonSStyle;
-            ButtonBlueLarge.onFocused = ButtonSStyle;
-
-
+            AssignStyleHoverQuick(ButtonBlueLarge, ButtonSStyle, ButtonSStyleHover);
+            
             // Setup Button Sharp Active
             ButtonBlueLargeActive = new GUIStyle(ButtonBlueLarge);
             var ButtonSStyleActive = new GUIStyleState() { background = ButtonSTexSelect, textColor = ColorDefaultWhite, };
-            ButtonBlueLargeActive.normal = ButtonSStyleActive;
-            ButtonBlueLargeActive.hover = ButtonSStyleActive;
-            ButtonBlueLargeActive.active = ButtonSStyleActive;
-            ButtonBlueLargeActive.focused = ButtonSStyleActive;
-            ButtonBlueLargeActive.onNormal = ButtonSStyleActive;
-            ButtonBlueLargeActive.onHover = ButtonSStyleActive;
-            ButtonBlueLargeActive.onActive = ButtonSStyleActive;
-            ButtonBlueLargeActive.onFocused = ButtonSStyleActive;
+            AssignStyleQuick(ButtonBlueLargeActive, ButtonSStyleActive);
 
             ButtonBlueLarge.active = ButtonSStyleActive;
             ButtonBlueLarge.onActive = ButtonSStyleActive;
@@ -788,26 +754,12 @@ namespace TerraTechETCUtil
             ButtonOrangeLarge = new GUIStyle(ButtonBlueLarge);
             var ButtonOStyle = new GUIStyleState() { background = ButtonOTexMain, textColor = ColorDefaultWhite, };
             var ButtonOStyleHover = new GUIStyleState() { background = ButtonOTexHover, textColor = ColorDefaultWhite, };
-            ButtonOrangeLarge.normal = ButtonOStyle;
-            ButtonOrangeLarge.hover = ButtonOStyleHover;
-            ButtonOrangeLarge.active = ButtonOStyle;
-            ButtonOrangeLarge.focused = ButtonOStyle;
-            ButtonOrangeLarge.onNormal = ButtonOStyle;
-            ButtonOrangeLarge.onHover = ButtonOStyleHover;
-            ButtonOrangeLarge.onActive = ButtonOStyle;
-            ButtonOrangeLarge.onFocused = ButtonOStyle;
+            AssignStyleHoverQuick(ButtonOrangeLarge, ButtonOStyle, ButtonOStyleHover);
 
             // Setup Button Orange Active
             ButtonOrangeLargeActive = new GUIStyle(ButtonOrangeLarge);
             var ButtonOStyleActive = new GUIStyleState() { background = ButtonOTexSelect, textColor = ColorDefaultWhite, };
-            ButtonOrangeLargeActive.normal = ButtonOStyleActive;
-            ButtonOrangeLargeActive.hover = ButtonOStyleActive;
-            ButtonOrangeLargeActive.active = ButtonOStyleActive;
-            ButtonOrangeLargeActive.focused = ButtonOStyleActive;
-            ButtonOrangeLargeActive.onNormal = ButtonOStyleActive;
-            ButtonOrangeLargeActive.onHover = ButtonOStyleActive;
-            ButtonOrangeLargeActive.onActive = ButtonOStyleActive;
-            ButtonOrangeLargeActive.onFocused = ButtonOStyleActive;
+            AssignStyleQuick(ButtonOrangeLargeActive, ButtonOStyleActive);
 
             ButtonOrangeLarge.active = ButtonOStyleActive;
             ButtonOrangeLarge.onActive = ButtonOStyleActive;
@@ -817,26 +769,12 @@ namespace TerraTechETCUtil
             ButtonGreyLarge = new GUIStyle(ButtonBlueLarge);
             var ButtonSDStyle = new GUIStyleState() { background = ButtonSDTexMain, textColor = ColorDefaultWhite, };
             var ButtonSDStyleHover = new GUIStyleState() { background = ButtonSDTexHover, textColor = ColorDefaultWhite, };
-            ButtonGreyLarge.normal = ButtonSDStyle;
-            ButtonGreyLarge.hover = ButtonSDStyleHover;
-            ButtonGreyLarge.active = ButtonSDStyle;
-            ButtonGreyLarge.focused = ButtonSDStyle;
-            ButtonGreyLarge.onNormal = ButtonSDStyle;
-            ButtonGreyLarge.onHover = ButtonSDStyleHover;
-            ButtonGreyLarge.onActive = ButtonSDStyle;
-            ButtonGreyLarge.onFocused = ButtonSDStyle;
+            AssignStyleHoverQuick(ButtonGreyLarge, ButtonSDStyle, ButtonSDStyleHover);
 
             // Setup Button Grey Sharp Active
             ButtonGreyLargeActive = new GUIStyle(ButtonGreyLarge);
             var ButtonSDStyleActive = new GUIStyleState() { background = ButtonSDTexSelect, textColor = ColorDefaultWhite, };
-            ButtonGreyLargeActive.normal = ButtonSDStyleActive;
-            ButtonGreyLargeActive.hover = ButtonSDStyleActive;
-            ButtonGreyLargeActive.active = ButtonSDStyleActive;
-            ButtonGreyLargeActive.focused = ButtonSDStyleActive;
-            ButtonGreyLargeActive.onNormal = ButtonSDStyleActive;
-            ButtonGreyLargeActive.onHover = ButtonSDStyleActive;
-            ButtonGreyLargeActive.onActive = ButtonSDStyleActive;
-            ButtonGreyLargeActive.onFocused = ButtonSDStyleActive;
+            AssignStyleQuick(ButtonGreyLargeActive, ButtonSDStyleActive);
 
             ButtonGreyLarge.active = ButtonSDStyleActive;
             ButtonGreyLarge.onActive = ButtonSDStyleActive;
@@ -846,26 +784,12 @@ namespace TerraTechETCUtil
             ButtonBlue = new GUIStyle(ButtonBase);
             var ButtonStyle = new GUIStyleState() { background = ButtonTexMain, textColor = ColorDefaultWhite, };
             var ButtonStyleHover = new GUIStyleState() { background = ButtonTexHover, textColor = ColorDefaultWhite, };
-            ButtonBlue.normal = ButtonStyle;
-            ButtonBlue.hover = ButtonStyleHover;
-            ButtonBlue.active = ButtonStyle;
-            ButtonBlue.focused = ButtonStyle;
-            ButtonBlue.onNormal = ButtonStyle;
-            ButtonBlue.onHover = ButtonStyleHover;
-            ButtonBlue.onActive = ButtonStyle;
-            ButtonBlue.onFocused = ButtonStyle;
+            AssignStyleHoverQuick(ButtonBlue, ButtonStyle, ButtonStyleHover);
 
             // Setup Button Active
             ButtonBlueActive = new GUIStyle(ButtonBase);
             var ButtonStyleActive = new GUIStyleState() { background = ButtonTexSelect, textColor = ColorDefaultWhite, };
-            ButtonBlueActive.normal = ButtonStyleActive;
-            ButtonBlueActive.hover = ButtonStyleActive;
-            ButtonBlueActive.active = ButtonStyleActive;
-            ButtonBlueActive.focused = ButtonStyleActive;
-            ButtonBlueActive.onNormal = ButtonStyleActive;
-            ButtonBlueActive.onHover = ButtonStyleActive;
-            ButtonBlueActive.onActive = ButtonStyleActive;
-            ButtonBlueActive.onFocused = ButtonStyleActive;
+            AssignStyleQuick(ButtonBlueActive, ButtonStyleActive);
 
             ButtonBlue.active = ButtonStyleActive;
             ButtonBlue.onActive = ButtonStyleActive;
@@ -875,26 +799,12 @@ namespace TerraTechETCUtil
             ButtonGreen = new GUIStyle(ButtonBase);
             var ButtonStyleAccept = new GUIStyleState() { background = ButtonTexAccept, textColor = ColorDefaultWhite, };
             var ButtonStyleAcceptHover = new GUIStyleState() { background = ButtonTexAcceptHover, textColor = ColorDefaultWhite, };
-            ButtonGreen.normal = ButtonStyleAccept;
-            ButtonGreen.hover = ButtonStyleAcceptHover;
-            ButtonGreen.active = ButtonStyleAccept;
-            ButtonGreen.focused = ButtonStyleAccept;
-            ButtonGreen.onNormal = ButtonStyleAccept;
-            ButtonGreen.onHover = ButtonStyleAcceptHover;
-            ButtonGreen.onActive = ButtonStyleAccept;
-            ButtonGreen.onFocused = ButtonStyleAccept;
+            AssignStyleHoverQuick(ButtonGreen, ButtonStyleAccept, ButtonStyleAcceptHover);
 
             // Setup Button Green Active
             ButtonGreenActive = new GUIStyle(ButtonBase);
             var ButtonStyleGActive = new GUIStyleState() { background = ButtonTexSelectGreen, textColor = ColorDefaultWhite, };
-            ButtonGreenActive.normal = ButtonStyleGActive;
-            ButtonGreenActive.hover = ButtonStyleGActive;
-            ButtonGreenActive.active = ButtonStyleGActive;
-            ButtonGreenActive.focused = ButtonStyleGActive;
-            ButtonGreenActive.onNormal = ButtonStyleGActive;
-            ButtonGreenActive.onHover = ButtonStyleGActive;
-            ButtonGreenActive.onActive = ButtonStyleGActive;
-            ButtonGreenActive.onFocused = ButtonStyleGActive;
+            AssignStyleQuick(ButtonGreenActive, ButtonStyleGActive);
 
             ButtonGreen.active = ButtonStyleGActive;
             ButtonGreen.onActive = ButtonStyleGActive;
@@ -904,26 +814,12 @@ namespace TerraTechETCUtil
             ButtonRed = new GUIStyle(ButtonBase);
             var ButtonStyleDisabled = new GUIStyleState() { background = ButtonTexDisabled, textColor = ColorDefaultWhite, };
             var ButtonStyleDisabledHover = new GUIStyleState() { background = ButtonTexDisabledHover, textColor = ColorDefaultWhite, };
-            ButtonRed.normal = ButtonStyleDisabled;
-            ButtonRed.hover = ButtonStyleDisabledHover;
-            ButtonRed.active = ButtonStyleDisabled;
-            ButtonRed.focused = ButtonStyleDisabled;
-            ButtonRed.onNormal = ButtonStyleDisabled;
-            ButtonRed.onHover = ButtonStyleDisabledHover;
-            ButtonRed.onActive = ButtonStyleDisabled;
-            ButtonRed.onFocused = ButtonStyleDisabled;
+            AssignStyleHoverQuick(ButtonRed, ButtonStyleDisabled, ButtonStyleDisabledHover);
 
             // Setup Button Red Active
             ButtonRedActive = new GUIStyle(ButtonBase);
             var ButtonStyleRActive = new GUIStyleState() { background = ButtonTexSelectRed, textColor = ColorDefaultWhite, };
-            ButtonRedActive.normal = ButtonStyleRActive;
-            ButtonRedActive.hover = ButtonStyleRActive;
-            ButtonRedActive.active = ButtonStyleRActive;
-            ButtonRedActive.focused = ButtonStyleRActive;
-            ButtonRedActive.onNormal = ButtonStyleRActive;
-            ButtonRedActive.onHover = ButtonStyleRActive;
-            ButtonRedActive.onActive = ButtonStyleRActive;
-            ButtonRedActive.onFocused = ButtonStyleRActive;
+            AssignStyleQuick(ButtonRedActive, ButtonStyleRActive);
 
             ButtonRed.active = ButtonStyleRActive;
             ButtonRed.onActive = ButtonStyleRActive;
@@ -932,21 +828,14 @@ namespace TerraTechETCUtil
             // Setup Button Not Active
             ButtonGrey = new GUIStyle(ButtonBase);
             var ButtonStyleInactive = new GUIStyleState() { background = ButtonTexInactive, textColor = ColorDefaultWhite, };
-            ButtonGrey.normal = ButtonStyleInactive;
-            ButtonGrey.hover = ButtonStyleInactive;
-            ButtonGrey.active = ButtonStyleInactive;
-            ButtonGrey.focused = ButtonStyleInactive;
-            ButtonGrey.onNormal = ButtonStyleInactive;
-            ButtonGrey.onHover = ButtonStyleInactive;
-            ButtonGrey.onActive = ButtonStyleInactive;
-            ButtonGrey.onFocused = ButtonStyleInactive;
+            AssignStyleQuick(ButtonGrey, ButtonStyleInactive);
         }
 
 
 
         // -------------- Textfields --------------
         /// <summary>
-        /// Panel_BLUE_BG
+        /// Panel_BLUE_BG - Flat blue curved square
         /// </summary>
         public static GUIStyle TextfieldBlue;
         private static Texture2D TextfieldUTexMain;
@@ -958,7 +847,10 @@ namespace TerraTechETCUtil
         /// <summary> GUI Style present </summary>
         public static GUIStyle TextfieldBlackAdjusted;
 
-        /// <summary> GUI Style present </summary>
+        /// <summary> 
+        /// CurvedWhite background with thin black border
+        /// <para>GUI Style present</para> 
+        /// </summary>
         public static GUIStyle TextfieldBordered;
         private static Texture2D TextfieldBTexMain;
 
@@ -991,55 +883,44 @@ namespace TerraTechETCUtil
         private static void MakeTextBoxes()
         {
             GUIStyle TextBase = new GUIStyle(GUI.skin.button);
-            TextBase.clipping = TextClipping.Overflow;
-            TextBase.alignment = TextAnchor.MiddleLeft;
-            TextBase.overflow = new RectOffset(0, 0, 0, 0);
-            TextBase.padding = new RectOffset(22, 22, 3, 3);
-            TextBase.border = new RectOffset(TextfieldBTexMain.width / 3, TextfieldBTexMain.width / 3, TextfieldBTexMain.height / 3, TextfieldBTexMain.height / 3);
-
+            TextBase.margin = new RectOffset(1, 1, 1, 1);
+            TextBase.overflow = new RectOffset(3, 3, 3, 3);
+            TextBase.padding = new RectOffset(7, 7, 7, 7);
+            TextBase.border = new RectOffset(10, 10, 10, 10);
+            TextBase.contentOffset = Vector2.zero;
             //TextBase.fixedWidth = 128;
             TextBase.stretchWidth = true;
             TextBase.stretchHeight = false;
             TextBase.font = ExoFontSemiBold;
+            TextBase.alignment = TextAnchor.MiddleLeft;
+            TextBase.clipping = TextClipping.Overflow;
 
             // Setup Textfield Blue
             GUIStyle styleBatch = new GUIStyle(TextBase);
-            styleBatch.border = new RectOffset(12,12,12,12);
-            styleBatch.padding = new RectOffset(8, 8, 3, 3);
-            TextfieldBlue = styleBatch;
+            styleBatch.overflow = new RectOffset(0, 0, 0, 0);
+            styleBatch.border = new RectOffset(12, 12, 12, 12);
+            styleBatch.padding = new RectOffset(6, 6, 6, 6);
             GUIStyleState styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldUTexMain,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlue = styleBatch;
 
             // Setup Textfield Default
             styleBatch = new GUIStyle(TextBase);
             styleBatch.alignment = TextAnchor.MiddleRight;
-            styleBatch.padding = new RectOffset(TextfieldTexMain.width / 6, TextfieldTexMain.width / 6, 3, 3);
-            styleBatch.border = new RectOffset(TextfieldTexMain.width / 6, TextfieldTexMain.width / 6, 0, 0);
-            TextfieldBlack = styleBatch;
+            styleBatch.overflow = new RectOffset(0, 0, 0, 0);
+            styleBatch.padding = new RectOffset(11, 11, 3, 3);
+            styleBatch.border = new RectOffset(23, 23, 0, 0);
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldTexMain,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlack = styleBatch;
 
             styleBatch = new GUIStyle(TextfieldBlack);
             TextfieldBlackAdjusted = styleBatch;
@@ -1047,164 +928,113 @@ namespace TerraTechETCUtil
 
             // Setup Textfield Left
             styleBatch = new GUIStyle(TextfieldBlack);
-            styleBatch.padding = new RectOffset(3, TextfieldTexMain.width / 6, 3, 3);
-            styleBatch.border = new RectOffset(0, TextfieldTexMain.width / 6, 0, 0);
-            TextfieldBlackLeft = styleBatch;
+            styleBatch.padding = new RectOffset(3, 11, 3, 3);
+            styleBatch.border = new RectOffset(0, 23, 0, 0);
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldLTexMain,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlackLeft = styleBatch;
 
             // Setup Textfield Search
             styleBatch = new GUIStyle(TextfieldBlack);
-            styleBatch.border = new RectOffset(Mathf.RoundToInt(TextfieldSTexMain.width / 2.25f),
-                Mathf.RoundToInt(TextfieldSTexMain.width / 2.25f), 0, 0);
+            styleBatch.padding = new RectOffset(11, 8, 3, 3);
+            styleBatch.border = new RectOffset(19, 12, 0, 0);
             RectOffset alt = styleBatch.border;
             alt.top = 3;
             alt.bottom = 3;
             styleBatch.padding = alt;
-            TextfieldBlackSearch = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldSTexMain,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlackSearch = styleBatch;
 
             // Setup Textfield Huge
             styleBatch = new GUIStyle(TextBase);
-            styleBatch.border = new RectOffset(16, 16, 16, 16);
+            styleBatch.overflow = new RectOffset(0, 0, 0, 0);
+            styleBatch.padding = new RectOffset(8, 8, 4, 4);
+            styleBatch.border = new RectOffset(9, 9, 9, 9);
             styleBatch.clipping = TextClipping.Clip;
             styleBatch.alignment = TextAnchor.UpperLeft;
             styleBatch.fixedWidth = 0;
             styleBatch.fixedHeight = 0;
-            styleBatch.stretchHeight = true;
+            styleBatch.stretchHeight = false;
             styleBatch.wordWrap = true;
-            TextfieldBlackHuge = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlackHuge = styleBatch;
 
             styleBatch = new GUIStyle(TextfieldBlackHuge);
             styleBatch.font = ExoFontSemiBoldItalic;
-
-            TextfieldBlackBlueText = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldHTexMain,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBlackBlueText = styleBatch;
+
 
             // Setup Textfield White Huge
             styleBatch = new GUIStyle(TextfieldBlackHuge);
             styleBatch.overflow = new RectOffset(0, 0, 0, 0);
             styleBatch.padding = new RectOffset(16, 16, 16, 16);
             styleBatch.border = new RectOffset(16, 16, 16, 16);
-            TextfieldWhiteHuge = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = MenuTexRect,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldWhiteHuge = styleBatch;
 
 
 
             // Setup Textfield Bordered
             styleBatch = new GUIStyle(TextBase);
-            styleBatch.padding = new RectOffset(9, 9, 9, 9);
+            styleBatch.overflow = new RectOffset(2, 2, 2, 2);
+            styleBatch.padding = new RectOffset(4, 4, 4, 4);
             styleBatch.border = new RectOffset(10, 10, 10, 10);
             //styleBatch.border = new RectOffset(TextfieldBTexMain.width / 3, TextfieldBTexMain.width / 3, TextfieldBTexMain.height / 3, TextfieldBTexMain.height / 3);
-            TextfieldBordered = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldBTexMain,
                 textColor = ColorDefaultGrey,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBordered = styleBatch;
 
             // Setup Textfield Blue
             styleBatch = new GUIStyle(TextBase);
-            styleBatch.padding = new RectOffset(8, 8, 8, 8);
+            styleBatch.overflow = new RectOffset(6, 6, 6, 6);
+            styleBatch.padding = new RectOffset(3, 3, 3, 3);
             styleBatch.border = new RectOffset(12, 12, 12, 12);
             //styleBatch.border = new RectOffset(TextfieldBBTexMain.width / 3, TextfieldBBTexMain.width / 3, TextfieldBBTexMain.height / 3, TextfieldBBTexMain.height / 3);
-            TextfieldBorderedBlue = styleBatch;
             styleStateBatch = new GUIStyleState()
             {
                 background = TextfieldBBTexMain,
                 textColor = ColorDefaultWhite,
             };
-            styleBatch.normal = styleStateBatch;
-            styleBatch.hover = styleStateBatch;
-            styleBatch.active = styleStateBatch;
-            styleBatch.focused = styleStateBatch;
-            styleBatch.onNormal = styleStateBatch;
-            styleBatch.onHover = styleStateBatch;
-            styleBatch.onActive = styleStateBatch;
-            styleBatch.onFocused = styleStateBatch;
+            AssignStyleQuick(styleBatch, styleStateBatch);
+            TextfieldBorderedBlue = styleBatch;
 
 
             TextfieldWhiteMenu = new GUIStyle(TextBase);
+            TextfieldWhiteMenu.overflow = new RectOffset(0, 0, 0, 0);
+            TextfieldWhiteMenu.padding = new RectOffset(6, 6, 6, 6);
+            TextfieldWhiteMenu.border = new RectOffset(12, 12, 12, 12);
             TextfieldWhiteMenu.wordWrap = true;
             var TextfieldWhiteMenuStyle = new GUIStyleState() { background = MenuTexRectLeft, textColor = ColorDefaultGrey, };
-            TextfieldWhiteMenu.padding = new RectOffset(MenuTexRectLeft.width / 6, MenuTexRectLeft.width / 6, MenuTexRectLeft.height / 12, MenuTexRectLeft.height / 12);
-            TextfieldWhiteMenu.border = new RectOffset(MenuTexRectLeft.width / 3, MenuTexRectLeft.width / 3, MenuTexRectLeft.height / 6, MenuTexRectLeft.height / 6);
-            TextfieldWhiteMenu.normal = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.hover = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.active = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.focused = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.onNormal = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.onHover = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.onActive = TextfieldWhiteMenuStyle;
-            TextfieldWhiteMenu.onFocused = TextfieldWhiteMenuStyle;
+            AssignStyleQuick(TextfieldWhiteMenu, TextfieldWhiteMenuStyle);
         }
 
 
@@ -1500,22 +1330,27 @@ namespace TerraTechETCUtil
         }
         private static void MakeExtras()
         {
+
+            // Setup WindowHeader
             GUIStyle ExtrasBase = new GUIStyle(TextfieldBordered);
-            ExtrasBase.clipping = TextClipping.Clip;
+            //ExtrasBase.clipping = TextClipping.Clip;
+            ExtrasBase.contentOffset = Vector2.zero;
+            ExtrasBase.clipping = TextClipping.Overflow;
             ExtrasBase.alignment = TextAnchor.MiddleLeft;
-            ExtrasBase.overflow = new RectOffset(0, 0, 0, 100);
             ExtrasBase.padding = new RectOffset(9, 9, 4, 4);
+            ExtrasBase.overflow = new RectOffset(0, 0, 0, 100);
             ExtrasBase.border = new RectOffset(0, 0, 0, 100);
             ExtrasBase.margin = new RectOffset(0, 0, 0, 4);
             ExtrasBase.stretchWidth = true;
+            ExtrasBase.stretchHeight = false;
             ExtrasBase.fontSize = TitleFontSize;
             ExtrasBase.font = ExoFontSemiBoldItalic;
-
-
-            // Setup WindowHeader
-            ExtrasBase.clipping = TextClipping.Overflow;
+            ExtrasBase.richText = true;
+            ExtrasBase.wordWrap = false;
             WindowHeaderBlue = NewGUIElement(ExtrasBase, WindowHeaderBlueTex, ColorDefaultGrey);
-            ExtrasBase.overflow = new RectOffset(100, 4, 4, 4);
+            ExtrasBase.alignment = TextAnchor.UpperCenter;
+            ExtrasBase.padding = new RectOffset(9, 9, 4, 4);
+            ExtrasBase.overflow = new RectOffset(100, 0, 0, 0);
             ExtrasBase.border = new RectOffset(100, 4, 4, 4);
             ExtrasBase.margin = new RectOffset(4, 0, 0, 0);
             ExtrasBase.stretchWidth = false;
@@ -1550,6 +1385,18 @@ namespace TerraTechETCUtil
             styleBatch.onHover = state;
             styleBatch.onActive = state;
             styleBatch.onFocused = state;
+        }
+        private static void AssignStyleHoverQuick(GUIStyle styleBatch, GUIStyleState styleOffBatch,
+            GUIStyleState styleHoverBatch)
+        {
+            styleBatch.normal = styleOffBatch;
+            styleBatch.hover = styleHoverBatch;
+            styleBatch.active = styleOffBatch;
+            styleBatch.focused = styleOffBatch;
+            styleBatch.onNormal = styleOffBatch;
+            styleBatch.onHover = styleHoverBatch;
+            styleBatch.onActive = styleOffBatch;
+            styleBatch.onFocused = styleOffBatch;
         }
         private static void AssignStyleOnOffQuick(GUIStyle styleBatch, GUIStyleState styleOffBatch,
             GUIStyleState styleOnBatch)
@@ -1816,6 +1663,7 @@ namespace TerraTechETCUtil
             if (MenuLeft == null)
             {
                 Debug_TTExt.Log("AltUI: Init");
+                InvokeHelper.InsureInit();
 
                 GatherTextures();
 
@@ -1854,7 +1702,7 @@ namespace TerraTechETCUtil
                 MenuGUI = (GUISkin)ScriptableObject.CreateInstance("GUISkin");
                 GUISkin mSkin = MenuGUI;
 
-                mSkin.font = LabelBlack.font;
+                mSkin.font = LabelBlackWrap.font;
                 mSkin.window = MenuCenter;
 
                 mSkin.label = LabelBlack;
@@ -1887,7 +1735,7 @@ namespace TerraTechETCUtil
 
                 MenuSharpGUI = (GUISkin)ScriptableObject.CreateInstance("GUISkin");
                 mSkin = MenuSharpGUI;
-                mSkin.font = LabelBlack.font;
+                mSkin.font = LabelBlackWrap.font;
                 mSkin.window = MenuSharp;
 
                 mSkin.label = LabelBlack;
@@ -1918,7 +1766,7 @@ namespace TerraTechETCUtil
 
 
 
-
+        private static Matrix4x4 ogScale;
         private static GUISkin cache;
         private static Color cacheColor;
         private static Color cacheColorContent;
@@ -1927,58 +1775,12 @@ namespace TerraTechETCUtil
         private static Color GUIColorSolid = new Color(1, 1, 1, 1);
         private static bool UIRunning = false;
         private static bool UIErrored = false;
-        /// <summary>
-        /// Change the UI to a softer hybrid style of mostly current and some old.
-        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
-        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
-        /// </summary>
-        /// Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!
-        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
-        public static void StartUI()
-        {
-            if (UIRunning)
-            {
-                if (!UIErrored)
-                {
-                    UIErrored = true;
-                    throw new InvalidOperationException("AltUI.StartUI cannot be nest-called");
-                }
-            }
-            UIRunning = true;
-            BuildUI();
-            cache = GUI.skin;
-            cacheColor = GUI.color;
-            cacheColorContent = GUI.contentColor;
-            cacheColorBackground = GUI.backgroundColor;
-            GUI.skin = MenuGUI;
-            GUI.color = GUIColor;
-        }
-        /// <summary>
-        /// Change the UI to a softer hybrid style of mostly current and some old.
-        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
-        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
-        /// </summary>
-        /// <param name="UIAlpha">Transparency of the window itself</param>
-        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
-        public static void StartUI(float UIAlpha)
-        {
-            if (UIRunning)
-            {
-                if (!UIErrored)
-                {
-                    UIErrored = true;
-                    throw new InvalidOperationException("AltUI.StartUI cannot be nest-called");
-                }
-            }
-            UIRunning = true;
-            BuildUI();
-            cache = GUI.skin;
-            cacheColor = GUI.color;
-            cacheColorContent = GUI.contentColor;
-            cacheColorBackground = GUI.backgroundColor;
-            GUI.skin = MenuGUI;
-            GUI.color = new Color(1, 1, 1, UIAlpha);
-        }
+        /// <inheritdoc cref="StartUI(float, float)"/>
+        public static void StartUI() =>
+            StartUI(UIAlpha, 1f);
+        /// <inheritdoc cref="StartUI(float, float)"/>
+        public static void StartUI(float UIAlpha) =>
+            StartUI(UIAlpha, 1f);
         /// <summary>
         /// Change the UI to a softer hybrid style of mostly current and some old.
         /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
@@ -1994,6 +1796,7 @@ namespace TerraTechETCUtil
                 if (!UIErrored)
                 {
                     UIErrored = true;
+                    Debug_TTExt.FatalError("AltUI.StartUI cannot be nest-called");
                     throw new InvalidOperationException("AltUI.StartUI cannot be nest-called");
                 }
             }
@@ -2005,11 +1808,14 @@ namespace TerraTechETCUtil
                 cacheColor = GUI.color;
                 cacheColorContent = GUI.contentColor;
                 cacheColorBackground = GUI.backgroundColor;
+                ogScale = GUI.matrix;
             }
             GUI.skin = MenuGUI;
             GUI.color = new Color(1, 1, 1, UIAlpha);
             GUI.contentColor = new Color(1, 1, 1, UIContentAlpha);
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
+            if (UIScaling != 1f)
+                GUI.matrix = UIScalingMatrix;
         }
         /// <summary>
         /// Change the UI to a non-transparancy, softer hybrid style of mostly current and some old.
@@ -2024,6 +1830,7 @@ namespace TerraTechETCUtil
                 if (!UIErrored)
                 {
                     UIErrored = true;
+                    Debug_TTExt.FatalError("AltUI.StartUIOpaque cannot be nest-called");
                     throw new InvalidOperationException("AltUI.StartUIOpaque cannot be nest-called");
                 }
             }
@@ -2037,65 +1844,17 @@ namespace TerraTechETCUtil
             }
             GUI.skin = MenuGUI;
             GUI.color = GUIColorSolid;
+            if (UIScaling != 1f)
+                GUI.matrix = UIScalingMatrix;
         }
 
-        /// <summary>
-        /// Change the UI to a hybrid style of mostly current and some old.
-        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
-        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
-        /// </summary>
-        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
-        public static void StartUISharp()
-        {
-            if (UIRunning)
-            {
-                if (!UIErrored)
-                {
-                    UIErrored = true;
-                    throw new InvalidOperationException("AltUI.StartUISharp cannot be nest-called");
-                }
-            }
-            else
-            {
-                UIRunning = true;
-                BuildUI();
-                cache = GUI.skin;
-                cacheColor = GUI.color;
-                cacheColorContent = GUI.contentColor;
-                cacheColorBackground = GUI.backgroundColor;
-            }
-            GUI.skin = MenuSharpGUI;
-            GUI.color = GUIColor;
-        }
-        /// <summary>
-        /// Change the UI to a hybrid style of mostly current and some old.
-        /// <para><b>Make sure to finish it with </b><c>EndUI()</c></para>
-        /// <para>Use a try-finally block to insure you call <c>EndUI()</c> even if an exception happens!</para>
-        /// </summary>
-        /// <param name="UIAlpha">Transparency of the window itself</param>
-        /// <exception cref="InvalidOperationException">The UI crashed and now everything is screwed up</exception>
-        public static void StartUISharp(float UIAlpha)
-        {
-            if (UIRunning)
-            {
-                if (!UIErrored)
-                {
-                    UIErrored = true;
-                    throw new InvalidOperationException("AltUI.StartUISharp cannot be nest-called");
-                }
-            }
-            else
-            {
-                UIRunning = true;
-                BuildUI();
-                cache = GUI.skin;
-                cacheColor = GUI.color;
-                cacheColorContent = GUI.contentColor;
-                cacheColorBackground = GUI.backgroundColor;
-            }
-            GUI.skin = MenuSharpGUI;
-            GUI.color = new Color(1, 1, 1, UIAlpha);
-        }
+        /// <inheritdoc cref="StartUISharp(float, float)"/>
+        public static void StartUISharp() =>
+            StartUISharp(UIAlpha, 1f);
+
+        /// <inheritdoc cref="StartUISharp(float, float)"/>
+        public static void StartUISharp(float UIAlpha) => 
+            StartUISharp(UIAlpha, 1f);
         /// <summary>
         /// Change the UI to a hybrid style of mostly current and some old.
         /// <para><b>Make sure to finish it with </b><c>EndUI()</c>.</para>
@@ -2111,6 +1870,7 @@ namespace TerraTechETCUtil
                 if (!UIErrored)
                 {
                     UIErrored = true;
+                    Debug_TTExt.FatalError("AltUI.StartUISharp cannot be nest-called");
                     throw new InvalidOperationException("AltUI.StartUISharp cannot be nest-called");
                 }
             }
@@ -2127,6 +1887,8 @@ namespace TerraTechETCUtil
             GUI.color = new Color(1, 1, 1, UIAlpha);
             GUI.contentColor = new Color(1, 1, 1, UIContentAlpha);
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
+            if (UIScaling != 1f)
+                GUI.matrix = UIScalingMatrix;
         }
 
         /// <summary>
@@ -2148,6 +1910,7 @@ namespace TerraTechETCUtil
             GUI.contentColor = cacheColorContent;
             GUI.color = cacheColor;
             GUI.skin = cache;
+            GUI.matrix = ogScale;
         }
 
 
@@ -2261,10 +2024,14 @@ namespace TerraTechETCUtil
 
         /// <summary> The current global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>automatically changes with mouse hovering</b> </summary>
         public static float UIAlphaAuto { get; internal set; } = 1f;
+        /// <summary> The global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>when faded</b> </summary>
+        public static float UIAlphaAutoFadeValue = 0.5f;
 
         // SFX adders
         /// <summary>
         /// Create a UI window complete with SFX and vanilla-like styling.
+        /// <para>Automatically manages it by</para>
+        /// <para> Also keeps track of the cursor hovering over it so that other UI functions don't conflict with it</para>
         /// </summary>
         /// <param name="id">Unique window ID</param>
         /// <param name="screenRect">The rect of the window, stored as a field somewhere</param>
@@ -2273,20 +2040,27 @@ namespace TerraTechETCUtil
         /// <param name="alpha">Transparency multiplier.  Multiplied by <see cref="UIAlphaAuto"/></param>
         /// <param name="closeCallback">Optional Action for a close UI button</param>
         /// <param name="topBarExtraGUI">Extra IMGUI contents call for the top blue bar</param>
+        /// <param name="blockCursorControl">Block the mouse from interacting with anything outside the window</param>
+        /// <param name="draggableHeader">Allow the top of this to be dragged</param>
         /// <param name="options">Additional UI options for this</param>
         /// <returns>The rect of the window adjusted with window dragging</returns>
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, 
-            float alpha, Action closeCallback, Action topBarExtraGUI, params GUILayoutOption[] options)
+            float alpha, Action closeCallback, Action topBarExtraGUI, bool blockCursorControl = true,
+            bool draggableHeader = false, params GUILayoutOption[] options)
         {
             if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
                 return screenRect;
+            alpha *= UIAlphaAuto;
             StartUISharp(alpha, alpha);
             try
             {
-                alpha *= UIAlphaAuto;
                 screenRect = GUILayout.Window(id, screenRect, x => {
                     GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
-                    GUILayout.Label(title, LabelBlackTitle);
+                    //GUILayout.BeginVertical();
+                    //GUILayout.Space(8);
+                    GUILayout.Label(title, LabelBlackTitle, GUILayout.Height(48), GUILayout.ExpandWidth(true));
+                    //GUILayout.FlexibleSpace();
+                    //GUILayout.EndVertical();
                     GUILayout.FlexibleSpace();
                     topBarExtraGUI?.Invoke();
                     bool callClose = false;
@@ -2300,9 +2074,12 @@ namespace TerraTechETCUtil
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Close);
                         closeCallback.Invoke();
                     }
+                    if (draggableHeader)
+                        GUI.DragWindow(new Rect(0, 0, screenRect.width, 48));
                 }, string.Empty, options);
-                if (UIHelpersExt.MouseIsOverSubMenu(screenRect))
+                if (blockCursorControl && UIHelpersExt.MouseIsOverGUIMenu(screenRect))
                     ManModGUI.IsMouseOverAnyModGUI = 4;
+                UIHelpersExt.ClampGUIToScreenNonStrict(ref screenRect);
             }
             finally
             {
@@ -2310,25 +2087,37 @@ namespace TerraTechETCUtil
             }
             return screenRect;
         }
-        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, 
+        /// Action, bool, bool, GUILayoutOption[])"/>
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
-            Action closeCallback, Action topBarExtraGUI, params GUILayoutOption[] options) =>
-            Window(id, screenRect, func, title, 1f, closeCallback, topBarExtraGUI, options);
-        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+            Action closeCallback, Action topBarExtraGUI, bool blockCursorControl = true,
+            bool draggableHeader = false, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, closeCallback, topBarExtraGUI, blockCursorControl,
+                 draggableHeader, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action,
+        /// Action, bool, bool, GUILayoutOption[])"/>
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
-            float alpha, Action closeCallback, params GUILayoutOption[] options) =>
-            Window(id, screenRect, func, title, alpha, closeCallback, null, options);
-        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+            float alpha, Action closeCallback, bool blockCursorControl = true,
+            bool draggableHeader = false, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, alpha, closeCallback, null, blockCursorControl, 
+                draggableHeader, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, 
+        /// Action, bool, bool, GUILayoutOption[])"/>
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title, 
-            Action closeCallback, params GUILayoutOption[] options) =>
-            Window(id, screenRect, func, title, 1f, closeCallback, null, options);
-        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+            Action closeCallback, bool blockCursorControl = true,
+            bool draggableHeader = false, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, closeCallback, null, blockCursorControl, 
+                draggableHeader, options);
+        /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, 
+        /// Action, bool, bool, GUILayoutOption[])"/>
         public static Rect Window(int id, Rect screenRect, GUI.WindowFunction func, string title,
-            params GUILayoutOption[] options) =>
-            Window(id, screenRect, func, title, 1f, null, null, options);
+             bool blockCursorControl = true,
+            bool draggableHeader = false, params GUILayoutOption[] options) =>
+            Window(id, screenRect, func, title, 1f, null, null, blockCursorControl,
+                draggableHeader, options);
 
         /// <summary>
-        /// Displays an 'X' close button for use with <see cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, GUILayoutOption[])"/>
+        /// Displays an 'X' close button for use with <see cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, Action, bool, bool, GUILayoutOption[])"/>
         /// </summary>
         /// <param name="sfx">Type of UI SFX to use on activation</param>
         /// <param name="options">Additional UI options for this</param>
@@ -2650,7 +2439,7 @@ namespace TerraTechETCUtil
             if (tooltipFrame)
                 return;
             if (tooltipWorld == null)
-                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipAuto>();
+                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipInst>();
 
             if (tooltipWorld.Title != Title)
                 tooltipWorld.Title = Title;
@@ -2664,7 +2453,7 @@ namespace TerraTechETCUtil
             if (tooltipQueued)
                 return;
             if (tooltipWorld == null)
-                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipAuto>();
+                tooltipWorld = new GameObject("ToolTip").AddComponent<GUIToolTipInst>();
 
             if (tooltipWorld.Title != string.Empty)
                 tooltipWorld.Title = string.Empty;
@@ -2678,19 +2467,26 @@ namespace TerraTechETCUtil
         /// </summary>
         public static GUIToolTip Tooltip => tooltipOverMenu;
         private static GUIToolTip tooltipOverMenu = new GUIToolTip();
-        private static GUIToolTipAuto tooltipWorld;
+        private static GUIToolTipInst tooltipWorld;
         private static bool tooltipQueued = false;
         private static bool tooltipFrame = false;
         private static bool tooltipFrameGUI = false;
+        /// <summary>
+        /// The ID the tooltip uses
+        /// </summary>
+        public const int ToolTipWindowID = 5625662;
+        private const int ToolTipMouseOffset = 16;//26;
+        private const int ToolTipExtraBordering = 6;//26;
 
         /// <summary>
-        /// Automatic tooltip.
+        /// The tooltip displaying instance.
         /// <para>Would advise using <see cref="Tooltip"/> -> <see cref="GUIToolTip.GUITooltip(string, bool)"/> instead</para>
         /// </summary>
-        public class GUIToolTipAuto : MonoBehaviour
+        internal class GUIToolTipInst : MonoBehaviour
         {
             internal string Title = "Unset";
             internal string Text = "Unset";
+            internal Action ToDisplay = null;
             internal Rect toolWindow = new Rect(0, 0, 100, 60);   // the "window"
             /// <summary> </summary>
             public void OnGUI()
@@ -2698,29 +2494,37 @@ namespace TerraTechETCUtil
                 if (tooltipFrame)
                 {
                     StartUI(0.9f);
-                    Vector3 Mous = Input.mousePosition;
-                    Mous.y = Display.main.renderingHeight - Mous.y;
-                    GUILayout.BeginHorizontal(GUILayout.MaxWidth(240));
-                    Rect rescale = GUILayoutUtility.GetRect(new GUIContent(Text), LabelBlackNoStretch);
-                    if (Event.current.type == EventType.Repaint)
+                    try
                     {
-                        toolWindow.width = rescale.width + 26;
-                        toolWindow.height = rescale.height + 26;
+                        Vector3 Mous = Input.mousePosition * ManModGUI.GUIScaleInv;
+                        Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
+                        GUILayout.BeginHorizontal(GUILayout.MaxWidth(600));
+                        Rect rescale = GUILayoutUtility.GetRect(new GUIContent(Text), LabelBlackWrap);
+                        if (Event.current.type == EventType.Repaint)
+                        {
+                            toolWindow.width = rescale.width + ToolTipExtraBordering;
+                            toolWindow.height = rescale.height + ToolTipExtraBordering;
+                        }
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+                        GUILayout.FlexibleSpace();
+                        toolWindow.x = Mathf.Clamp(Mous.x + ToolTipMouseOffset, 0,
+                            ManModGUI.GameWindowScaledWidth - toolWindow.width);
+                        toolWindow.y = Mathf.Clamp(Mous.y + ToolTipMouseOffset, 0,
+                            ManModGUI.GameWindowScaledHeight - toolWindow.height);
+                        toolWindow = GUI.Window(ToolTipWindowID, toolWindow, GUIHandlerInfo, Title, MenuLeft);
+                        GUI.BringWindowToFront(ToolTipWindowID);
                     }
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndHorizontal();
-                    GUILayout.FlexibleSpace();
-                    toolWindow.x = Mathf.Clamp(Mous.x + 16, 0, Display.main.renderingWidth - toolWindow.width);
-                    toolWindow.y = Mathf.Clamp(Mous.y + 16, 0, Display.main.renderingHeight - toolWindow.height);
-                    toolWindow = GUI.Window(5625662, toolWindow, GUIHandlerInfo, Title, MenuLeft);
-                    GUI.BringWindowToFront(5625662);
-                    EndUI();
+                    finally
+                    {
+                        EndUI();
+                    }
                 }
             }
             /// <summary> </summary>
             public void GUIHandlerInfo(int ID)
             {
-                GUILayout.Label(Text, LabelBlackNoStretch);
+                GUILayout.Label(Text, LabelBlackWrap);
             }
             /// <summary> </summary>
             public void Update()
