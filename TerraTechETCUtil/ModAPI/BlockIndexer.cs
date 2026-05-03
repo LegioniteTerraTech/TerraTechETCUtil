@@ -907,7 +907,7 @@ namespace TerraTechETCUtil
             }
             public static void GUIInfoExtractor()
             {
-                GUILayout.Box("--- Info Extractor --- ");
+                GUILayout.Box("--- Info Extractor ---", AltUI.BoxBlackTextBlueTitle);
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
                 {
                     controlledDisp = !controlledDisp;
@@ -918,6 +918,7 @@ namespace TerraTechETCUtil
                 }
                 if (controlledDisp)
                 {
+                    GUILayout.BeginVertical(AltUI.TextfieldBordered);
                     try
                     {
                         if (visible)
@@ -1055,22 +1056,48 @@ namespace TerraTechETCUtil
                         throw e;
                     }
                     catch { controlledDisp = false; }
+                    GUILayout.EndVertical();
                 }
             }
 
             public static void GUIBlockIndexer()
             {
-                GUILayout.Box("--- Blocks Indexing --- ");
+                GUILayout.Box("--- Blocks Indexing ---", AltUI.BoxBlackTextBlueTitle);
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp2))
                 {
                     controlledDisp2 = !controlledDisp2;
                 }
                 if (controlledDisp2)
                 {
+                    GUILayout.BeginVertical(AltUI.TextfieldBordered);
                     try
                     {
                         GUILayout.BeginHorizontal();
-                        GUILayout.Label("Blocks Registered In Lookup:");
+                        GUILayout.Label("All Vanilla Blocks Registered:");
+                        GUILayout.Label(vanillaDetails.Count.ToString());
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("All Modded Blocks Registered In Lookup:");
+                        GUILayout.Label(ModdedBlocksGrabbed.Count.ToString());
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Nuterra Blocks Registered In Lookup:");
+                        GUILayout.Label(UnOf_Offi.Count.ToString());
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Vanilla Blocks with odd names in Lookup:");
+                        GUILayout.Label(errorNamesVanilla.Count.ToString());
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Modded Blocks with odd names in Lookup:");
                         GUILayout.Label(errorNames.Count.ToString());
                         GUILayout.FlexibleSpace();
                         GUILayout.EndHorizontal();
@@ -1080,12 +1107,13 @@ namespace TerraTechETCUtil
                         throw e;
                     }
                     catch { controlledDisp2 = false; }
+                    GUILayout.EndVertical();
                 }
             }
 
             public static void GUIRawTechs()
             {
-                GUILayout.Box("--- RawTechs --- ");
+                GUILayout.Box("--- RawTechs ---", AltUI.BoxBlackTextBlueTitle);
                 bool show = controlledDisp3 && Singleton.playerTank;
                 if (GUILayout.Button(" Enabled Loading: " + show))
                     controlledDisp3 = !controlledDisp3;
@@ -1174,7 +1202,7 @@ namespace TerraTechETCUtil
 
             public static void GUIExtHints()
             {
-                GUILayout.Box("--- External Hints --- ");
+                GUILayout.Box("--- External Hints ---", AltUI.BoxBlackTextBlueTitle);
                 bool show = controlledDisp4 && Singleton.playerTank;
                 if (GUILayout.Button(" Enabled Loading: " + show))
                     controlledDisp4 = !controlledDisp4;

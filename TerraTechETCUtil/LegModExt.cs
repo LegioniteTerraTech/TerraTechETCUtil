@@ -141,7 +141,7 @@ namespace TerraTechETCUtil
         
         private static void DoUIAbilityTestCall()
         {
-            UIHelpersExt.BigF5broningBanner("Ability - Test", false);
+            UIHelpersExt.BigF5broningBannerMP("Ability - Test", false);
             ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Craft);
         }
         private static void TryInitEnclosedLegModExtOptions()
@@ -180,6 +180,15 @@ namespace TerraTechETCUtil
                 }
                 try
                 {
+                    harmonyInstance.MassPatchAllWithin(typeof(AllNetworkPatches), modID, true);
+                    Debug_TTExt.Log("TerraTechETCUtil: Mass patched network");
+                }
+                catch (Exception e)
+                {
+                    throw new Exception("TerraTechETCUtil failed to perform network mass patching", e);
+                }
+                try
+                {
                     harmonyInstance.MassPatchAllWithin(typeof(TerraTechUIPatches), modID, true);
                     Debug_TTExt.Log("TerraTechETCUtil: Mass patched TerraTech UI");
                 }
@@ -207,7 +216,8 @@ namespace TerraTechETCUtil
                 }
                 try
                 {
-                    TryInitEnclosedLegModExtOptions();
+                    if (ModStatusChecker.IsModOptionsAvailable())
+                        TryInitEnclosedLegModExtOptions();
                 }
                 catch (Exception e)
                 {
@@ -240,6 +250,7 @@ namespace TerraTechETCUtil
 
             harmonyInstance.MassUnPatchAllWithin(typeof(UnityUIPatches), modID);
             harmonyInstance.MassUnPatchAllWithin(typeof(TerraTechUIPatches), modID);
+            harmonyInstance.MassUnPatchAllWithin(typeof(AllNetworkPatches), modID);
             harmonyInstance.MassUnPatchAllWithin(typeof(AllProjectilePatches), modID);
             try
             {

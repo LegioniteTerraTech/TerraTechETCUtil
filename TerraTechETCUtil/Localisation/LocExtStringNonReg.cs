@@ -17,11 +17,15 @@ namespace TerraTechETCUtil
     {
         private string data;
         /// <summary>
-        /// 
+        /// <inheritdoc cref="LocExtStringNonReg"/>
         /// </summary>
-        /// <param name="english"></param>
+        /// <param name="english">The english lookup that will be used for all lookups. Cannot leave null or empty</param>
         public LocExtStringNonReg(string english)
         {
+            if (english == null)
+                throw new ArgumentNullException(nameof(english));
+            if (english == string.Empty)
+                throw new ArgumentException(nameof(english) + " is empty.  Cannot leave empty.");
             data = english;
         }
         /// <inheritdoc/>

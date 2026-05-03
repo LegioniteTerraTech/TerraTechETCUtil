@@ -23,10 +23,6 @@ namespace TerraTechETCUtil
     /// </summary>
     public abstract class ExtModule : MonoBehaviour, IInvokeGrabbable
     {
-        /// <summary>
-        /// The cached data fast lookup for the block
-        /// </summary>
-        public virtual BlockDetails.Flags BlockDetailFlags => BlockDetails.Flags.None;
         private static bool notInitStatic = true;
         private static TankBlock lastBlock = null;
         /// <summary>
@@ -39,13 +35,32 @@ namespace TerraTechETCUtil
             {
                 //Debug_TTExt.Info("OnItemGrabbed - " + vis.name);
                 lastBlock = vis.block;
-                foreach (var item in lastBlock.GetComponentsInChildren<IInvokeGrabbable>(true))
+                try
                 {
-                    //Debug_TTExt.Info("IInvokeGrabbable - " + item.GetType());
-                    item.OnGrabbed();
+                    foreach (var item in lastBlock.GetComponentsInChildren<IInvokeGrabbable>(true))
+                    {
+                        //Debug_TTExt.Info("IInvokeGrabbable - " + item.GetType());
+                        try
+                        {
+                            item.OnGrabbed();
+                        }
+                        catch (Exception e)
+                        {
+                            Debug_TTExt.Log("Error on " + item.GetType().FullName + ".OnGrabbed() - " + e);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug_TTExt.Log("Error on OnItemGrabbed() - " + e);
                 }
             }
         }
+
+        /// <summary>
+        /// The cached data fast lookup for the block
+        /// </summary>
+        public virtual BlockDetails.Flags BlockDetailFlags => BlockDetails.Flags.None;
         /// <summary>
         /// <see cref="TankBlock"/> this is attached to
         /// </summary>
@@ -114,19 +129,13 @@ namespace TerraTechETCUtil
         /// Iterate all attached AP neigboors on the block this is attached to
         /// </summary>
         /// <returns></returns>
-        protected TankBlock[] GetAllAttachedAPNeighboors()
+        protected IEnumerable<TankBlock> IterateAllAttachedAPNeighboors()
         {
-            List<TankBlock> fetched = new List<TankBlock>();
             for (int step = 0; step < block.attachPoints.Length; step++)
             {
                 if (block.ConnectedBlocksByAP[step].IsNotNull())
-                {
-                    fetched.Add(block.ConnectedBlocksByAP[step]);
-                }
+                    yield return block.ConnectedBlocksByAP[step];
             }
-            if (fetched.Count > 0)
-                return fetched.ToArray();
-            return null;
         }
     }
     /// <summary>

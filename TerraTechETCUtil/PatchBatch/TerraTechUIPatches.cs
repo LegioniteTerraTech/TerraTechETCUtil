@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using HarmonyLib;
 
 namespace TerraTechETCUtil
 {
@@ -88,6 +89,22 @@ namespace TerraTechETCUtil
             {
                 if (!__result && ManModGUI.CallEscapeCallbackPost())
                     __result = true;
+            }
+        }
+        internal static class UIMiniMapDisplayPatches
+        {
+            internal static Type target = typeof(UIMiniMapDisplay);
+            // Allow custom UI
+            [HarmonyPriority(-9001)]
+            internal static void Show_Postfix(UIMiniMapDisplay __instance)
+            {
+                if ((bool)__instance && ManMinimapExt.Enabled)
+                {
+                    if (__instance.GetComponent<ManMinimapExt.MinimapExt>())
+                        return;
+                    var instWorld = __instance.gameObject.AddComponent<ManMinimapExt.MinimapExt>();
+                    instWorld.InitInst(__instance);
+                }
             }
         }
     }

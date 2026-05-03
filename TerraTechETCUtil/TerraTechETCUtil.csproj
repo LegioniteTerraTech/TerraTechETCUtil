@@ -252,10 +252,8 @@
     <Compile Include="Audio\AudioInst.cs" />
     <Compile Include="Audio\AudioInstFile.cs" />
     <Compile Include="ColorBytes.cs" />
-    <Compile Include="Documentation\GameObjectDocumentator.cs" />
     <Compile Include="Helpers\ResourcesHelper.cs" />
     <Compile Include="ListHashSet.cs" />
-    <Compile Include="PatchBatch\UnityUIPatches.cs" />
     <Compile Include="RawTechs\RawTechUtil.cs" />
     <Compile Include="RawTechs\RawTech.cs" />
     <Compile Include="RawTechs\RawTechBase.cs" />
@@ -263,9 +261,18 @@
     <Compile Include="Debug_TTExt.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="Helpers\LocHelper.cs" />
+    <Compile Include="ModAPI\ExtModuleClickable.cs" />
+    <Compile Include="ModAPI\MinimapExt.cs" />
+    <Compile Include="PatchBatch\UnityUIPatches.cs" />
+    <Compile Include="Documentation\GameObjectDocumentator.cs" />
+    <Compile Include="Documentation\AutoDataExtractorInst.cs" />
+    <Compile Include="Documentation\ModuleInfo.cs" />
     <Compile Include="PatchBatch\Patches.cs" />
+    <Compile Include="UIChanges\UIScaler.cs" />
     <Compile Include="UIChanges\GUIMiniMenu.cs" />
     <Compile Include="UIChanges\Wiki\WikiPageTools.cs" />
+    <Compile Include="PatchBatch\AllNetworkPatches.cs" />
     <Compile Include="PatchBatch\AllProjectilePatches.cs" />
     <Compile Include="PatchBatch\TerraTechUIPatches.cs" />
     <Compile Include="UIChanges\Wiki\ExtendedWiki.cs" />
@@ -280,6 +287,7 @@
     <Compile Include="ETCCommands.cs" />
     <Compile Include="CursorChangeHelper.cs" />
     <Compile Include="DebugExtUtilities.cs" />
+    <Compile Include="Helpers\ExplosionHelper.cs" />
     <Compile Include="Helpers\GUILayoutHelpers.cs" />
     <Compile Include="Helpers\TerrainModifier.cs" />
     <None Include="UIChanges\ModManagerGUI.cs" />
@@ -289,7 +297,7 @@
     <Compile Include="ModAPI\BlockDetails.cs" />
     <Compile Include="ModAPI\BlockIndexer.cs" />
     <Compile Include="ModAPI\TechLoaderExt.cs" />
-    <Compile Include="ModAPI\InvokeHelper.cs" />
+    <Compile Include="Helpers\InvokeHelper.cs" />
     <Compile Include="ModAPI\TinySettingsUtil.cs" />
     <Compile Include="ModAPI\ModStatusChecker.cs" />
     <Compile Include="Audio\SFXHelpers.cs" />

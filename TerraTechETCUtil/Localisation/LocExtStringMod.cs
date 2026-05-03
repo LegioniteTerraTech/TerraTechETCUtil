@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using FMOD.Studio;
@@ -28,10 +29,18 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Create a <see cref="LocExtStringMod"/> for localisation text in a mod
         /// </summary>
-        /// <param name="stringByLang">Languages to string</param>
-        /// <param name="category"></param>
+        /// <param name="stringByLang">Languages to string. 
+        /// <para><b>MUST contain <see cref="Languages.English"/> or <see cref="Languages.US_English"/></b></para></param>
+        /// <param name="category">Specific category to inject this into.  Leave unset to use like normal</param>
         public LocExtStringMod(Dictionary<Languages, string> stringByLang, StringBanks category = LocalisationExt.LOC_ExtGeneralID)
         {
+            if (stringByLang == null)
+                throw new ArgumentNullException(nameof(stringByLang));
+            if (stringByLang.Count == 0)
+                throw new ArgumentException(nameof(stringByLang) + " is empty.  Cannot leave empty.");
+            if (!stringByLang.ContainsKey(Languages.US_English) && !stringByLang.ContainsKey(Languages.US_English))
+                throw new ArgumentException(nameof(stringByLang) + " must contain a string for " + 
+                    nameof(Languages.English) + " or " + nameof(Languages.US_English) + ".");
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             IDCategory = category;
@@ -42,10 +51,14 @@ namespace TerraTechETCUtil
         /// Create a <see cref="LocExtStringMod"/> for localisation text in a mod
         /// <para>English-only quick version with no actual localisation</para>
         /// </summary>
-        /// <param name="englishTranslation"></param>
-        /// <param name="category"></param>
+        /// <param name="englishTranslation">The english lookup that will be used for all lookups. Cannot leave null or empty</param>
+        /// <param name="category">Specific category to inject this into.  Leave unset to use like normal</param>
         public LocExtStringMod(string englishTranslation, StringBanks category = LocalisationExt.LOC_ExtGeneralID)
         {
+            if (englishTranslation == null)
+                throw new ArgumentNullException(nameof(englishTranslation));
+            if (englishTranslation == string.Empty)
+                throw new ArgumentException(nameof(englishTranslation) + " is empty.  Cannot leave empty.");
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             IDCategory = category;

@@ -20,10 +20,16 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Gets the localization based off of a getter function
         /// </summary>
-        /// <param name="english"></param>
-        /// <param name="getString"></param>
+        /// <param name="english">The english lookup that will be used for all lookups. Cannot leave null or empty</param>
+        /// <param name="getString">Function that returns the string. Must NEVER return null.</param>
         public LocExtStringFunc(string english, Func<string> getString)
         {
+            if (english == null)
+                throw new ArgumentNullException(nameof(english));
+            if (english == string.Empty)
+                throw new ArgumentException(nameof(english) + " is empty.  Cannot leave empty.");
+            if (getString == null)
+                throw new ArgumentNullException(nameof(getString));
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             English = english;

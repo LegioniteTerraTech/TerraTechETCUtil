@@ -219,6 +219,7 @@ namespace TerraTechETCUtil
     }
     /// <summary>
     /// Interface for elements displayed by <see cref="GUIButtonMadness"/>
+    /// <para>See also <seealso cref="ExtModuleClickable"/></para>
     /// </summary>
     public interface GUI_BM_Element
     {
@@ -251,8 +252,8 @@ namespace TerraTechETCUtil
         /// </summary>
         float GetSet { get; set; }
     }
-    /// <inheritdoc cref="GUI_BM_Element"/>
     /// <summary>
+    /// <inheritdoc cref="GUI_BM_Element"/>
     /// <para>This is for simple elements</para>
     /// </summary>
     public class GUI_BM_Element_Simple : GUI_BM_Element

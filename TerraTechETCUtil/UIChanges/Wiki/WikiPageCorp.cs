@@ -281,8 +281,12 @@ namespace TerraTechETCUtil
                         GUILayout.BeginHorizontal();
                         if (GUILayout.Button(item.displayName, AltUI.LabelBlackTitle))
                             item.GoHere();
+                        GUILayout.FlexibleSpace();
                         if (item.icon != null)
-                            AltUI.Sprite(item.icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
+                        {
+                            if (AltUI.SpriteButton(item.icon, AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64)))
+                                item.GoHere();
+                        }
                         GUILayout.EndHorizontal();
                     }
                 }

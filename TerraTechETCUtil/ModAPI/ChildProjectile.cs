@@ -45,9 +45,7 @@ namespace TerraTechETCUtil
             else if (attached)
             {
                 foreach (var item in modules)
-                {
                     item.OnDetach();
-                }
                 attached = false;
             }
         }
@@ -56,14 +54,7 @@ namespace TerraTechETCUtil
         /// <inheritdoc/>
         public override void Fire(FireData fireData)
         {
-            if (PB.launcher?.block)
-            {
-                Enable(true);
-            }
-            else
-            {
-                Enable(false);
-            }
+            Enable(PB.launcher?.block);
         }
         /// <inheritdoc/>
         public override void WorldRemoval()

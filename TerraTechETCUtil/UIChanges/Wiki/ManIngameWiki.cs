@@ -21,6 +21,10 @@ namespace TerraTechETCUtil
     public class ManIngameWiki : ITinySettings
     {
         /// <summary>
+        /// Sent after the player has just opened the wiki
+        /// </summary>
+        public static EventNoParams OnWikiOpened = new EventNoParams();
+        /// <summary>
         /// Sent after a wiki is initally created with the wiki that was created
         /// </summary>
         public static Event<Wiki> OnModWikiCreated = new Event<Wiki>();
@@ -1481,6 +1485,7 @@ namespace TerraTechETCUtil
             Biomes = typeof(BiomeMap).GetField("m_BiomeGroups", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatch = typeof(ManHints).GetField("m_HintDefinitions", BindingFlags.NonPublic | BindingFlags.Instance),
             hintBatchCore = typeof(HintDefinitionList).GetField("m_HintsList", BindingFlags.NonPublic | BindingFlags.Instance);
+
         /// <summary> Localization text file </summary>
         public static LocExtStringMod LOC_Blocks = new LocExtStringMod(new Dictionary<Languages, string>
             {{ Languages.US_English, "Blocks" },
@@ -2264,8 +2269,7 @@ namespace TerraTechETCUtil
 
 
         private static GUIInst instGUI;
-        private static Rect guiWindowBasis = new Rect(20, 20, 1000, 600);
-        private static Rect guiWindow = new Rect(20, 20, 1000, 600);
+        private static Rect guiWindow = default;
         private const int ExtWikiID = 1002248;
 
         private static LocExtStringMod LOC_WikiTopName = new LocExtStringMod(new Dictionary<Languages, string>
@@ -2287,12 +2291,16 @@ namespace TerraTechETCUtil
                 if (state != _WikiWindowOpen)
                 {
                     _WikiWindowOpen = state;
-                    if (_WikiWindowOpen)
+                    if (state)
                     {
+                        guiWindow = new Rect(20, 20, 
+                            ManModGUI.ModWikiGUIWidthDefault * Display.main.renderingWidth,
+                            ManModGUI.ModWikiGUIHeightDefaultFromWidth * Display.main.renderingWidth);
                         //ManModGUI.HideAllObstructingUI();
                         InsureUpdateGameModeSwitch();
                         ManSFX.inst.PlayUISFX(ManSFX.UISfxType.Open);
                         ManModGUI.AddEscapeableCallback(QuitWiki, false);
+                        OnWikiOpened.Send();
                     }
                     else
                     {
@@ -2302,7 +2310,7 @@ namespace TerraTechETCUtil
                     }
                     try
                     {
-                        WikiButton.SetToggleState(_WikiWindowOpen);
+                        WikiButton.SetToggleState(state);
                     }
                     catch { }
                 }
@@ -2321,10 +2329,7 @@ namespace TerraTechETCUtil
                 {
                     if (_WikiWindowOpen)
                     {
-                        float invScale = 1f / ManModGUI.GUIScale;
-                        guiWindow.width = guiWindowBasis.width * invScale;
-                        guiWindow.height = guiWindowBasis.height * invScale;
-                        guiWindow = AltUI.Window(ExtWikiID, guiWindow, GUILayouter, 
+                        guiWindow = ManModGUI.ModWikiGUIScaler.Window(ExtWikiID, guiWindow, GUILayouter, 
                             LOC_WikiTopName.ToString(), CloseGUI, ExtraGUITopBar, true, true);
                     }
                 }

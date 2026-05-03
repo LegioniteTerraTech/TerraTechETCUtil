@@ -416,6 +416,7 @@ namespace TerraTechETCUtil
                 else
                     enabledTabs.Add(name);
             }
+            GUILayout.BeginVertical(AltUI.TextfieldBordered);
             if (enabledTabs.Contains(name))
             {
                 foreach (T item in Enum.GetValues(typeof(T)))
@@ -426,6 +427,7 @@ namespace TerraTechETCUtil
                     }
                 }
             }
+            GUILayout.EndVertical();
         }
         /// <summary>
         /// To display in IMGUI
@@ -442,6 +444,7 @@ namespace TerraTechETCUtil
             }
             if (enabledTabs.Contains(name))
             {
+                GUILayout.BeginVertical(AltUI.TextfieldBordered);
                 foreach (T item in Enum.GetValues(typeof(T)))
                 {
                     if (selector(item) && GUILayout.Button(" Type: " + item.ToString()))
@@ -449,6 +452,7 @@ namespace TerraTechETCUtil
                         enumTypeAct.Invoke(item);
                     }
                 }
+                GUILayout.EndVertical();
             }
         }
     }

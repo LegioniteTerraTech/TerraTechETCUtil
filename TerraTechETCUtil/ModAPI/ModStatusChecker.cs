@@ -487,6 +487,14 @@ namespace TerraTechETCUtil
         /// </summary>
         public static bool IsWaterModAvail => LookForMod("Water Mod") || LookForMod("Water Mod + Lava");
 
+        /// <summary>
+        /// Check to see if <b>ConfigHelper</b> is present
+        /// </summary>
+        public static bool IsConfigHelperPresent => LookForMod("ConfigHelper");
+        /// <summary>
+        /// Check to see if <b>Nuterra.NativeOptions</b> is present
+        /// </summary>
+        public static bool IsNativeOptionsPresent => LookForMod("0Nuterra.NativeOptions");
 
         private static bool failed = false;
         private static bool chainFailed = false;
@@ -544,6 +552,28 @@ namespace TerraTechETCUtil
             }
             return false;
         }
+
+        /// <summary>
+        /// Look for a <see cref="Type"/> of given type name
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns><see cref="Type"/> if found, otherwise null</returns>
+        public static Type LookForType(string name)
+        {
+            foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var typeGet = assembly.GetType(name);
+                if (typeGet != null)
+                    return typeGet;
+            }
+            return null;
+        }
+        /// <summary>
+        /// Check if we can actually use mod options correctly
+        /// </summary>
+        /// <returns>True if both <b>ConfigHelper</b> AND <b>NativeOptions</b> is present</returns>
+        public static bool IsModOptionsAvailable() => IsConfigHelperPresent && IsNativeOptionsPresent;
+
 
         private static void ThrowDelayedErrorForRandAdd()
         {

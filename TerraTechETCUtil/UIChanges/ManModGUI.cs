@@ -11,6 +11,7 @@ namespace TerraTechETCUtil
 {
     /// <summary>
     /// The global mod popup manager
+    /// <para><b>INSURE YOU CALL <see cref="LegModExt.InsurePatches()"/> BEFORE USING</b></para>
     /// <para>See <seealso cref="UIHelpersExt"/> and <seealso cref="AltUI"/> for more UI helpers</para>
     /// </summary>
     public class ManModGUI : MonoBehaviour
@@ -100,22 +101,74 @@ namespace TerraTechETCUtil
         /// </summary>
         public static bool SetupAltWins = false;
 
+
+
         /// <summary>
-        /// The scale of the managed UI systems
+        /// RELATIVE TO SCREEN WIDTH OF 1366 PIXELS
+        /// </summary>
+        public const float ModWikiGUIRefWidth = 1000f;
+        /// <summary>
+        /// Window size dimension for expected defaults
+        /// </summary>
+        public static float ModWikiGUIWidthDefault => ModWikiGUIRefWidth / 1366f;
+        /// <summary>
+        /// RELATIVE TO SCREEN HEIGHT OF 768 PIXELS
+        /// </summary>
+        public const float ModWikiGUIRefHeight = 600f;
+        /// <summary>
+        /// Window size dimension for expected defaults
+        /// </summary>
+        public static float ModWikiGUIHeightDefaultFromWidth => ModWikiGUIRefHeight / 1366f;
+
+        /// <summary>
+        /// The window of the managed Mod Wiki UI
+        /// </summary>
+        public static float ModWikiGUIRescale = ModWikiGUIWidthDefault;
+        /// <summary>
+        /// The window of the managed Mod Wiki UI
+        /// </summary>
+        public static float ModWikiGUIScale = 1f;
+        /// <summary>
+        /// The window of the managed Mod Wiki UI relative to their contents resolution
+        /// </summary>
+        public static UIScaler ModWikiGUIScaler = new UIScaler(ModWikiGUIScale);
+
+
+        /// <summary>
+        /// Current GUI scale of the managed UI systems relative to their window scale
+        /// </summary>
+        public static float CurrentGUIWindowScale { get; internal set; } = 1f;
+        /// <summary>
+        /// Current GUI scale of the managed UI systems relative to their contents resolution
+        /// </summary>
+        public static float CurrentGUIScale { get; internal set; } = 1f;
+        /// <summary>
+        /// Current GUI scale of the managed UI systems relative to their contents resolution
+        /// </summary>
+        public static float CurrentGUIScaleInv => 1f / CurrentGUIScale;
+        /// <summary>
+        /// The width of the entire screen relative to the current rescaled UI
+        /// </summary>
+        public static float GameWindowScaledWidth => Display.main.renderingWidth * CurrentGUIScaleInv;
+        /// <summary>
+        /// The height of the entire screen relative to the current rescaled UI
+        /// </summary>
+        public static float GameWindowScaledHeight => Display.main.renderingHeight * CurrentGUIScaleInv;
+
+
+        /// <summary>
+        /// The scale of the managed UI systems relative to their contents resolution
         /// </summary>
         public static float GUIScale = 1f;
+
+        /// <summary>
+        /// The window scale of the managed UI systems
+        /// </summary>
+        public static float GUIRescale = 1f;
         /// <summary>
         /// The inverted scale of the managed UI systems
         /// </summary>
         public static float GUIScaleInv => 1f / GUIScale;
-        /// <summary>
-        /// The width of the entire screen relative to the <see cref="ManModGUI"/> rescaled UI
-        /// </summary>
-        public static float GameWindowScaledWidth => Display.main.renderingWidth * GUIScaleInv;
-        /// <summary>
-        /// The height of the entire screen relative to the <see cref="ManModGUI"/> rescaled UI
-        /// </summary>
-        public static float GameWindowScaledHeight => Display.main.renderingHeight * GUIScaleInv;
 
         private static int IDCur = IDOffset;
         private static GUIPopupDisplay currentGUIWindow;
@@ -303,8 +356,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void KeepWithinScreenBounds(GUIPopupDisplay disp)
         {
-            disp.Window.x = Mathf.Clamp(disp.Window.x, 0, GameWindowScaledWidth - disp.Window.width);
-            disp.Window.y = Mathf.Clamp(disp.Window.y, 0, GameWindowScaledHeight - disp.Window.height);
+            disp.Window.x = Mathf.Clamp(disp.Window.x, 0, GameWindowScaledWidth - disp.Window.width * CurrentGUIWindowScale);
+            disp.Window.y = Mathf.Clamp(disp.Window.y, 0, GameWindowScaledHeight - disp.Window.height * CurrentGUIWindowScale);
         }
         /// <summary>
         /// Keep the popup at least partially within screen bounds
@@ -312,8 +365,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void KeepWithinScreenBoundsNonStrict(GUIPopupDisplay disp)
         {
-            disp.Window.x = Mathf.Clamp(disp.Window.x, 10 - disp.Window.width, GameWindowScaledWidth - 10);
-            disp.Window.y = Mathf.Clamp(disp.Window.y, 10 - disp.Window.height, GameWindowScaledHeight - 10);
+            disp.Window.x = Mathf.Clamp(disp.Window.x, 10 - disp.Window.width * CurrentGUIWindowScale, GameWindowScaledWidth - 10);
+            disp.Window.y = Mathf.Clamp(disp.Window.y, 10 - disp.Window.height * CurrentGUIWindowScale, GameWindowScaledHeight - 10);
         }
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
@@ -322,8 +375,8 @@ namespace TerraTechETCUtil
         /// <param name="disp"></param>
         public static void ChangePopupPositioning(Vector2 screenPosPercent, GUIPopupDisplay disp)
         {
-            disp.Window.x = (GameWindowScaledWidth - disp.Window.width) * screenPosPercent.x;
-            disp.Window.y = (GameWindowScaledHeight - disp.Window.height) * screenPosPercent.y;
+            disp.Window.x = (GameWindowScaledWidth - disp.Window.width * CurrentGUIWindowScale) * screenPosPercent.x;
+            disp.Window.y = (GameWindowScaledHeight - disp.Window.height * CurrentGUIWindowScale) * screenPosPercent.y;
         }
         /// <summary>
         /// screenPos x and y must be within 0-1 float range!
@@ -332,8 +385,8 @@ namespace TerraTechETCUtil
         /// <param name="squareDelta"></param>
         public static bool PopupPositioningApprox(GUIPopupDisplay disp, float squareDelta = 0.1f)
         {
-            float valX = disp.Window.x / (GameWindowScaledWidth - disp.Window.width);
-            float valY = disp.Window.y / (GameWindowScaledHeight - disp.Window.height);
+            float valX = disp.Window.x / (GameWindowScaledWidth - disp.Window.width * CurrentGUIWindowScale);
+            float valY = disp.Window.y / (GameWindowScaledHeight - disp.Window.height * CurrentGUIWindowScale);
             return valX > -squareDelta && valX < squareDelta && valY > -squareDelta && valY < squareDelta;
         }
         /// <summary>
@@ -411,6 +464,11 @@ namespace TerraTechETCUtil
         /// This value will increase based on the number of GUIs the mouse is hovering over
         /// </summary>
         public static int IsMouseOverAnyModGUI = 0;
+
+        /// <summary>
+        /// Is the interaction with the world blocked?
+        /// </summary>
+        public static bool IsMouseOverAnyGUI => UIKickoffState || ManPointer.inst.IsInteractionBlocked;
         /// <summary>
         /// Is the interaction with the world blocked?
         /// </summary>
@@ -593,6 +651,13 @@ namespace TerraTechETCUtil
         }
         internal static void MainUpdateMouseOverAnyWindow()
         {
+            var buildMode = ManPointer.inst.BuildMode;
+            bool IsInteracting = Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2) ||
+                (buildMode == ManPointer.BuildingMode.Grab && ManPointer.inst.DraggingItem != null) ||
+                buildMode == ManPointer.BuildingMode.PaintBlock ||
+                buildMode == ManPointer.BuildingMode.PaintSkin ||
+                buildMode == ManPointer.BuildingMode.PaintSkinTech;
+
             bool mouseOverMenu = false;
             if (IsMouseOverAnyModGUI > 0)
                 mouseOverMenu = true;
@@ -603,12 +668,6 @@ namespace TerraTechETCUtil
             }
             else if (IsMouseOverAnyModGUI > 0)
                 IsMouseOverAnyModGUI--;
-            var buildMode = ManPointer.inst.BuildMode;
-            bool IsInteracting = Input.GetMouseButton(1) || Input.GetMouseButton(2) ||
-                (buildMode == ManPointer.BuildingMode.Grab && ManPointer.inst.DraggingItem != null) ||
-                buildMode == ManPointer.BuildingMode.PaintBlock ||
-                buildMode == ManPointer.BuildingMode.PaintSkin ||
-                buildMode == ManPointer.BuildingMode.PaintSkinTech;
             if (IsInteracting)
             {   // Ignore while mouse action
                 if (UIKickoffState)

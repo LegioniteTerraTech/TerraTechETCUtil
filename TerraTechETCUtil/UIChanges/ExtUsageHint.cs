@@ -10,7 +10,7 @@ namespace TerraTechETCUtil
     /// <summary>
     /// The manager for <see cref="UsageHint"/>s that adds modded hints to <see cref="ManHints"/>
     /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
-    /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
+    /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBannerMP(string, bool)"/> for more important popups</para>
     /// </summary>
     public class ExtUsageHint : ITinySettings
     {
@@ -21,7 +21,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// A usage hint automatically integrated with <see cref="ManHints"/> managed by <see cref="ExtUsageHint"/>
         /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
-        /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
+        /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBannerMP(string, bool)"/> for more important popups</para>
         /// </summary>
         public class UsageHint
         {
@@ -61,7 +61,7 @@ namespace TerraTechETCUtil
             /// <summary>
             /// Create a new hint for use on the UI system.
             /// <para>Unlike <see cref="ManHints"/>, this <b>also works in singleplayer</b></para>
-            /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBanner(string, bool)"/> for more important popups</para>
+            /// <para>Also consider seeing <see cref="UIHelpersExt.BigF5broningBannerMP(string, bool)"/> for more important popups</para>
             /// </summary>
             /// <param name="ModID">ModID from the mod adding this</param>
             /// <param name="StringID">Specific ID used to store and identify the hint in serialization save and load.
@@ -71,6 +71,18 @@ namespace TerraTechETCUtil
             /// <param name="repeat">If calling this usage hint again permits it to be displayed more than once</param>
             public UsageHint(string ModID, string StringID, string desc, float duration = defaultHintDisplayTime, bool repeat = false)
             {
+                if (ModID == null)
+                    throw new ArgumentNullException(nameof(ModID));
+                if (ModID == string.Empty)
+                    throw new ArgumentException(nameof(ModID) + " is empty.  Cannot leave empty.");
+                if (StringID == null)
+                    throw new ArgumentNullException(nameof(StringID));
+                if (StringID == string.Empty)
+                    throw new ArgumentException(nameof(StringID) + " is empty.  Cannot leave empty.");
+                if (desc == null)
+                    throw new ArgumentNullException(nameof(desc));
+                if (desc == string.Empty)
+                    throw new ArgumentException(nameof(desc) + " is empty.  Cannot leave empty.");
                 modID = ModID;
                 stringID = StringID;
                 descAuto = new LocExtStringMod(desc);
@@ -157,6 +169,8 @@ namespace TerraTechETCUtil
             if (!init)
             {
                 init = true;
+                if (defD == null)
+                    throw new NullReferenceException(nameof(defD));
                 SaveToHintsSeen();
             }
         }
@@ -166,11 +180,21 @@ namespace TerraTechETCUtil
             try
             {
                 InsureInit();
+                if (UH == null)
+                    throw new ArgumentNullException(nameof(UH));
                 string subjectID = UH.stringID;
+                if (subjectID == null)
+                    throw new NullReferenceException(nameof(UH.stringID));
                 if (extHintsIDLookup.ContainsKey(subjectID))
                     throw new Exception("Hint of ID " + subjectID + " is already registered");
                 LocalisedString LS;
+                if (extHintsIDLookup.ContainsKey(subjectID))
+                    throw new Exception("Hint of ID " + subjectID + " is already registered");
+                if (UH.descAuto == null)
+                    throw new NullReferenceException(nameof(UH.descAuto));
                 LS = UH.descAuto.CreateNewLocalisedString();
+                if (LS == null)
+                    throw new NullReferenceException(nameof(LS));
                 EnumString ES = new EnumString(typeof(GameHints.HintID), 1);
                 int intID = HintsSeenETCIndex;
                 HintsSeenETCIndex++;
@@ -205,12 +229,12 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.RegisterHint TECHNICAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nExtUsageHint.RegisterHint TECHNICAL ERROR - loc fail \n" + e);
                 }*/
             }
             catch (Exception e)
             {
-                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.RegisterHint TECHNICAL ERROR - " + e);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nExtUsageHint.RegisterHint TECHNICAL ERROR - " + e);
             }
         }
         /*
@@ -253,12 +277,12 @@ namespace TerraTechETCUtil
                 }
                 catch (Exception e)
                 {
-                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR - loc fail \n" + e);
+                    BlockDebug.ThrowWarning(false, "TerraTechModExt: \nExtUsageHint.UpdateHint TECHINCAL ERROR - loc fail \n" + e);
                 }
             }
             catch
             {
-                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.UpdateHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nExtUsageHint.UpdateHint TECHINCAL ERROR \nCause of error - HintID " + UH.stringID);
             }
         }*/
 
@@ -326,7 +350,7 @@ namespace TerraTechETCUtil
             }
             catch
             {
-                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nModuleUsageHint.EditHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
+                BlockDebug.ThrowWarning(false, "TerraTechModExt: \nExtUsageHint.EditHint TECHINCAL ERROR \nCause of error - Block " + subjectName);
             }
         }
 
@@ -501,11 +525,5 @@ namespace TerraTechETCUtil
                 SB.Clear();
             }
         }
-
-
-
-        // Default-set ones for this mod
-        private static readonly string
-        legsDesc = "This block is a leg block.  While it's slow, it has considerable grip and could even climb walls!";
     }
 }

@@ -235,6 +235,8 @@ namespace TerraTechETCUtil
             phyMode = PhysicsMode.BroadphaseDynamic;
             Debug_TTExt.Log("Setting physics to " + phyMode);
         }
+
+        internal static FieldInfo TileBounds = typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance);
         internal static void SetExtendedBroadphase()
         {
             if (phyMode == PhysicsMode.BroadphaseExtended)
@@ -264,7 +266,7 @@ namespace TerraTechETCUtil
             temp.Scale(new Vector3(BroadphasePhysicsExtendSizeMultiplier, 1f, BroadphasePhysicsExtendSizeMultiplier));
             BoundsPhysics.max = temp;
             Physics.RebuildBroadphaseRegions(BoundsPhysics, 16);
-            typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(ManWorld.inst.TileManager, BoundsPhysics);
+            TileBounds.SetValue(ManWorld.inst.TileManager, BoundsPhysics);
             Debug_TTExt.Log("Expanded physics bounds to " + BoundsPhysics.min + ", " + BoundsPhysics.max);
         }
 
@@ -749,137 +751,8 @@ namespace TerraTechETCUtil
         /// <param name="cache"></param>
         /// <param name="WP"></param>
         /// <param name="MaxTileLoadingDiameter"></param>
-        public static void GetActiveTilesAround(List<IntVector2> cache, WorldPosition WP, int MaxTileLoadingDiameter)
-        {
-            IntVector2 centerTile = WP.TileCoord;
-            int radCentered;
-            Vector2 posTechCentre;
-            Vector2 posTileCentre;
-
-            switch (MaxTileLoadingDiameter)
-            {
-                case 0:
-                case 1:
-                    cache.Add(centerTile);
-                    break;
-                case 2:
-                    posTechCentre = WP.ScenePosition.ToVector2XZ();
-                    posTileCentre = ManWorld.inst.TileManager.CalcTileCentreScene(centerTile).ToVector2XZ();
-                    if (posTechCentre.x > posTileCentre.x)
-                    {
-                        if (posTechCentre.y > posTileCentre.y)
-                        {
-                            cache.Add(centerTile);
-                            cache.Add(centerTile + new IntVector2(1, 0));
-                            cache.Add(centerTile + new IntVector2(1, 1));
-                            cache.Add(centerTile + new IntVector2(0, 1));
-                        }
-                        else
-                        {
-                            cache.Add(centerTile);
-                            cache.Add(centerTile + new IntVector2(1, 0));
-                            cache.Add(centerTile + new IntVector2(1, -1));
-                            cache.Add(centerTile + new IntVector2(0, -1));
-                        }
-                    }
-                    else
-                    {
-                        if (posTechCentre.y > posTileCentre.y)
-                        {
-                            cache.Add(centerTile);
-                            cache.Add(centerTile + new IntVector2(-1, 0));
-                            cache.Add(centerTile + new IntVector2(-1, 1));
-                            cache.Add(centerTile + new IntVector2(0, 1));
-                        }
-                        else
-                        {
-                            cache.Add(centerTile);
-                            cache.Add(centerTile + new IntVector2(-1, 0));
-                            cache.Add(centerTile + new IntVector2(-1, -1));
-                            cache.Add(centerTile + new IntVector2(0, -1));
-                        }
-                    }
-                    break;
-                case 3:
-                    radCentered = 1;
-                    for (int step = -radCentered; step <= radCentered; step++)
-                    {
-                        for (int step2 = -radCentered; step2 <= radCentered; step2++)
-                        {
-                            cache.Add(centerTile + new IntVector2(step, step2));
-                        }
-                    }
-                    break;
-                case 4:
-                    radCentered = 1;
-                    for (int step = -radCentered; step <= radCentered; step++)
-                    {
-                        for (int step2 = -radCentered; step2 <= radCentered; step2++)
-                        {
-                            cache.Add(centerTile + new IntVector2(step, step2));
-                        }
-                    }
-                    posTechCentre = WP.ScenePosition.ToVector2XZ();
-                    posTileCentre = ManWorld.inst.TileManager.CalcTileCentreScene(centerTile).ToVector2XZ();
-                    if (posTechCentre.x > posTileCentre.x)
-                    {
-                        if (posTechCentre.y > posTileCentre.y)
-                        {
-                            cache.Add(centerTile + new IntVector2(2, -1));
-                            cache.Add(centerTile + new IntVector2(2, 0));
-                            cache.Add(centerTile + new IntVector2(2, 1));
-                            cache.Add(centerTile + new IntVector2(2, 2));
-                            cache.Add(centerTile + new IntVector2(1, 2));
-                            cache.Add(centerTile + new IntVector2(0, 2));
-                            cache.Add(centerTile + new IntVector2(-1, 2));
-                        }
-                        else
-                        {
-                            cache.Add(centerTile + new IntVector2(2, 1));
-                            cache.Add(centerTile + new IntVector2(2, 0));
-                            cache.Add(centerTile + new IntVector2(2, -1));
-                            cache.Add(centerTile + new IntVector2(2, -2));
-                            cache.Add(centerTile + new IntVector2(1, -2));
-                            cache.Add(centerTile + new IntVector2(0, -2));
-                            cache.Add(centerTile + new IntVector2(-1, -2));
-                        }
-                    }
-                    else
-                    {
-                        if (posTechCentre.y > posTileCentre.y)
-                        {
-                            cache.Add(centerTile + new IntVector2(-2, -1));
-                            cache.Add(centerTile + new IntVector2(-2, 0));
-                            cache.Add(centerTile + new IntVector2(-2, 1));
-                            cache.Add(centerTile + new IntVector2(-2, 2));
-                            cache.Add(centerTile + new IntVector2(-1, 2));
-                            cache.Add(centerTile + new IntVector2(0, 2));
-                            cache.Add(centerTile + new IntVector2(1, 2));
-                        }
-                        else
-                        {
-                            cache.Add(centerTile + new IntVector2(-2, 1));
-                            cache.Add(centerTile + new IntVector2(-2, 0));
-                            cache.Add(centerTile + new IntVector2(-2, -1));
-                            cache.Add(centerTile + new IntVector2(-2, -2));
-                            cache.Add(centerTile + new IntVector2(-1, -2));
-                            cache.Add(centerTile + new IntVector2(0, -2));
-                            cache.Add(centerTile + new IntVector2(1, -2));
-                        }
-                    }
-                    break;
-                default:
-                    radCentered = MaxTileLoadingDiameter / 2;
-                    for (int step = -radCentered; step <= radCentered; step++)
-                    {
-                        for (int step2 = -radCentered; step2 <= radCentered; step2++)
-                        {
-                            cache.Add(centerTile + new IntVector2(step, step2));
-                        }
-                    }
-                    break;
-            }
-        }
+        public static void GetActiveTilesAround(List<IntVector2> cache, WorldPosition WP, int MaxTileLoadingDiameter) =>
+            Utilities.IterateRectVolumeDiameter_LEGACY(cache, WP, MaxTileLoadingDiameter);
 
         internal class GUIManaged : GUILayoutHelpers
         {
@@ -891,7 +764,7 @@ namespace TerraTechETCUtil
                 {
                     enabledTabs = new HashSet<string>();
                 }
-                GUILayout.Box("--- Tile Loaders --- ");
+                GUILayout.Box("--- Tile Loaders --- ", AltUI.BoxBlackTextBlueTitle);
                 bool show = controlledDisp && Singleton.playerTank;
                 if (GUILayout.Button("Enabled Loading: " + show))
                     controlledDisp = !controlledDisp;
@@ -950,7 +823,6 @@ namespace TerraTechETCUtil
             private static Dictionary<IntVector2, WorldTile> exisTiles = null;
             static FieldInfo TilesNew = typeof(TileManager).GetField("m_TileCoordsToCreateWorking", BindingFlags.NonPublic | BindingFlags.Instance);
             static FieldInfo Tiles = typeof(TileManager).GetField("m_TileLookup", BindingFlags.NonPublic | BindingFlags.Instance);
-            static FieldInfo TileBounds = typeof(TileManager).GetField("physicsBounds", BindingFlags.NonPublic | BindingFlags.Instance);
             /// <summary>
             /// EnableTileLoading
             /// </summary>
@@ -964,7 +836,7 @@ namespace TerraTechETCUtil
                     if (exisTiles == null)
                     {
                         Debug_TTExt.Log("ManTileLoader - Are we broadphase physics? " + broadphase);
-                        ManWorldTileExt.BoundsPhysics = (Bounds)TileBounds.GetValue(__instance);
+                        ManWorldTileExt.BoundsPhysics = (Bounds)ManWorldTileExt.TileBounds.GetValue(__instance);
                         //Debug_TTExt.Log("ManTileLoader - Bounds physics? " + ManWorldTileExt.BoundsPhysics.ToString("F"));
                         curTiles = (List<IntVector2>)TilesNew.GetValue(__instance);
                         Debug_TTExt.Log("ManTileLoader - Fetching tile lookup");
@@ -973,7 +845,7 @@ namespace TerraTechETCUtil
                     }
                     if (broadphase)
                     {
-                        ManWorldTileExt.BoundsPhysics = (Bounds)TileBounds.GetValue(__instance);
+                        ManWorldTileExt.BoundsPhysics = (Bounds)ManWorldTileExt.TileBounds.GetValue(__instance);
                     }
                     if (tileCoordsToCreate == null)
                     {

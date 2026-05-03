@@ -39,6 +39,18 @@ namespace TerraTechETCUtil
         /// <param name="stringID"></param>
         public LocExtStringVanillaText(string englishFallback, string bank, string stringID)
         {
+            if (englishFallback == null)
+                throw new ArgumentNullException(nameof(englishFallback));
+            if (englishFallback == string.Empty)
+                throw new ArgumentException(nameof(englishFallback) + " is empty.  Cannot leave empty.");
+            if (bank == null)
+                throw new ArgumentNullException(nameof(bank));
+            if (bank == string.Empty)
+                throw new ArgumentException(nameof(bank) + " is empty.  Cannot leave empty.");
+            if (stringID == null)
+                throw new ArgumentNullException(nameof(stringID));
+            if (stringID == string.Empty)
+                throw new ArgumentException(nameof(stringID) + " is empty.  Cannot leave empty.");
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             English = englishFallback;
@@ -50,10 +62,16 @@ namespace TerraTechETCUtil
         /// Creates a <see cref="LocExtStringVanillaText"/> for displaying vanilla localized text on modded UI interfaces.
         /// <para>Registered automatically</para>
         /// </summary>
-        /// <param name="englishFallback"></param>
-        /// <param name="LS"></param>
+        /// <param name="englishFallback">The english lookup that will be used for all lookups. Cannot leave null or empty</param>
+        /// <param name="LS"><see cref="LocalisedString"/> to convert. Cannot leave null.</param>
         public LocExtStringVanillaText(string englishFallback, LocalisedString LS)
         {
+            if (englishFallback == null)
+                throw new ArgumentNullException(nameof(englishFallback));
+            if (englishFallback == string.Empty)
+                throw new ArgumentException(nameof(englishFallback) + " is empty.  Cannot leave empty.");
+            if (LS == null)
+                throw new ArgumentNullException(nameof(LS));
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             English = englishFallback;
@@ -65,9 +83,11 @@ namespace TerraTechETCUtil
         /// Creates a <see cref="LocExtStringVanillaText"/> for displaying vanilla localized text on modded UI interfaces.
         /// <para>Registered automatically</para>
         /// </summary>
-        /// <param name="LS"></param>
+        /// <param name="LS"><see cref="LocalisedString"/> to convert. Cannot leave null.</param>
         public LocExtStringVanillaText(LocalisedString LS)
         {
+            if (LS == null)
+                throw new ArgumentNullException(nameof(LS));
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             Bank = LS.m_Bank;

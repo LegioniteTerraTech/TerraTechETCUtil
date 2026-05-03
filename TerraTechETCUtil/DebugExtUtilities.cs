@@ -497,6 +497,7 @@ namespace TerraTechETCUtil
             SFXHelpers.GUIManaged.GUIGetTotalManaged();
             SpawnHelper.GUIManaged.GUIGetTotalManaged();
             ManWorldTileExt.GUIManaged.GUIGetTotalManaged();
+            ExplosionHelper.GUIManaged.GUIGetTotalManaged();
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
             GUILayout.EndScrollView();

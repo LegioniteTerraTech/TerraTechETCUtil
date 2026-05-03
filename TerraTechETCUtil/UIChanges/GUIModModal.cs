@@ -164,36 +164,43 @@ namespace TerraTechETCUtil
         /// <exception cref="IndexOutOfRangeException"></exception>
         public static void OpenModal(string name, GUI_BM_Element[] elements, Func<bool> CanDisplay = null, int ID = 3691337)
         {
-            if (ModalShown)
-                CloseModal();
-            if (elements == null || elements.Length == 0)
-                throw new InvalidOperationException("elements is null or empty");
-            Name = "<b>" + name + "</b>";
-            setID = ID;
-            if (CanDisplay == null)
-                displayRules = DefaultCanContinueDisplay;
-            else
-                displayRules = CanDisplay;
-            elementsExt = elements;
-            LastModalButtonCount = elements.Length;
-            UseRadialMode = LastModalButtonCount <= 6;
-            if (UseRadialMode)
+            try
             {
-                InsureRadialMenuPrefabs();
-                if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+                if (ModalShown)
+                    CloseModal();
+                if (elements == null || elements.Length == 0)
+                    throw new InvalidOperationException("elements is null or empty");
+                Name = "<b>" + name + "</b>";
+                setID = ID;
+                if (CanDisplay == null)
+                    displayRules = DefaultCanContinueDisplay;
+                else
+                    displayRules = CanDisplay;
+                elementsExt = elements;
+                LastModalButtonCount = elements.Length;
+                UseRadialMode = LastModalButtonCount <= 6;
+                if (UseRadialMode)
                 {
-                    //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
-                    PRM.ShowThisNoBlock(elements);
+                    InsureRadialMenuPrefabs();
+                    if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+                    {
+                        //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
+                        PRM.ShowThisNoBlock(elements);
+                    }
+                    else
+                        throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
                 }
                 else
-                    throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
+                {
+                    InsureModalExt();
+                    UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
+                    elementsExt = elements;
+                    modalExt.enabled = true;
+                }
             }
-            else
+            catch (Exception e)
             {
-                InsureModalExt();
-                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
-                elementsExt = elements;
-                modalExt.enabled = true;
+                Debug_TTExt.LogError("OpenModal failed - " + e);
             }
         }
         /// <summary>
@@ -208,38 +215,45 @@ namespace TerraTechETCUtil
         /// <exception cref="IndexOutOfRangeException"></exception>
         public static void OpenModal(TankBlock opener, string name, GUI_BM_Element[] elements, Func<bool> CanDisplay = null, int ID = 3691337)
         {
-            if (ModalShown)
-                CloseModal();
-            if (elements == null || elements.Length == 0)
-                throw new InvalidOperationException("elements is null or empty");
-            Name = "<b>" + name + "</b>";
-            setID = ID;
-            if (CanDisplay == null)
-                displayRules = DefaultCanContinueDisplay;
-            else
-                displayRules = CanDisplay;
-            elementsExt = elements;
-            LastModalButtonCount = elements.Length;
-            UseRadialMode = LastModalButtonCount <= 6;
-            if (UseRadialMode)
+            try
             {
-                InsureRadialMenuPrefabs();
-                if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+                if (ModalShown)
+                    CloseModal();
+                if (elements == null || elements.Length == 0)
+                    throw new InvalidOperationException("elements is null or empty");
+                Name = "<b>" + name + "</b>";
+                setID = ID;
+                if (CanDisplay == null)
+                    displayRules = DefaultCanContinueDisplay;
+                else
+                    displayRules = CanDisplay;
+                elementsExt = elements;
+                LastModalButtonCount = elements.Length;
+                UseRadialMode = LastModalButtonCount <= 6;
+                if (UseRadialMode)
                 {
-                    if (opener == null)
-                        throw new NullReferenceException("OpenGUI - opener was null for some reason. It should NOT be null EVER!");
-                    //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
-                    PRM.ShowThis(opener, elements);
+                    InsureRadialMenuPrefabs();
+                    if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+                    {
+                        if (opener == null)
+                            throw new NullReferenceException("OpenGUI - opener was null for some reason. It should NOT be null EVER!");
+                        //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
+                        PRM.ShowThis(opener, elements);
+                    }
+                    else
+                        throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
                 }
                 else
-                    throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
+                {
+                    InsureModalExt();
+                    UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
+                    elementsExt = elements;
+                    modalExt.enabled = true;
+                }
             }
-            else
+            catch (Exception e)
             {
-                InsureModalExt();
-                UIHelpersExt.ClampGUIToScreen(ref HotWindow, true);
-                elementsExt = elements;
-                modalExt.enabled = true;
+                Debug_TTExt.LogError("OpenModal failed - " + e);
             }
         }
         /// <summary>
@@ -251,21 +265,28 @@ namespace TerraTechETCUtil
         /// <exception cref="IndexOutOfRangeException"></exception>
         public static void OpenVanillaModal(TankBlock opener, GUI_BM_Element[] elements)
         {
-            if (ModalShown)
-                CloseModal();
-            if (elements == null || elements.Length == 0)
-                throw new InvalidOperationException("elements is null or empty");
-            LastModalButtonCount = elements.Length;
-            InsureRadialMenuPrefabs();
-            if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+            try
             {
-                if (opener == null)
-                    throw new NullReferenceException("OpenGUI - opener was null for some reason. It should NOT be null EVER!");
-                //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
-                PRM.ShowThis(opener, elements);
+                if (ModalShown)
+                    CloseModal();
+                if (elements == null || elements.Length == 0)
+                    throw new InvalidOperationException("elements is null or empty");
+                LastModalButtonCount = elements.Length;
+                InsureRadialMenuPrefabs();
+                if (MenuPanelPrefabs.TryGetValue(elements.Length, out PlaceholderRadialMenu PRM))
+                {
+                    if (opener == null)
+                        throw new NullReferenceException("OpenGUI - opener was null for some reason. It should NOT be null EVER!");
+                    //Debug_TTExt.Log("GUIModModal.OpenModal() - " + Time.time);
+                    PRM.ShowThis(opener, elements);
+                }
+                else
+                    throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
             }
-            else
-                throw new IndexOutOfRangeException("OpenGUI - Element count [" + elements.Length + "] is out of range of given: [1 - 6]");
+            catch (Exception e)
+            {
+                Debug_TTExt.LogError("OpenVanillaModal failed - " + e);
+            }
         }
         /// <summary>
         /// Closes the modal

@@ -29,10 +29,20 @@ namespace TerraTechETCUtil
         /// </summary>
         public readonly int IDIndex;
         /// <summary>
-        /// ONLY FOR VANILLA ENTRY REFERENCING
+        /// <inheritdoc cref="LocExtStringVanilla"/>
+        /// <b>ONLY FOR VANILLA ENTRY REFERENCING</b>
         /// </summary>
+        /// <param name="englishFallback">The english lookup that will be used for all lookups. Cannot leave null or empty</param>
+        /// <param name="category">Specific category to inject this into.</param>
+        /// <param name="stringID">The raw lookup ID of this string in the database</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public LocExtStringVanilla(string englishFallback, StringBanks category, int stringID)
         {
+            if (englishFallback == null)
+                throw new ArgumentNullException(nameof(englishFallback));
+            if (englishFallback == string.Empty)
+                throw new ArgumentException(nameof(englishFallback) + " is empty.  Cannot leave empty.");
             LocalisationExt.InsureInit();
             LocalisationExt.OnLOCChanged.Subscribe(OnLOCChange);
             English = englishFallback;
@@ -79,7 +89,8 @@ namespace TerraTechETCUtil
         /// </summary>
         public readonly int IDIndex;
         /// <summary>
-        /// ONLY FOR VANILLA ENTRY REFERENCING
+        /// <inheritdoc cref="LocExtStringVanillaOT"/>
+        /// <b>ONLY FOR VANILLA ENTRY REFERENCING</b>
         /// </summary>
         public LocExtStringVanillaOT(ObjectTypes objectType, int itemType)
         {

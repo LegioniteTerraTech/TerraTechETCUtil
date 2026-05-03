@@ -20,7 +20,7 @@ namespace TerraTechETCUtil
         private static MethodInfo overlays = typeof(ManOverlay).GetMethod("AddQueuedOverlay", BindingFlags.NonPublic | BindingFlags.Instance);
 
         /// <summary>
-        /// That default icon used for mods that have no icon
+        /// That default wrench icon used for mod blocks
         /// </summary>
         public static Sprite ModContentIcon { get; } = ResourcesHelper.GetTexture2DFromBaseGameAllFast("ICON_MOD").ConvertToSprite();
         /// <summary>
@@ -238,21 +238,23 @@ namespace TerraTechETCUtil
 
 
         /// <summary>
-        /// Network message for <see cref="BigF5broningBanner(string, bool)"/>
+        /// Network message for <see cref="BigF5broningBannerMP(string, bool)"/>
         /// </summary>
         internal class NetBigMessage : MessageBase
         {
             public NetBigMessage() { }
-            public NetBigMessage(int team, string desc, bool noise)
+            public NetBigMessage(int team, string desc, bool noise, float duration)
             {
                 Noise = noise;
                 Team = team;
                 Desc = desc;
+                Duration = duration;
             }
 
             public bool Noise;
             public int Team;
             public string Desc;
+            public float Duration;
         }
         private static NetworkHook<NetBigMessage> netHook = new NetworkHook<NetBigMessage>(
             "TerraTechETCUtil.NetBigMessage", OnReceiveBigMessage, NetMessageType.FromClientToServerThenClients);
@@ -263,12 +265,12 @@ namespace TerraTechETCUtil
             {
                 if (command.Team == 0)
                 {
-                    DoBigF5broningBanner(command.Desc, command.Noise);
+                    DoBigF5broningBanner(command.Desc, command.Noise, command.Duration);
                 }
                 else
                 {
                     if (ManPlayer.inst.PlayerTeam == command.Team)
-                        DoBigF5broningBanner(command.Desc, command.Noise);
+                        DoBigF5broningBanner(command.Desc, command.Noise, command.Duration);
                 }
                 return true;
             }
@@ -290,28 +292,35 @@ namespace TerraTechETCUtil
         private static UIMultiplayerHUD warningBanner;
         private static bool bannerActive = false;
         private static bool subbed = false;
-        /// <inheritdoc cref="BigF5broningBanner(int, string, bool)"/>
-        public static void BigF5broningBanner(string Text, bool startNoise = true)
-        {
-            if (netHook.CanBroadcast())
-                netHook.TryBroadcast(new NetBigMessage(0, Text, startNoise));
-            else
-                DoBigF5broningBanner(Text, startNoise);
-        }
+        /// <inheritdoc cref="BigF5broningBannerMP(int, string, bool, float)"/>
+        public static void BigF5broningBannerMP(string Text, bool startNoise = true, float duration = 4f) =>
+            BigF5broningBannerMP(int.MinValue, Text, startNoise, duration);
         /// <summary>
         /// Make a big, nice obvious warning on the screen that's nearly impossible to miss.
         /// </summary>
-        /// <param name="team">The team we should only show the banner to</param>
+        /// <param name="team">The team we should only show the banner to. 
+        /// <para>Leave at <see cref="int.MinValue"/> to do all</para></param>
         /// <param name="Text">What text to show on the banner.  Set to nothing to hide immedeately.</param>
         /// <param name="startNoise">Play payload inbound warning SFX for duration of showing.</param>
-        public static void BigF5broningBanner(int team, string Text, bool startNoise = true)
+        /// <param name="duration">How long to show the banner for in seconds</param>
+        public static void BigF5broningBannerMP(int team, string Text, bool startNoise = true, float duration = 4f)
         {
             if (netHook.CanBroadcast())
-                netHook.TryBroadcast(new NetBigMessage(team, Text, startNoise));
-            else
-                DoBigF5broningBanner(Text, startNoise);
+                netHook.TryBroadcast(new NetBigMessage(int.MinValue, Text, startNoise, duration));
+            else if (team == int.MinValue || team == ManPlayer.inst.PlayerTeam)
+                BigF5broningBannerSP(Text, startNoise);
         }
-        private static void DoBigF5broningBanner(string Text, bool startNoise)
+        /// <summary>
+        /// <inheritdoc cref="BigF5broningBannerMP(int, string, bool, float)"/>
+        /// <para><b>This is the singleplayer or our client only version</b></para>
+        /// </summary>
+        /// <inheritdoc cref="BigF5broningBannerMP(int, string, bool, float)"/>
+        /// <param name="Text"></param>
+        /// <param name="startNoise"></param>
+        /// <param name="duration"></param>
+        public static void BigF5broningBannerSP(string Text, bool startNoise = true, float duration = 4f) =>
+            DoBigF5broningBanner(Text, startNoise, duration);
+        private static void DoBigF5broningBanner(string Text, bool startNoise, float duration)
         {
             if (!Singleton.Manager<ManHUD>.inst.GetHudElement(ManHUD.HUDElementType.Multiplayer))
             {
@@ -336,7 +345,7 @@ namespace TerraTechETCUtil
             if (Text == null)
                 Text = string.Empty;
             warningBanner.Message1.SetText(Text);
-            InvokeHelper.InvokeSingle(RemoveWarning, 4f);
+            InvokeHelper.InvokeSingle(RemoveWarning, duration);
             if (!subbed)
             {
                 warningBanner.Message1.SetEvent.Subscribe(RemoveSub);
@@ -420,17 +429,18 @@ namespace TerraTechETCUtil
 
         /// <summary>
         /// Check if the mouse is over the given GUI.Window Rect
+        /// <para>Scale is relative to <see cref="ManModGUI.CurrentGUIScale"/></para>
         /// </summary>
         /// <param name="pos">The Window's Rect on the screen</param>
         /// <returns>If the mouse is DIRECTLY within the specified rect on the screen</returns>
         public static bool MouseIsOverGUIMenu(Rect pos)
         {
-            Vector3 Mous = Input.mousePosition * ManModGUI.GUIScaleInv;
+            Vector3 Mous = Input.mousePosition * ManModGUI.CurrentGUIScale;
             Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
             float xMenuMin = pos.x;
-            float xMenuMax = pos.x + pos.width;
+            float xMenuMax = pos.x + pos.width * ManModGUI.CurrentGUIWindowScale;
             float yMenuMin = pos.y;
-            float yMenuMax = pos.y + pos.height;
+            float yMenuMax = pos.y + pos.height * ManModGUI.CurrentGUIWindowScale;
             //Debug_TTExt.Log(Mous + " | " + xMenuMin + " | " + xMenuMax + " | " + yMenuMin + " | " + yMenuMax);
             if (Mous.x > xMenuMin && Mous.x < xMenuMax && Mous.y > yMenuMin && Mous.y < yMenuMax)
             {
@@ -441,29 +451,74 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Clamps the given Rect to be fully within bounds of the screen.  
         /// This may not be possible if the screen is too small to fit the Rect entirely.
+        /// <para>Scale is relative to <see cref="ManModGUI.CurrentGUIScale"/></para>
         /// </summary>
         /// <param name="pos">The Rect to clamp within the screen bounds</param>
         /// <param name="centerOnMouse">If it should re-center on the mouse, then clamp to screen</param>
-        public static void ClampGUIToScreen(ref Rect pos, bool centerOnMouse)
+        /// <param name="centerOnMouseXOffset">The extra offset to apply in range of <b>[0 ~ 1]</b> to offset relative to the mouse.
+        /// <para>While values higher and lower than <b>[0 ~ 1]</b> are supported, it is not advised.</para></param>
+        /// <param name="centerOnMouseYOffset">The extra offset to apply in range of <b>[0 ~ 1]</b> to offset relative to the mouse.
+        /// <para>While values higher and lower than <b>[0 ~ 1]</b> are supported, it is not advised.</para></param>
+        /// <param name="extraSpacing">Extra spacing in pixels to add <b>around</b> the given Rect</param>
+        public static void ClampGUIToScreen(ref Rect pos, bool centerOnMouse, float extraSpacing = 0f,
+            float centerOnMouseXOffset = 0.5f, float centerOnMouseYOffset = 0f)
         {
+            float widthAdj = pos.width * ManModGUI.CurrentGUIWindowScale;
+            float heightAdj = pos.height * ManModGUI.CurrentGUIWindowScale;
             if (centerOnMouse)
             {
-                Vector3 Mous = Input.mousePosition * ManModGUI.GUIScaleInv;
-                pos.x = Mous.x - (pos.width / 2);
+                Vector3 vector = Input.mousePosition * ManModGUI.CurrentGUIScaleInv;
+                pos.x = vector.x - widthAdj * centerOnMouseXOffset;
+                pos.y = ManModGUI.GameWindowScaledHeight - vector.y - heightAdj * centerOnMouseYOffset;
+            }
+
+            pos.x = Mathf.Clamp(pos.x, -extraSpacing, ManModGUI.GameWindowScaledWidth - widthAdj + extraSpacing);
+            pos.y = Mathf.Clamp(pos.y, -extraSpacing, ManModGUI.GameWindowScaledHeight - heightAdj + extraSpacing);
+        }
+        /// <inheritdoc cref="ClampGUIToScreen(ref Rect, bool, float, float, float)"/>
+        public static void ClampGUIToScreen(ref Rect pos, bool centerOnMouse)
+        {
+            float widthAdj = pos.width * ManModGUI.CurrentGUIWindowScale;
+            float heightAdj = pos.height * ManModGUI.CurrentGUIWindowScale;
+            if (centerOnMouse)
+            {
+                Vector3 Mous = Input.mousePosition * ManModGUI.CurrentGUIScaleInv;
+                pos.x = Mous.x - (widthAdj / 2);
                 pos.y = ManModGUI.GameWindowScaledHeight - Mous.y - 90;
             }
-            pos.x = Mathf.Clamp(pos.x, 0, ManModGUI.GameWindowScaledWidth - pos.width);
-            pos.y = Mathf.Clamp(pos.y, 0, ManModGUI.GameWindowScaledHeight - pos.height);
+            pos.x = Mathf.Clamp(pos.x, 0, ManModGUI.GameWindowScaledWidth - widthAdj);
+            pos.y = Mathf.Clamp(pos.y, 0, ManModGUI.GameWindowScaledHeight - heightAdj);
         }
         /// <summary>
         /// Clamps the given Rect to at lesst be partially within bounds of the screen.  
         /// This may not be possible if the screen is too small to fit the Rect entirely.
+        /// <para>Scale is relative to <see cref="ManModGUI.CurrentGUIScale"/></para>
         /// </summary>
         /// <param name="pos">The Rect to clamp within the screen bounds</param>
+        /// <param name="extraSpacing">Extra spacing where the <b>ui shouldn't be allowed further out from</b></param>
+        public static void ClampGUIToScreenNonStrict(ref Rect pos, float extraSpacing = 10)
+        {
+            float widthAdj = pos.width * ManModGUI.CurrentGUIWindowScale;
+            float heightAdj = pos.height * ManModGUI.CurrentGUIWindowScale;
+            pos.x = Mathf.Clamp(pos.x, extraSpacing - widthAdj, ManModGUI.GameWindowScaledWidth - extraSpacing);
+            pos.y = Mathf.Clamp(pos.y, extraSpacing - heightAdj, ManModGUI.GameWindowScaledHeight - extraSpacing);
+        }
+        /// <inheritdoc cref="ClampGUIToScreenNonStrict(ref Rect, float)"/>
         public static void ClampGUIToScreenNonStrict(ref Rect pos)
         {
-            pos.x = Mathf.Clamp(pos.x, 10 - pos.width, ManModGUI.GameWindowScaledWidth - 10);
-            pos.y = Mathf.Clamp(pos.y, 10 - pos.height, ManModGUI.GameWindowScaledHeight - 10);
+            float widthAdj = pos.width * ManModGUI.CurrentGUIWindowScale;
+            float heightAdj = pos.height * ManModGUI.CurrentGUIWindowScale;
+            pos.x = Mathf.Clamp(pos.x, 10 - widthAdj, ManModGUI.GameWindowScaledWidth - 10);
+            pos.y = Mathf.Clamp(pos.y, 10 - heightAdj, ManModGUI.GameWindowScaledHeight - 10);
+        }
+
+        /// <inheritdoc cref="ClampGUIToScreenNonStrict(ref Rect, float)"/>
+        public static void ClampGUIToScreenNonStrictHeader(ref Rect pos, float extraSpacing = 10f)
+        {
+            float widthAdj = pos.width * ManModGUI.CurrentGUIWindowScale;
+            float heightAdj = AltUI.HeaderBarHeight * ManModGUI.CurrentGUIWindowScale;
+            pos.x = Mathf.Clamp(pos.x, extraSpacing - widthAdj, ManModGUI.GameWindowScaledWidth - extraSpacing);
+            pos.y = Mathf.Clamp(pos.y, Mathf.Min(-heightAdj, extraSpacing - heightAdj), ManModGUI.GameWindowScaledHeight - extraSpacing);
         }
     }
 }

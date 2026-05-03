@@ -11,6 +11,7 @@ namespace TerraTechETCUtil
 {
     /// <summary>
     /// Handles mod-side spawning of game objects
+    /// <para>See also <seealso cref="ExplosionHelper"/> for explosions</para>
     /// </summary>
     public class SpawnHelper : MonoBehaviour
     {
@@ -976,7 +977,7 @@ namespace TerraTechETCUtil
                 {
                     enabledTabs = new HashSet<string>();
                 }
-                GUILayout.Box("--- Spawner --- ");
+                GUILayout.Box("--- Spawner --- ", AltUI.BoxBlackTextBlueTitle);
                 bool show = controlledDisp && Singleton.playerTank;
                 if (GUILayout.Button(" Enabled Loading: " + show))
                     controlledDisp = !controlledDisp;

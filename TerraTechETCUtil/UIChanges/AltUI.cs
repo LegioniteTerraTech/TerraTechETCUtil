@@ -21,6 +21,9 @@ namespace TerraTechETCUtil
         /// <summary> Default title font size </summary>
         public const int TitleFontSize = 32;
 
+        /// <summary>  </summary>
+        public const float HeaderBarHeight = 64f;
+
         /// <summary>
         /// The size of the UI scale, in terms of elements
         /// </summary>
@@ -28,7 +31,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// The size of the UI scale via matrix
         /// </summary>
-        public static Matrix4x4 UIScalingMatrix = default;
+        public static Matrix4x4 UIScalingMatrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one);
 
         /// <summary> Global mod UI alpha for UI managed by <see cref="AltUI"/>, <b>default fixed value</b> </summary>
         public static float UIAlpha = 0.725f;
@@ -395,6 +398,8 @@ namespace TerraTechETCUtil
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelWhite;
         /// <summary> GUI Style present </summary>
+        public static GUIStyle LabelWhiteWrap;
+        /// <summary> GUI Style present </summary>
         public static GUIStyle LabelWhiteTitle;
         /// <summary> GUI Style present </summary>
         public static GUIStyle LabelWhiteTitleWrap;
@@ -540,6 +545,8 @@ namespace TerraTechETCUtil
             };
             AssignStyleQuick(styleBatch, styleStateBatch);
             LabelWhite = styleBatch;
+            LabelWhiteWrap = new GUIStyle(LabelWhite);
+            LabelWhiteWrap.wordWrap = true;
 
             // Setup Label White Title
             styleBatch = new GUIStyle(LabelBlackTitle);
@@ -640,6 +647,8 @@ namespace TerraTechETCUtil
 
             // Setup Label BlueTitle
             styleBatch = new GUIStyle(LabelBlackTitle);
+            styleBatch.stretchWidth = true;
+            styleBatch.stretchHeight = false;
             AssignStyleQuick(styleBatch, styleStateBatch);
             BoxBlackTextBlueTitle = styleBatch;
         }
@@ -1766,7 +1775,7 @@ namespace TerraTechETCUtil
 
 
 
-        private static Matrix4x4 ogScale;
+        private static Matrix4x4 ogScale = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one);
         private static GUISkin cache;
         private static Color cacheColor;
         private static Color cacheColorContent;
@@ -1814,6 +1823,8 @@ namespace TerraTechETCUtil
             GUI.color = new Color(1, 1, 1, UIAlpha);
             GUI.contentColor = new Color(1, 1, 1, UIContentAlpha);
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
+            ManModGUI.CurrentGUIScale = UIScaling;
+            ManModGUI.CurrentGUIWindowScale = ManModGUI.GUIRescale;
             if (UIScaling != 1f)
                 GUI.matrix = UIScalingMatrix;
         }
@@ -1841,9 +1852,13 @@ namespace TerraTechETCUtil
                 cache = GUI.skin;
                 cacheColor = GUI.color;
                 cacheColorContent = GUI.contentColor;
+                cacheColorBackground = GUI.backgroundColor;
+                ogScale = GUI.matrix;
             }
             GUI.skin = MenuGUI;
             GUI.color = GUIColorSolid;
+            ManModGUI.CurrentGUIScale = UIScaling;
+            ManModGUI.CurrentGUIWindowScale = ManModGUI.GUIRescale;
             if (UIScaling != 1f)
                 GUI.matrix = UIScalingMatrix;
         }
@@ -1882,11 +1897,14 @@ namespace TerraTechETCUtil
                 cacheColor = GUI.color;
                 cacheColorContent = GUI.contentColor;
                 cacheColorBackground = GUI.backgroundColor;
+                ogScale = GUI.matrix;
             }
             GUI.skin = MenuSharpGUI;
             GUI.color = new Color(1, 1, 1, UIAlpha);
             GUI.contentColor = new Color(1, 1, 1, UIContentAlpha);
             GUI.backgroundColor = new Color(1, 1, 1, UIContentAlpha);
+            ManModGUI.CurrentGUIScale = UIScaling;
+            ManModGUI.CurrentGUIWindowScale = ManModGUI.GUIRescale;
             if (UIScaling != 1f)
                 GUI.matrix = UIScalingMatrix;
         }
@@ -1906,6 +1924,8 @@ namespace TerraTechETCUtil
                 }
             }
             UIRunning = false;
+            ManModGUI.CurrentGUIWindowScale = 1f;
+            ManModGUI.CurrentGUIScale = 1f;
             GUI.backgroundColor = cacheColorBackground;
             GUI.contentColor = cacheColorContent;
             GUI.color = cacheColor;
@@ -2054,19 +2074,19 @@ namespace TerraTechETCUtil
             StartUISharp(alpha, alpha);
             try
             {
+                float rescaleValue = ManModGUI.GUIRescale / ManModGUI.GUIScale;
+                screenRect.width *= rescaleValue;
+                screenRect.height *= rescaleValue;
                 screenRect = GUILayout.Window(id, screenRect, x => {
                     GUILayout.BeginHorizontal(WindowHeaderBlue, GUILayout.Height(48));
-                    //GUILayout.BeginVertical();
-                    //GUILayout.Space(8);
                     GUILayout.Label(title, LabelBlackTitle, GUILayout.Height(48), GUILayout.ExpandWidth(true));
-                    //GUILayout.FlexibleSpace();
-                    //GUILayout.EndVertical();
                     GUILayout.FlexibleSpace();
                     topBarExtraGUI?.Invoke();
                     bool callClose = false;
                     if (closeCallback != null)
                         callClose = ToggleNoFormat(false, string.Empty, SwitchCloseInv, GUILayout.Width(48), GUILayout.Height(48));
                     GUILayout.EndHorizontal();
+                    Rect HeaderRect = GUILayoutUtility.GetLastRect();
                     func(id);
                     tooltipOverMenu.EndDisplayGUIToolTip();
                     if (callClose)
@@ -2075,16 +2095,19 @@ namespace TerraTechETCUtil
                         closeCallback.Invoke();
                     }
                     if (draggableHeader)
-                        GUI.DragWindow(new Rect(0, 0, screenRect.width, 48));
+                        GUI.DragWindow(new Rect(0, 0, HeaderRect.width, HeaderBarHeight));
                 }, string.Empty, options);
-                if (blockCursorControl && UIHelpersExt.MouseIsOverGUIMenu(screenRect))
-                    ManModGUI.IsMouseOverAnyModGUI = 4;
-                UIHelpersExt.ClampGUIToScreenNonStrict(ref screenRect);
+                screenRect.width /= rescaleValue;
+                screenRect.height /= rescaleValue;
             }
             finally
             {
                 EndUI();
             }
+            if (blockCursorControl && UIHelpersExt.MouseIsOverGUIMenu(screenRect))
+                ManModGUI.IsMouseOverAnyModGUI = 4;
+            UIHelpersExt.ClampGUIToScreenNonStrictHeader(ref screenRect);
+
             return screenRect;
         }
         /// <inheritdoc cref="Window(int, Rect, GUI.WindowFunction, string, float, Action, 
@@ -2327,7 +2350,7 @@ namespace TerraTechETCUtil
         /// For putting that mod wrench sprite over some other UI elements
         /// </summary>
         public static void AttachModWrenchIcon() =>
-            AttachIcon(UIHelpersExt.ModContentIcon, Vector2.zero, new Vector2(0.35f, 0.35f));
+            AttachIcon(UIHelpersExt.ModContentIcon, Vector2.zero, new Vector2(0.35f, 0.35f), true);
 
 
         /// <inheritdoc cref="Sprite(UnityEngine.Sprite, GUIStyle, bool, GUILayoutOption[])"/>
@@ -2475,8 +2498,9 @@ namespace TerraTechETCUtil
         /// The ID the tooltip uses
         /// </summary>
         public const int ToolTipWindowID = 5625662;
-        private const int ToolTipMouseOffset = 16;//26;
-        private const int ToolTipExtraBordering = 6;//26;
+        private const int ToolTipMouseOffset = 26;
+        private const int ToolTipExtraBorderingHoriz = 6;//26;
+        private const int ToolTipExtraBorderingVert = 26;
 
         /// <summary>
         /// The tooltip displaying instance.
@@ -2502,15 +2526,15 @@ namespace TerraTechETCUtil
                         Rect rescale = GUILayoutUtility.GetRect(new GUIContent(Text), LabelBlackWrap);
                         if (Event.current.type == EventType.Repaint)
                         {
-                            toolWindow.width = rescale.width + ToolTipExtraBordering;
-                            toolWindow.height = rescale.height + ToolTipExtraBordering;
+                            toolWindow.width = rescale.width + ToolTipExtraBorderingHoriz;
+                            toolWindow.height = rescale.height + ToolTipExtraBorderingVert;
                         }
                         GUILayout.FlexibleSpace();
                         GUILayout.EndHorizontal();
                         GUILayout.FlexibleSpace();
-                        toolWindow.x = Mathf.Clamp(Mous.x + ToolTipMouseOffset, 0,
+                        toolWindow.x = Mathf.Clamp(Mous.x + (ToolTipMouseOffset * ManModGUI.GUIScaleInv), 0,
                             ManModGUI.GameWindowScaledWidth - toolWindow.width);
-                        toolWindow.y = Mathf.Clamp(Mous.y + ToolTipMouseOffset, 0,
+                        toolWindow.y = Mathf.Clamp(Mous.y + (ToolTipMouseOffset * ManModGUI.GUIScaleInv), 0,
                             ManModGUI.GameWindowScaledHeight - toolWindow.height);
                         toolWindow = GUI.Window(ToolTipWindowID, toolWindow, GUIHandlerInfo, Title, MenuLeft);
                         GUI.BringWindowToFront(ToolTipWindowID);

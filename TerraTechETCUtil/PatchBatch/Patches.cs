@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using FMOD.Studio;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace TerraTechETCUtil
 {
@@ -16,21 +17,93 @@ namespace TerraTechETCUtil
     /// </summary>
     public class Patches
     {
+        // FOR THE MINIMAP
+
+        [HarmonyPatch(typeof(UIHUDWorldMap))]
+        [HarmonyPatch("OnPointerUpHandler")]//
+        internal static class StopWaypointPlacement
+        {
+            internal static bool Prefix(UIHUDWorldMap __instance, PointerEventData eventData)
+            {
+                if (eventData.button == PointerEventData.InputButton.Right &&
+                    (eventData.position - eventData.pressPosition).sqrMagnitude < 225f)
+                {
+                    return !ManMinimapExt.OpenedModal || ManMinimapExt.OpenedModalTime > Time.realtimeSinceStartup;
+                }
+                return true;
+            }
+        }
+        [HarmonyPatch(typeof(ManRadar))]
+        [HarmonyPatch("IconTypeCount", MethodType.Getter)]//
+        internal static class ExtendRadarIconsCount
+        {
+            internal static bool Prefix(TooltipComponent __instance, ref int __result)
+            {
+                if (ManMinimapExt.AddedMinimapIndexes < ManMinimapExt.VanillaMapIconCount)
+                    __result = ManMinimapExt.VanillaMapIconCount;
+                else
+                    __result = ManMinimapExt.AddedMinimapIndexes;
+                //DebugRandAddi.Log("IconTypeCount returned " + __result);
+                return false;
+            }
+        }
+        [HarmonyPatch(typeof(TooltipComponent))]
+        [HarmonyPatch("OnPointerEnter")]//
+        internal static class CatchHoverInMapUI
+        {
+            internal static void Prefix(TooltipComponent __instance)
+            {
+                if (__instance?.gameObject && __instance.gameObject.GetComponent<UIMiniMapElement>())
+                    ManMinimapExt.LastModaledTarget = __instance.gameObject.GetComponent<UIMiniMapElement>();
+            }
+        }
+        [HarmonyPatch(typeof(TooltipComponent))]
+        [HarmonyPatch("OnPointerExit")]//
+        internal static class CatchHoverInMapUI2
+        {
+            internal static void Prefix(TooltipComponent __instance)
+            {
+                if (__instance?.gameObject && __instance.gameObject.GetComponent<UIMiniMapElement>())
+                    if (ManMinimapExt.LastModaledTarget == __instance.gameObject.GetComponent<UIMiniMapElement>())
+                        ManMinimapExt.LastModaledTarget = null;
+            }
+        }
+        /*
+        [HarmonyPatch(typeof(UIHUDWorldMap))]
+        [HarmonyPatch("TryGetWaypoint")]//
+        internal static class LaunchModalOnMap
+        {
+            internal static void Prefix(GameObject cursorGO)
+            {
+                if (cursorGO != null)
+                {
+                    UIMiniMapElement uiminiMapElement = cursorGO.GetComponent<UIMiniMapElement>();
+                    if (uiminiMapElement?.TrackedVis != null && 
+                        !(uiminiMapElement.TrackedVis.ObjectType == ObjectTypes.Waypoint || 
+                        uiminiMapElement.TrackedVis.RadarType == RadarTypes.MapNavTarget))
+                    {
+                        ManMinimapExt.BringUpMinimapModal(uiminiMapElement);
+                    }
+                }
+            }
+        }//*/
+
+        /*
         [HarmonyPatch(typeof(ManPointer))]
         [HarmonyPatch("IsInteractionBlocked", MethodType.Getter)]//
         [HarmonyPriority(135)]
         internal static class MakeSureModUIBlocksMouse
         {
-            internal static bool Prefix(bool __result)
+            internal static bool Prefix(ref bool __result)
             {
-                if (ManModGUI.UIKickoffState)
+                if (ManModGUI.InteractionModded && ManModGUI.UIKickoffState)
                 {
                     __result = true;
                     return false;
                 }
                 return true;
             }
-        }
+        }//*/
         [HarmonyPatch(typeof(ManSpawn))]
         [HarmonyPatch("SpawnTankFromTechData")]//
         [HarmonyPriority(151)]
@@ -70,7 +143,7 @@ namespace TerraTechETCUtil
                     {
                         errorcode = 1;
                         if (visible.ItemType >= Enum.GetValues(typeof(BlockTypes)).Length)
-                        {
+                        {   // Modded
                             errorcode = 2;
                             int hash = visible.m_ItemType.GetHashCode();
                             BlockAttributes blockAttributeFlags = (BlockAttributes)ManSpawn.inst.VisibleTypeInfo.GetDescriptorFlags<BlockAttributes>(hash);
@@ -79,7 +152,7 @@ namespace TerraTechETCUtil
                             if (booster && booster.FuelBurnPerSecond() > 0)
                             {
                                 if (booster.transform.GetComponentInChildren<BoosterJet>(true))
-                                    blockAttributeFlags.SetFlags(BlockAttributes.FuelConsumer, true);
+                                    blockAttributeFlags.SetFlagsBitShift(BlockAttributes.FuelConsumer, true);
                             }
                             errorcode = 4;
                             var energy = __instance.GetComponent<ModuleEnergy>();
@@ -88,17 +161,17 @@ namespace TerraTechETCUtil
                                 try
                                 {
                                     if (energy.UpdateConsumeEvent.HasSubscribers())
-                                        blockAttributeFlags.SetFlags(BlockAttributes.PowerConsumer, true);
+                                        blockAttributeFlags.SetFlagsBitShift(BlockAttributes.PowerConsumer, true);
                                 }
                                 catch { }
                                 if ((float)generatorValue.GetValue(energy) > 0f)
                                 {
-                                    blockAttributeFlags.SetFlags(BlockAttributes.PowerProducer, true);
+                                    blockAttributeFlags.SetFlagsBitShift(BlockAttributes.PowerProducer, true);
                                     ModuleEnergy.OutputConditionFlags flags = (ModuleEnergy.OutputConditionFlags)generator.GetValue(energy);
                                     if ((flags & ModuleEnergy.OutputConditionFlags.Thermal) != 0)
-                                        blockAttributeFlags.SetFlags(BlockAttributes.Steam, true);
+                                        blockAttributeFlags.SetFlagsBitShift(BlockAttributes.Steam, true);
                                     if ((flags & ModuleEnergy.OutputConditionFlags.Anchored) != 0)
-                                        blockAttributeFlags.SetFlags(BlockAttributes.Anchored, true);
+                                        blockAttributeFlags.SetFlagsBitShift(BlockAttributes.Anchored, true);
                                 }
                             }
                             errorcode = 5;
@@ -106,32 +179,32 @@ namespace TerraTechETCUtil
                             var consume = __instance.GetComponent<ModuleItemConsume>();
                             if (consume)
                             {
-                                blockAttributeFlags.SetFlags(BlockAttributes.ResourceBased, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.ResourceBased, true);
                                 if ((bool)anchorRequired.GetValue(consume))
-                                    blockAttributeFlags.SetFlags(BlockAttributes.Anchored, true);
+                                    blockAttributeFlags.SetFlagsBitShift(BlockAttributes.Anchored, true);
                             }
                             errorcode = 6;
                             if (__instance.GetComponent<ModuleAIBot>())
-                                blockAttributeFlags.SetFlags(BlockAttributes.AI, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.AI, true);
                             else if (__instance.GetComponent<ModuleTechController>() &&
                                 __instance.GetComponent<ModuleTechController>().m_PlayerInput)
-                                blockAttributeFlags.SetFlags(BlockAttributes.PlayerCab, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.PlayerCab, true);
                             errorcode = 7;
                             if (__instance.GetComponent<ModuleItemProducer>())
-                                blockAttributeFlags.SetFlags(BlockAttributes.Mining, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.Mining, true);
                             var circuits = __instance.GetComponent<ModuleCircuitNode>();
                             if (circuits && (circuits.Dispensor || circuits.IsChargeCarrier))
-                                blockAttributeFlags.SetFlags(BlockAttributes.CircuitsEnabled, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.CircuitsEnabled, true);
                             errorcode = 9;
                             if (__instance.GetComponent<ModuleEnergyStore>())
-                                blockAttributeFlags.SetFlags(BlockAttributes.PowerStorage, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.PowerStorage, true);
                             errorcode = 10;
                             if (__instance.GetComponent<ModuleHeart>())
-                                blockAttributeFlags.SetFlags(BlockAttributes.BlockStorage, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.BlockStorage, true);
                             errorcode = 11;
                             if (__instance.GetComponent<ModuleAnchor>() &&
                                 __instance.GetComponent<ModuleAnchor>().AllowsRotation)
-                                blockAttributeFlags.SetFlags(BlockAttributes.AnchoredMobile, true);
+                                blockAttributeFlags.SetFlagsBitShift(BlockAttributes.AnchoredMobile, true);
                             errorcode = 12;
                             ManSpawn.inst.VisibleTypeInfo.SetDescriptorFlags<BlockAttributes>(hash, (int)blockAttributeFlags);
                         }

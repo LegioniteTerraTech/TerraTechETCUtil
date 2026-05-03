@@ -449,8 +449,62 @@ namespace TerraTechETCUtil
             inst.invokeSingleRepeat.Clear();
         }
 
+        private const int MaxCommandDistance = 9001;//500;
+        /// <summary>
+        /// True (Right, Left) False,
+        /// True   (Down, Up)  False
+        /// </summary>
+        public static Event<bool, bool, RaycastHit> ClickEventSimple = new Event<bool, bool, RaycastHit>();
+        /// <summary>
+        /// Left mouse button down
+        /// </summary>
+        public static bool MouseLeftDown => mouseLeftDown;
+        private static bool mouseLeftDown = false;
+        /// <summary>
+        /// Right mouse button down
+        /// </summary>
+        public static bool MouseRightDown => mouseRightDown;
+        private static bool mouseRightDown = false;
+
         private void UpdateModSync()
         {
+            try
+            {
+                if (!ManPauseGame.inst.IsPaused)
+                {
+                    bool lD = Input.GetMouseButton(0);
+                    if (lD != mouseLeftDown)
+                    {
+                        mouseLeftDown = lD;
+                        if (lD)
+                        {
+                            int layerMask = Globals.inst.layerTank.mask | Globals.inst.layerTankIgnoreTerrain.mask | Globals.inst.layerTerrain.mask | Globals.inst.layerLandmark.mask | Globals.inst.layerScenery.mask;
+
+                            RaycastHit rayman;
+                            Physics.Raycast(ManUI.inst.ScreenPointToRay(Input.mousePosition), out rayman, MaxCommandDistance, layerMask, QueryTriggerInteraction.Ignore);
+                            ClickEventSimple.Send(false, true, rayman);
+                        }
+                        else
+                            ClickEventSimple.Send(false, false, default);
+                    }
+                    bool RD = Input.GetMouseButton(1);
+                    if (RD != mouseRightDown)
+                    {
+                        mouseRightDown = RD;
+                        if (RD)
+                        {
+                            int layerMask = Globals.inst.layerTank.mask | Globals.inst.layerTankIgnoreTerrain.mask | Globals.inst.layerTerrain.mask | Globals.inst.layerLandmark.mask | Globals.inst.layerScenery.mask;
+
+                            RaycastHit rayman;
+                            Physics.Raycast(ManUI.inst.ScreenPointToRay(Input.mousePosition), out rayman, MaxCommandDistance, layerMask, QueryTriggerInteraction.Ignore);
+                            ClickEventSimple.Send(true, true, rayman);
+                        }
+                        else
+                            ClickEventSimple.Send(true, false, default);
+                    }
+                }
+            }
+            catch { }
             //Debug_TTExt.Log("UpdateModSync");
             for (int step = 0; step < invokeSingleRepeat.Count;)
             {
@@ -556,6 +610,7 @@ namespace TerraTechETCUtil
                 invokes.Remove(ele.Key);
             }
             ManModGUI.MainUpdateMouseOverAnyWindow();
+            ManExtProj.RemoteUpdate();
         }
         private void OnGUI()
         {
@@ -738,7 +793,7 @@ namespace TerraTechETCUtil
                 {
                     enabledTabs = new HashSet<string>();
                 }
-                GUILayout.Box("--- Invoke Helper --- ");
+                GUILayout.Box("--- Invoke Helper --- ", AltUI.BoxBlackTextBlueTitle);
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
                     controlledDisp = !controlledDisp;
                 if (controlledDisp)

@@ -2754,7 +2754,7 @@ namespace TerraTechETCUtil
             }
             public static void GUIResources()
             {
-                GUILayout.Box("--- Mod Resources --- ");
+                GUILayout.Box("--- Mod Resources ---", AltUI.BoxBlackTextBlueTitle);
                 bool show = controlledDisp && Singleton.playerTank;
                 if (GUILayout.Button("Enabled Loading: " + show))
                     controlledDisp = !controlledDisp;
@@ -2867,7 +2867,7 @@ namespace TerraTechETCUtil
             private static SlowSorter<Texture> slowTex = SlowSorter<Texture>.Default;
             private static void GUIModTextures(ref bool deltaed)
             {
-                GUILayout.Box("Mod Textures");
+                GUILayout.Box("Mod Textures", AltUI.BoxBlackTextBlueTitle);
                 GUIModContainers(ref deltaed);
                 if (ModContainerInst != null)
                 {
@@ -2937,7 +2937,7 @@ namespace TerraTechETCUtil
             private static bool hideDuplicates = true;
             private static void GUIIngameMaterials(ref bool deltaed)
             {
-                GUILayout.Box("Ingame Materials");
+                GUILayout.Box("Ingame Materials", AltUI.BoxBlackTextBlueTitle);
                 if (GUITextFieldDisp("Material Name:", ref MatName))
                     deltaed = true;
                 showAllMats = AltUI.Toggle(showAllMats, "Show Active Materials");
@@ -3002,7 +3002,7 @@ namespace TerraTechETCUtil
             private static bool showExtSFX = false;
             public static void GUIExtSFX()
             {
-                GUILayout.Box("--- Mod SFX Data --- ");
+                GUILayout.Box("--- Mod SFX Data ---", AltUI.BoxBlackTextBlueTitle);
                 bool show = showExtSFX && Singleton.playerTank;
                 if (GUILayout.Button("Enabled Loading: " + show))
                     showExtSFX = !showExtSFX;
@@ -3077,7 +3077,7 @@ namespace TerraTechETCUtil
             }
             private static void GUIModContents(ref bool deltaed)
             {
-                GUILayout.Box("Mod Packed Resources");
+                GUILayout.Box("Mod Packed Resources", AltUI.BoxBlackTextBlueTitle);
                 GUIModContainers(ref deltaed);
                 if (ModContainerInst != null)
                 {

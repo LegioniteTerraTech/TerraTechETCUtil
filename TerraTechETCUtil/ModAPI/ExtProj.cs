@@ -11,60 +11,63 @@ namespace TerraTechETCUtil
     /// <summary>
     /// Manages all <see cref="ProjBase"/>
     /// </summary>
-    public class ManExtProj : MonoBehaviour
+    public static class ManExtProj
     {
-        private static ManExtProj inst;
+        /// <summary> Projectile getter </summary>
+        public static readonly FieldInfo deathTimerProj = typeof(Projectile).GetField("m_LifeTime", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary> Projectile getter </summary>
+        public static readonly FieldInfo gravityAffectProj = typeof(Projectile).GetField("m_CanHaveGravity", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary> Projectile getter </summary>
+        public static readonly FieldInfo stickyProj = typeof(Projectile).GetField("m_StickOnContact", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary> Projectile getter </summary>
+        public static readonly FieldInfo explodeProj = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);
+
+
+        internal static bool instExist;
         /// <summary>
         /// All projectiles managed by <see cref="ManExtProj"/>
         /// </summary>
-        public static readonly List<ProjBase> projPool = new List<ProjBase>();
+        public static readonly HashSet<ProjBase> projPool = new HashSet<ProjBase>();
 
         private const float SlowUpdateTime = 0.6f;
-        private float SlowUpdate = 0;
+        private static float SlowUpdate = 0;
         /// <summary>
         /// Initiate <see cref="ManExtProj"/>, automatically activated when needed
         /// </summary>
-        public static void InsureInit()
+        internal static void InsureInit()
         {
-            if (inst)
-                return;
-            inst = new GameObject("ManExtProj").AddComponent<ManExtProj>();
+            InvokeHelper.InsureInit();
             Debug_TTExt.Log("TerraTechModExt: Created ManExtProj.");
+            instExist = true;
         }
-        internal void Update()
+        internal static void RemoteUpdate()
         {
             if (SlowUpdate < Time.time)
             {
                 SlowUpdate = Time.time + SlowUpdateTime;
-                UpdateSlow();
-            }
-        }
-
-        internal static void UpdateSlow()
-        {
-            string errorBreak = null;
-            foreach (var item in projPool)
-            {
-                try
-                {
-                    item.SlowUpdate();
-                }
-                catch
+                string errorBreak = null;
+                foreach (var item in projPool)
                 {
                     try
                     {
-                        errorBreak = item.name;
+                        item.SlowUpdate();
                     }
                     catch
                     {
-                        errorBreak = "ITEM NAME WAS NULL";
+                        try
+                        {
+                            errorBreak = item.name;
+                        }
+                        catch
+                        {
+                            errorBreak = "ITEM NAME WAS NULL";
+                        }
+                        break;
                     }
-                    break;
                 }
+                Debug_TTExt.Assert(errorBreak != null, "A projectile errored out - " + errorBreak);
             }
-            Debug_TTExt.Assert(errorBreak != null, "A projectile errored out - " + errorBreak);
         }
-
     }
 
 
@@ -74,6 +77,7 @@ namespace TerraTechETCUtil
 
     /// <summary>
     /// Does nothing. <b>DO NOT USE ALONE.</b>
+    /// <para><b>INSURE YOU CALL <see cref="LegModExt.InsurePatches()"/> BEFORE USING</b></para>
     /// <para>Automatically added when a related <see cref="ChildModule"/> is used on a <see cref="WeaponRound"/></para>
     /// </summary>
     public class ExtProj : MonoBehaviour
@@ -206,9 +210,7 @@ namespace TerraTechETCUtil
                         BlockDebug.ThrowWarning(true, "ProjBase was called in a non-projectile. This module should not be called in any JSON.");
                     }
                     foreach (var item in projTemp)
-                    {
                         item.PrePool(proj);
-                    }
                 }
                 return true;
             }
@@ -264,69 +266,57 @@ namespace TerraTechETCUtil
 
         internal void Fire(FireData fireData, Tank shooter, ModuleWeapon firingPiece)
         {
-            ManExtProj.InsureInit();
+            if (!ManExtProj.instExist)
+                ManExtProj.InsureInit();
             launcher = firingPiece;
             this.shooter = shooter;
             Debug_TTExt.Assert(!shooter, "TerraTechModExt: ProjBase was given NO SHOOTER, this may cause issues!");
             //Debug_TTExt.Log("Projectile " + gameObject.name + " fired with");
             foreach (var item in projTypes)
-            {
                 item.Fire(fireData);
-            }
+
             ManExtProj.projPool.Add(this);
         }
 
         internal void OnWorldRemoval()
         {
             foreach (var item in projTypes)
-            {
                 item.WorldRemoval();
-            }
+
             ManExtProj.projPool.Remove(this);
         }
         internal void OnImpact(Collider other, Damageable damageable, Vector3 hitPoint, ref bool ForceDestroy)
         {
             foreach (var item in projTypes)
-            {
                 item.Impact(other, damageable, hitPoint, ref ForceDestroy);
-            }
+
             if (damageable)
             {
                 foreach (var item in projTypes)
-                {
                     item.ImpactDamageable(other, damageable, hitPoint, ref ForceDestroy);
-                }
             }
             else
             {
                 foreach (var item in projTypes)
-                {
                     item.ImpactOther(other, hitPoint, ref ForceDestroy);
-                }
             }
         }
 
         internal void SlowUpdate()
         {
             foreach (var item in projTypes)
-            {
                 item.SlowUpdate();
-            }
         }
 
-
-
-        internal static FieldInfo explode = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);
         /// <summary>
-        /// Explode without removing from the world
+        /// Explode without removing projectile from the world
         /// </summary>
         public void ExplodeNoRecycle()
         {
-            Transform explodo = (Transform)explode.GetValue(project);
+            Transform explodo = (Transform)ManExtProj.explodeProj.GetValue(project);
             if ((bool)explodo)
             {
-                var boom = explodo.GetComponent<Explosion>();
-                if ((bool)boom)
+                if ((bool)explodo.GetComponent<Explosion>())
                 {
                     Explosion boom2 = explodo.Spawn(null, project.trans.position, Quaternion.identity).GetComponent<Explosion>();
                     if (boom2 != null)
@@ -344,18 +334,17 @@ namespace TerraTechETCUtil
             }
         }
         /// <summary>
-        /// Explode cosmetically, does not remove from world
+        /// Explode cosmetically, does not remove projectile from world
         /// </summary>
         /// <param name="inst"></param>
         public static void ExplodeNoDamage(Projectile inst)
         {
-            Transform explodo = (Transform)explode.GetValue(inst);
+            Transform explodo = (Transform)ManExtProj.explodeProj.GetValue(inst);
             if ((bool)explodo)
             {
-                var boom = explodo.GetComponent<Explosion>();
-                if ((bool)boom)
+                if ((bool)explodo.GetComponent<Explosion>())
                 {
-                    Explosion boom2 = explodo.UnpooledSpawnWithLocalTransform(null, inst.trans.position, Quaternion.identity).GetComponent<Explosion>();
+                    Explosion boom2 = explodo.Spawn(null, inst.trans.position, Quaternion.identity).GetComponent<Explosion>();
                     if ((bool)boom2)
                     {
                         boom2.SetDamageSource(inst.Shooter);
@@ -366,7 +355,7 @@ namespace TerraTechETCUtil
                 }
                 else
                 {
-                    Transform transCase = explodo.UnpooledSpawnWithLocalTransform(null, inst.trans.position, Quaternion.identity);
+                    Transform transCase = explodo.Spawn(null, inst.trans.position, Quaternion.identity);
                     transCase.gameObject.SetActive(true);
                 }
             }

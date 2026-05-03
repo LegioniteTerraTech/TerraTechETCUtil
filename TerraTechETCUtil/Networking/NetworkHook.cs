@@ -21,6 +21,7 @@ namespace TerraTechETCUtil
 
     /// <summary>
     /// A simple network hook to send mod networking information
+    /// <para><b>INSURE YOU CALL <see cref="LegModExt.InsurePatches()"/> BEFORE USING</b></para>
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class NetworkHook<T> : NetworkHook where T : MessageBase
@@ -36,6 +37,7 @@ namespace TerraTechETCUtil
 
         /// <summary>
         /// Create a new <see cref="NetworkHook"/>
+        /// <para><b>INSURE YOU CALL <see cref="LegModExt.InsurePatches()"/> BEFORE USING</b></para>
         /// </summary>
         /// <param name="ID"></param>
         /// <param name="onReceive"></param>

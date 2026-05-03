@@ -1,6 +1,4 @@
-﻿using Mono.Cecil;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -8,205 +6,15 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Mono.Cecil;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Experimental.UIElements.StyleEnums;
 using static ManSplashScreen;
+using static NetController;
 
 namespace TerraTechETCUtil
 {
-    /// <summary>
-    /// Extracts module info about a targeted module.
-    /// <para>Can even extract it as JSON</para>
-    /// </summary>
-    public class ModuleInfo : AutoDataExtractorInst
-    {
-        private static HashSet<object> grabbed = new HashSet<object>();
-        private static List<ModuleInfo> cacher = new List<ModuleInfo>();
-        internal static ModuleInfo[] TryGetModules(GameObject toExplore, HashSet<Type> AllowedTypes)
-        {
-            try
-            {
-                if (toExplore == null)
-                    throw new ArgumentNullException(nameof(toExplore));
-                foreach (var item in toExplore.GetComponents<MonoBehaviour>())
-                {
-                    Type typeCase = item.GetType();
-                    if (grabbed.Contains(item))
-                        continue;
-                    grabbed.Add(item);
-                    if (AllowedTypes.Contains(typeCase))
-                    {
-                        cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                    }
-                    else if (item is Module)
-                    {
-                        if (!ignoreModuleTypes.Contains(typeCase))
-                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                    }
-                    else if (item is ExtModule)
-                    {
-                        if (!ignoreModuleTypesExt.Contains(typeCase))
-                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                    }
-                }
-                return cacher.ToArray();
-            }
-            catch (Exception e)
-            {
-                throw new Exception("TryGetModules failed on " + (toExplore.name.NullOrEmpty() ?
-                    "<NULL>" : toExplore.name) + " - ", e);
-            }
-            finally
-            {
-                cacher.Clear();
-                grabbed.Clear();
-            }
-        }
-        internal static ModuleInfo[] TryGetModulesBlacklisted(GameObject toExplore, HashSet<Type> BlockedTypes)
-        {
-            try
-            {
-                foreach (var item in toExplore.GetComponents<Component>())
-                {
-                    Type typeCase = item.GetType();
-                    if (grabbed.Contains(item))
-                        continue;
-                    grabbed.Add(item);
-                    if (item is Module)
-                    {
-                        if (!ignoreModuleTypes.Contains(typeCase))
-                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                    }
-                    else if (item is ExtModule)
-                    {
-                        if (!ignoreModuleTypesExt.Contains(typeCase))
-                            cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                    }
-                    else if (BlockedTypes.Contains(typeCase))
-                    {
-                    }
-                    else
-                        cacher.Add(new ModuleInfo(typeCase, item, grabbed));
-                }
-                return cacher.ToArray();
-            }
-            catch (Exception e)
-            {
-                throw new Exception("TryGetModules failed - ", e);
-            }
-            finally
-            {
-                cacher.Clear();
-                grabbed.Clear();
-            }
-        }
-
-        /// <summary>
-        /// Creates a new ModuleInfo to extract and cache data about a target <see cref="Module"/> immedeately.
-        /// <para>Also stores instance information for immedeate later access.</para>
-        /// </summary>
-        /// <param name="grabbedType">The type this is targeting</param>
-        /// <param name="prefab">The actual prefab to gather context from</param>
-        /// <param name="grabbedAlready">For recursive calls, what has already been extracted to prevent duplicates</param>
-        public ModuleInfo(Type grabbedType, Component prefab, HashSet<object> grabbedAlready) : base(
-            SpecialNames.TryGetValue(grabbedType.Name, out string altName) ? altName :
-            grabbedType.Name.Replace("Module", "").ToString().SplitCamelCase(),
-            grabbedType, prefab, grabbedAlready)
-        {
-        }
-
-
-        internal static HashSet<Type> AllowedTypesUIWiki = new HashSet<Type>() {
-                    typeof(TankBlock),
-                    typeof(ResourceDispenser),
-                    typeof(ResourcePickup),
-                    //
-                    typeof(Damageable),
-                    typeof(FireData),
-                    typeof(ModuleWing.Aerofoil),
-                    typeof(ManWheels.WheelParams),
-                    typeof(ManWheels.TireProperties),
-                    typeof(WeaponRound),
-                };
-
-        internal static HashSet<Type> BlockedTypesExporter = new HashSet<Type>() {
-                    typeof(Visible),
-                    typeof(TankBlock),
-                    typeof(Transform),
-                    typeof(ResourceDispenser),
-                    typeof(ResourcePickup),
-                    typeof(AutoSpriteRenderer),
-                    typeof(Animator),
-                    typeof(Animation),
-                    typeof(AnimEvent),
-                };
-    }
-    /// <summary>
-    /// Extracts fine data from a target Component while tracking the active instance (but not the changes made to it after initial creation!)
-    /// <para>Use <see cref="AutoDataExtractorInst"/> to keep track of inactive instances</para>
-    /// </summary>
-    public class AutoDataExtractorInst : AutoDataExtractor
-    {
-        /// <summary>
-        /// Targeted Component instance
-        /// </summary>
-        public readonly Component inst;
-        private AutoDocumentator docs;
-        /// <summary>
-        /// Creates a new AutoDataExtractorInst to extract and cache data about a target gameobject immedeately.
-        /// <para>Also stores instance information for immedeate later access.  For targets that may be deleted, see <see cref="AutoDataExtractor"/></para>
-        /// </summary>
-        /// <param name="name">What to name the target in JSON</param>
-        /// <param name="type">The type this is targeting</param>
-        /// <param name="prefab">The actual prefab to gather context from</param>
-        /// <param name="grabbedAlready">For recursive calls, what has already been extracted to prevent duplicates</param>
-        public AutoDataExtractorInst(string name, Type type, Component prefab, HashSet<object> grabbedAlready) : 
-            base(name, type, prefab, grabbedAlready) 
-        {
-            inst = prefab;
-        }
-        /// <summary>
-        /// Does NOT return end comma with newline!
-        /// </summary>
-        internal void GetJsonFormatted(Component inst, StringBuilder SB, SlashState slash, int tabs = 0) => 
-            docs.StringBuild(inst, inst.transform, SB, slash, tabs);
-
-        /// <inheritdoc/>
-        protected override void Explorer_InternalRecursePost(Type type, FieldInfo[] FIs)
-        {
-            docs = new AutoDocumentator(type, null, FIs);
-        }
-
-        /// <inheritdoc/>
-        protected override void EndDetails()
-        {
-            if (inst == null)
-                return;
-            if (ManIngameWiki.ShowJSONExport)
-            {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Copy to system clipboard: ", AltUI.TextfieldBlue);
-                if (AltUI.Button("Entire JSON", ManSFX.UISfxType.Craft))
-                {
-                    clipboard.Clear();
-                    GetJsonFormatted(inst, clipboard, SlashState.None);
-                    GUIUtility.systemCopyBuffer = clipboard.ToString();
-                    clipboard.Clear();
-                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
-                }
-                if (AltUI.Button("Reference", ManSFX.UISfxType.Craft))
-                {
-                    clipboard.Clear();
-                    clipboard.Append("\"Reference|" + AutoDocUIElem.TryGetFoundationRefName(inst.transform) +
-                        AutoDocUIElem.RecurseHierachy(inst.transform) + "." + inst.GetType().Name + "\" : ");
-                    GUIUtility.systemCopyBuffer = clipboard.ToString();
-                    clipboard.Clear();
-                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.SaveGameOverwrite);
-                }
-                GUILayout.FlexibleSpace();
-                GUILayout.EndHorizontal();
-            }
-        }
-    }
     /// <summary>
     /// Extracts fine data from a target Component. 
     /// <para>Use <see cref="AutoDataExtractorInst"/> to keep track of active instances</para>
@@ -215,11 +23,11 @@ namespace TerraTechETCUtil
     /// </summary>
     public class AutoDataExtractor
     {
-        internal static bool AdvancedBatchDisplayer(object toExplore, bool ActuallyDisplay)
+        internal static bool AdvancedBatchDisplayer(object toExplore, HashSet<string> openEntries, int depth, bool ignoreNextLayer = false)
         {
             if (toExplore is BlockRarity BR)
             {
-                if (ActuallyDisplay)
+                if (openEntries != null)
                 {
                     GUILayout.Label(BR.ToString(), AltUI.LabelBlue);
                     GUILayout.Space(6);
@@ -230,7 +38,7 @@ namespace TerraTechETCUtil
             }
             else if (toExplore is BlockCategories BC)
             {
-                if (ActuallyDisplay)
+                if (openEntries != null)
                 {
                     GUILayout.Label(BC.ToString(), AltUI.LabelBlue);
                     GUILayout.Space(6);
@@ -241,7 +49,7 @@ namespace TerraTechETCUtil
             }
             else if (toExplore is ManDamage.DamageableType DAT)
             {
-                if (ActuallyDisplay)
+                if (openEntries != null)
                 {
                     GUILayout.Label(DAT.ToString(), AltUI.LabelBlue);
                     GUILayout.Space(6);
@@ -256,7 +64,7 @@ namespace TerraTechETCUtil
             }
             else if (toExplore is ManDamage.DamageType DT)
             {
-                if (ActuallyDisplay)
+                if (openEntries != null)
                 {
                     GUILayout.Label(DT.ToString(), AltUI.LabelBlue);
                     GUILayout.Space(6);
@@ -268,39 +76,178 @@ namespace TerraTechETCUtil
                     }
                 }
                 return true;
-            }
+            }//*
+            else if (toExplore is Transform trans)
+            {
+                if (!ignoreNextLayer)
+                {
+                    if (openEntries == null)
+                        return trans.GetComponents<Component>().Any(x => AdvancedBatchDisplayer(x, null, depth + 1, true));
+                    else
+                    {
+                        foreach (Component c in trans.GetComponents<Component>())
+                            AdvancedBatchDisplayer(c, openEntries, depth + 1, true);
+                        return true;
+                    }
+                }
+                else
+                    return false;
+            }//*/
             else if (toExplore is WeaponRound WR)
             {
-                if (ActuallyDisplay)
+                if (openEntries != null)
+                    DisplayInfoOnWeaponRound(WR, openEntries, depth + 1);
+                return true;
+            }
+            else if (toExplore is Projectile proj)
+            {
+                if (openEntries != null)
+                    DisplayInfoOnWeaponRound(proj, openEntries, depth + 1);
+                return true;
+            }
+            else if (toExplore is ShotgunRound SR)
+            {
+                if (openEntries != null)
+                    DisplayInfoOnWeaponRound(SR, openEntries, depth + 1);
+                return true;
+            }
+            else if (toExplore is Explosion explo)
+            {
+                if (openEntries != null)
+                    DisplayInfoOnExplosion(explo, openEntries, depth + 1);
+                return true;
+            }
+            return EnumDisplayer<TechAudio.SFXType>(toExplore, openEntries != null);
+        }
+        private static void DisplayInfoOnWeaponRound(WeaponRound WR, HashSet<string> openEntries, int depth)
+        {
+            GUILayout.EndHorizontal();
+            GUILayout.BeginVertical(AltUI.BoxBlack);
+            if (WR == null)
+            {
+                GUILayout.Label("Weapon Round: None", AltUI.LabelGoldTitle);
+            }
+            else
+            {
+                string nameFiltered = "Weapon Round" + depth;
+                bool isOpen = openEntries.Contains(nameFiltered);
+                if (GUILayout.Button("Weapon Round", isOpen ? AltUI.LabelBlueTitle : AltUI.LabelGoldTitle,
+                    GUILayout.ExpandWidth(true)))
                 {
-                    GUILayout.BeginVertical();
-
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
+                    if (isOpen)
+                        openEntries.Remove(nameFiltered);
+                    else
+                        openEntries.Add(nameFiltered);
+                }
+                if (isOpen)
+                {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("Projectile Type", AltUI.LabelBlue);
-                    GUILayout.Space(6);
+                    GUILayout.Label("Projectile Type", AltUI.LabelWhite);
+                    GUILayout.FlexibleSpace();
                     GUILayout.Label(WR.GetType().ToString(), AltUI.LabelBlue);
                     GUILayout.EndHorizontal();
 
-                    DT = WR.DamageType;
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label(DT.ToString(), AltUI.LabelBlue);
-                    GUILayout.Space(6);
-                    AltUI.Sprite(ManUI.inst.GetDamageTypeIcon(DT),
-                        AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
+                    AdvancedBatchDisplayer(WR.DamageType, openEntries, depth + 1, true);
                     GUILayout.EndHorizontal();
 
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("Damage", AltUI.LabelBlue);
-                    GUILayout.Space(6);
+                    GUILayout.Label("Damage", AltUI.LabelWhite);
+                    GUILayout.FlexibleSpace();
                     GUILayout.Label(WR.Damage.ToString(), AltUI.LabelBlue);
                     GUILayout.EndHorizontal();
 
-                    GUILayout.EndVertical();
+                    if (WR is Projectile proj)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Lifespan", AltUI.LabelWhite);
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label((string)DisplaySec((float)ManExtProj.deathTimerProj.GetValue(proj)), AltUI.LabelBlue);
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Is Sticky", AltUI.LabelWhite);
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label(((bool)ManExtProj.stickyProj.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
+                        GUILayout.EndHorizontal();
+
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Is Affected By Gravity", AltUI.LabelWhite);
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label(((bool)ManExtProj.gravityAffectProj.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
+                        GUILayout.EndHorizontal();
+
+                        Explosion Explo = ((Transform)ManExtProj.explodeProj.GetValue(proj))?.GetComponent<Explosion>();
+                        DisplayInfoOnExplosion(Explo, openEntries, depth + 1);
+                    }
                 }
-                return true;
             }
-            return EnumDisplayer<TechAudio.SFXType>(toExplore, ActuallyDisplay);
+            GUILayout.EndVertical();
+            GUILayout.BeginHorizontal();
         }
+        private static void DisplayInfoOnExplosion(Explosion explo, HashSet<string> openEntries, int depth)
+        {
+            GUILayout.EndHorizontal();
+            GUILayout.BeginVertical(AltUI.BoxBlack);
+            if (explo == null)
+            {
+                GUILayout.Label("Explosion: None", AltUI.LabelGoldTitle);
+            }
+            else
+            {
+                string nameFiltered = "Explosion" + depth;
+                bool isOpen = openEntries.Contains(nameFiltered);
+                if (GUILayout.Button("Explosion", isOpen ? AltUI.LabelBlueTitle : AltUI.LabelGoldTitle,
+                    GUILayout.ExpandWidth(true)))
+                {
+                    ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
+                    if (isOpen)
+                        openEntries.Remove(nameFiltered);
+                    else
+                        openEntries.Add(nameFiltered);
+                }
+                if (isOpen)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Does Damage", AltUI.LabelWhite);
+                    GUILayout.Space(6);
+                    GUILayout.Label(explo.DoDamage ? trueString : falseString, AltUI.LabelBlue);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    AdvancedBatchDisplayer(ExplosionHelper.explodeType.GetValue(explo), openEntries, depth + 1);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Explosion Max Damage", AltUI.LabelWhite);
+                    GUILayout.Space(6);
+                    GUILayout.Label(explo.m_MaxDamageStrength.ToString(), AltUI.LabelBlue);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Explosion Max Force", AltUI.LabelWhite);
+                    GUILayout.Space(6);
+                    GUILayout.Label(explo.m_MaxImpulseStrength.ToString(), AltUI.LabelBlue);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Explosion Max Radius", AltUI.LabelWhite);
+                    GUILayout.Space(6);
+                    GUILayout.Label((string)DisplayDist(explo.m_EffectRadius), AltUI.LabelBlue);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Explosion Max Damage Radius", AltUI.LabelWhite);
+                    GUILayout.Space(6);
+                    GUILayout.Label((string)DisplayDist(explo.m_EffectRadiusMaxStrength), AltUI.LabelBlue);
+                    GUILayout.EndHorizontal();
+                }
+            }
+            GUILayout.EndVertical();
+            GUILayout.BeginHorizontal();
+        }
+
         internal static bool EnumDisplayer<T>(object toExplore, bool ActuallyDisplay) where T : Enum
         {
             if (ActuallyDisplay)
@@ -333,7 +280,8 @@ namespace TerraTechETCUtil
 
 
         private static HashSet<object> checkedAlready = new HashSet<object>();
-        internal void Explorer<T>(Type type, T toExplore, HashSet<object> checkedAlready, ref Dictionary<string, object> infos)
+        internal void Explorer<T>(Type type, T toExplore, HashSet<object> checkedAlready, 
+            ref Dictionary<string, object> infos, bool baseLayer)
         {
             try
             {
@@ -341,7 +289,8 @@ namespace TerraTechETCUtil
             }
             finally
             {
-                checkedAlready.Clear();
+                if (baseLayer)
+                    checkedAlready.Clear();
             }
         }
 
@@ -367,14 +316,15 @@ namespace TerraTechETCUtil
                     {
                         continue;
                     }
-                    else if (SpecialNamesFuncs.TryGetValue(item.Name, out var guiFunc))
+
+                    itemGet = item.GetValue(toExplore);
+                    if (SpecialNamesFuncs.TryGetValue(item.Name, out var guiFunc))
                     {
-                        infos.Add(guiFunc.Key, guiFunc.Value(item.GetValue(toExplore)));
+                        infos.Add(guiFunc.Key, guiFunc.Value(itemGet));
                     }
                     else if (item.FieldType == typeof(int) || item.FieldType == typeof(float) ||
                         item.FieldType == typeof(bool) || item.FieldType == typeof(string))
                     {
-                        itemGet = item.GetValue(toExplore);
                         if (SpecialNames.TryGetValue(item.Name, out string altName))
                             infos.Add(altName, itemGet);
                         else
@@ -384,7 +334,6 @@ namespace TerraTechETCUtil
                     {
                         try
                         {
-                            itemGet = item.GetValue(toExplore);
                             if (SpecialNames.TryGetValue(item.Name, out string altName))
                                 infos.Add(altName, itemGet);
                             else
@@ -395,21 +344,40 @@ namespace TerraTechETCUtil
                             Debug_TTExt.Log("Failed to cast " + item.FieldType + " as an enum - " + e);
                         }
                     }
-                    else if (ModuleInfo.AllowedTypesUIWiki.Contains(item.FieldType))
+                    else if (AdvancedBatchDisplayer(itemGet, null, 0))
                     {
-                        itemGet = item.GetValue(toExplore);
-                        if (checkedAlready.Contains(itemGet))
-                            continue;
-                        checkedAlready.Add(itemGet);
-                        Explorer_InternalRecurse(item.FieldType, itemGet, checkedAlready, ref infos);
-                    }
-                    else if (AdvancedBatchDisplayer(item.FieldType, false))
-                    {
-                        itemGet = item.GetValue(toExplore);
                         if (SpecialNames.TryGetValue(item.Name, out string altName))
                             infos.Add(altName, itemGet);
                         else
                             infos.Add(item.Name.Replace("m_", "").SplitCamelCase(), itemGet);
+                    }
+                    else if (ModuleInfo.AllowedTypesUIWiki.Contains(item.FieldType))
+                    {
+                        if (checkedAlready.Contains(itemGet))
+                            continue;
+                        checkedAlready.Add(itemGet);
+
+                        string nameToUse;
+                        if (SpecialNames.TryGetValue(item.Name, out string altName))
+                            nameToUse = altName;
+                        else
+                            nameToUse = item.Name.Replace("m_", "").SplitCamelCase();
+
+                        if (itemGet == null)
+                            infos.Add(nameToUse, AltUI.EnemyString("<b>NULL</b>"));
+                        else if (item.FieldType.IsClass)
+                        {
+                            string nameToUse2;
+                            if (SpecialNames.TryGetValue(itemGet.GetType().ToString(), out string altName2))
+                                nameToUse2 = altName;
+                            else
+                                nameToUse2 = itemGet.GetType().ToString().Replace("m_", "").SplitCamelCase();
+                            infos.Add(nameToUse, new AutoDataExtractor(nameToUse2,
+                                itemGet.GetType(), itemGet, checkedAlready, false));
+                        }
+                        else
+                            infos.Add(nameToUse, "Unknown type - not class?");
+                        //Explorer_InternalRecurse(item.FieldType, itemGet, checkedAlready, ref infos);
                     }
                 }
                 catch (Exception e)
@@ -418,8 +386,8 @@ namespace TerraTechETCUtil
                         throw new Exception("Explorer_InternalRecurse<" + typeof(T).Name + ">() Failed on subject <NULL>, type <NULL>", e);
                     throw new Exception("Explorer_InternalRecurse<" + typeof(T).Name + ">() Failed on subject " + item.Name + ", type " + item.FieldType.ToString(), e);
                 }
+                Explorer_InternalRecursePost(type, FIs);
             }
-            Explorer_InternalRecursePost(type, FIs);
         }
 
         /// <summary> Standardized unit to display in the wiki for respective method calls here </summary>
@@ -439,6 +407,9 @@ namespace TerraTechETCUtil
         /// <summary> Standardized unit to display in the wiki for respective method calls here </summary>
         public const string degSecUnit = " Degrees/sec";
 
+        private static readonly string trueString = AltUI.FriendlyString("True");
+        private static readonly string falseString = AltUI.EnemyString("False");
+
         internal readonly string name;
         internal bool open = false;
         internal bool recipesOpen = false;
@@ -452,31 +423,34 @@ namespace TerraTechETCUtil
         /// <param name="grabbedType">The type this is targeting</param>
         /// <param name="prefab">The actual prefab to gather context from</param>
         /// <param name="grabbedAlready">For recursive calls, what has already been extracted to prevent duplicates</param>
-        public AutoDataExtractor(string Name, Type grabbedType, object prefab, HashSet<object> grabbedAlready)
+        /// <param name="baseLayer">Do not touch this value, for telling it when to stop</param>
+        public AutoDataExtractor(string Name, Type grabbedType, object prefab, HashSet<object> grabbedAlready,
+            bool baseLayer = true)
         {
             name = Name;
-            Explorer(grabbedType, prefab, grabbedAlready, ref infos);
+            Explorer(grabbedType, prefab, grabbedAlready, ref infos, baseLayer);
         }
 
         /// <summary>
         /// The copy buffer for AutoDataExtractor
         /// </summary>
         public static StringBuilder clipboard = new StringBuilder();
-        internal void DisplayGUI(HashSet<string> openEntries = null)
+        internal void DisplayGUI(HashSet<string> openEntries = null, int depth = 0)
         {
             if (openEntries == null)
                 openEntries = ManIngameWiki.ModulesOpened;
             GUILayout.BeginVertical(AltUI.BoxBlack);
-            string nameFiltered = name.NullOrEmpty() ? "NULL NAME" : name;
-            bool isOpen = openEntries.Contains(nameFiltered);
+            string nameFiltered = (name.NullOrEmpty() ? "NULL NAME" : name);
+            string nameFilteredID = nameFiltered + depth;
+            bool isOpen = openEntries.Contains(nameFilteredID);
             if (GUILayout.Button(nameFiltered, isOpen ? AltUI.LabelBlueTitle : AltUI.LabelWhiteTitleBlueHover, 
                 GUILayout.ExpandWidth(true)))
             {
                 ManSFX.inst.PlayUISFX(ManSFX.UISfxType.CheckBox);
                 if (isOpen)
-                    openEntries.Remove(nameFiltered);
+                    openEntries.Remove(nameFilteredID);
                 else
-                    openEntries.Add(nameFiltered);
+                    openEntries.Add(nameFilteredID);
             }
             if (isOpen)
             {
@@ -496,15 +470,17 @@ namespace TerraTechETCUtil
                             GUILayout.FlexibleSpace();
                             if (val is Sprite spriteCase)
                                 AltUI.Sprite(spriteCase, AltUI.TextfieldBorderedBlue, GUILayout.Height(64), GUILayout.Width(64));
-                            else if (AdvancedBatchDisplayer(val, true))
+                            else if (AdvancedBatchDisplayer(val, openEntries, depth + 1))
                             {
                             }
+                            else if (val is AutoDataExtractor dispCase)
+                                dispCase.DisplayGUI(openEntries, depth + 1);
                             else if (val is int intCase)
                                 GUILayout.Label(intCase.ToString(), AltUI.LabelBlue);
                             else if (val is float floatCase)
                                 GUILayout.Label(floatCase.ToString("F2"), AltUI.LabelBlue);
                             else if (val is bool bCase)
-                                GUILayout.Label(bCase.ToString(), AltUI.LabelBlue);
+                                GUILayout.Label(bCase ? trueString : falseString, AltUI.LabelBlue);
                             else if (val is string sCase)
                                 GUILayout.Label(sCase, AltUI.LabelWhite);
                             else if (val is List<string> sLCase)
@@ -696,7 +672,17 @@ namespace TerraTechETCUtil
 
                     { "m_ForceHorizontal", "Aligns with Gravity"},
                 };
+
+
         private static StringBuilder SB = new StringBuilder();
+        /// <summary> Standardized unit method to display in the wiki </summary>
+        public static object DisplayBool(object valIn)
+        {
+            if ((bool)valIn)
+                return trueString;
+            else
+                return falseString;
+        }
         /// <summary> Standardized unit method to display in the wiki </summary>
         public static object DisplayDist(object valIn)
         {
@@ -855,6 +841,43 @@ namespace TerraTechETCUtil
                 return AltUI.BlueStringHUD(count.ToString("0.00") + secUnit + " per " + unit);
             }
         }
+
+        /// <summary> Standardized unit method to display in the wiki </summary>
+        public static object DisplayProjectileDetails(object cooldownSec, string unit)
+        {
+            float count = (float)cooldownSec;
+            if (count < 1f)
+            {
+                if (unit.NullOrEmpty())
+                    return AltUI.BlueStringHUD((1f / count).ToString("0.00") + " per " + secUnit);
+                return AltUI.BlueStringHUD((1f / count).ToString("0.00") + " " + unit + "/" + secUnit.Substring(1));
+            }
+            else
+            {
+                if (unit.NullOrEmpty())
+                    return AltUI.BlueStringHUD("Every " + count.ToString("0.00") + secUnit);
+                return AltUI.BlueStringHUD(count.ToString("0.00") + secUnit + " per " + unit);
+            }
+        }
+
+        /*
+        /// <summary> Standardized unit method to display in the wiki </summary>
+        public static object DisplayExplosionDetails(object cooldownSec)
+        {
+            float count = (float)cooldownSec;
+            if (count < 1f)
+            {
+                if (unit.NullOrEmpty())
+                    return AltUI.BlueStringHUD((1f / count).ToString("0.00") + " per " + secUnit);
+                return AltUI.BlueStringHUD((1f / count).ToString("0.00") + " " + unit + "/" + secUnit.Substring(1));
+            }
+            else
+            {
+                if (unit.NullOrEmpty())
+                    return AltUI.BlueStringHUD("Every " + count.ToString("0.00") + secUnit);
+                return AltUI.BlueStringHUD(count.ToString("0.00") + secUnit + " per " + unit);
+            }
+        }//*/
 
         private static object CountItems(object valIn)
         {
@@ -1100,6 +1123,8 @@ namespace TerraTechETCUtil
 
                     { "m_DurationMultiplier", new KeyValuePair<string, Func<object, object>>("Effective Speed", DisplayPercentInv)},
                     { "m_EnergyMultiplier", new KeyValuePair<string, Func<object, object>>("Power Efficency", DisplayPercentInv)},
+
+                    //{ "deathExplosion", new KeyValuePair<string, Func<object, object>>("Explosion On Death", DisplayExplosionDetails)},
                 };
         internal static HashSet<Type> ignoreModuleTypes = new HashSet<Type>() {
                     typeof(ModuleBlockAttributes),

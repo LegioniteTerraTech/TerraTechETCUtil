@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using FMODUnity;
+using HarmonyLib;
 
 namespace TerraTechETCUtil
 {
@@ -306,7 +307,33 @@ namespace TerraTechETCUtil
                         }
                     }
                 }
-                GUILayout.Box("--- SFX --- ");
+                GUIManSFX();
+            }
+            private static Collider FirstPlayerCollider => Singleton.playerTank.trans.GetComponentInChildren<Collider>(true);
+            private static Collision CreateFraudCollision(float sped)
+            {
+                Collision faker = new Collision();
+                var collodo = FirstPlayerCollider;
+                AccessTools.Field(typeof(Collision), "m_Collider").SetValue(faker, collodo);
+                AccessTools.Field(typeof(Collision), "m_Impulse").SetValue(faker,
+                    new Vector3(0, 0, sped));
+                AccessTools.Field(typeof(Collision), "m_RelativeVelocity").SetValue(faker,
+                    new Vector3(0, 0, sped));
+                AccessTools.Field(typeof(Collision), "m_Rigidbody").SetValue(faker,
+                    Singleton.playerTank.rbody);
+                AccessTools.Field(typeof(Collision), "m_ContactCount").SetValue(faker, 1);
+
+                ContactPoint CoP = new ContactPoint();
+                AccessTools.Field(typeof(ContactPoint), "m_ThisColliderInstanceID").SetValue(CoP, collodo.GetInstanceID());
+                AccessTools.Field(typeof(ContactPoint), "m_OtherColliderInstanceID").SetValue(CoP, collodo.GetInstanceID());
+
+                AccessTools.Field(typeof(Collision), "m_LegacyContacts").SetValue(faker,
+                    new ContactPoint[] { CoP });
+                return faker;
+            }
+            public static void GUIManSFX()
+            {
+                GUILayout.Box("--- Vanilla SFX ---", AltUI.BoxBlackTextBlueTitle);
                 if (GUILayout.Button(" Enabled Loading: " + controlledDisp))
                     controlledDisp = !controlledDisp;
                 if (controlledDisp)
@@ -314,6 +341,34 @@ namespace TerraTechETCUtil
                     try
                     {
                         if (Singleton.playerTank)
+                        {
+                            GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Single", x => {
+                                FetchSound = true;
+                                TankPlayOneshot(
+                                Singleton.playerTank, x);
+                            }, x =>
+                            {
+                                return loopingTech == null || !loopingTech.Contains(x);
+                            });
+                            GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Looped", x =>
+                            {
+                                FetchSound = true;
+                                switch (x)
+                                {
+                                    case TechAudio.SFXType.EXP_Circuits_Actuator_Ramp_Loop:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
+                                            new FMODEvent.FMODParams("Ramp", textFieldF2 > 0 ? 1 : 0));
+                                        break;
+                                    case TechAudio.SFXType.EXP_Circuits_Actuator_Gate_Loop:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1,
+                                            new FMODEvent.FMODParams("Extension", textFieldF2 > 0 ? 1 : 0));
+                                        break;
+                                    default:
+                                        TankPlayLooping(Singleton.playerTank, x, textFieldF, 1);
+                                        break;
+                                }
+                            });
+                        }
                         {
                             GUILayout.BeginHorizontal();
                             GUILayout.Label("Direct Sound Path");
@@ -376,14 +431,14 @@ namespace TerraTechETCUtil
                                     textField2 = textFieldF2.ToString();
                             }
                             GUILayout.EndHorizontal();
+
                             GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Single", x => {
                                 FetchSound = true;
-                                TankPlayOneshot(
-                                Singleton.playerTank, x);
+                                TankPlayOneshot(Singleton.playerTank, x);
                             }, x =>
-                                {
-                                    return loopingTech == null || !loopingTech.Contains(x);
-                                });
+                            {
+                                return loopingTech == null || !loopingTech.Contains(x);
+                            });
                             GUICategoryDisp<TechAudio.SFXType>(ref enabledTabs, "Tech Looped", x =>
                             {
                                 FetchSound = true;
@@ -402,6 +457,153 @@ namespace TerraTechETCUtil
                                         break;
                                 }
                             });
+
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Collision");
+                            if (GUILayout.Button("Boop"))
+                            {
+                                FetchSound = true;
+                                var col = new Tank.CollisionInfo();
+                                col.Init(CreateFraudCollision(0.1f));
+                                col.DealImpactDamage = false;
+                                ManSFX.inst.PlayTechImpactSFX(Singleton.playerTank, col);
+                            }
+                            if (GUILayout.Button("Light"))
+                            {
+                                FetchSound = true;
+                                var col = new Tank.CollisionInfo();
+                                col.Init(CreateFraudCollision(5f));
+                                col.DealImpactDamage = false;
+                                ManSFX.inst.PlayTechImpactSFX(Singleton.playerTank, col);
+                            }
+                            if (GUILayout.Button("Med"))
+                            {
+                                FetchSound = true;
+                                var col = new Tank.CollisionInfo();
+                                col.Init(CreateFraudCollision(12f));
+                                col.DealImpactDamage = false;
+                                ManSFX.inst.PlayTechImpactSFX(Singleton.playerTank, col);
+                            }
+                            if (GUILayout.Button("Fast"))
+                            {
+                                FetchSound = true;
+                                var col = new Tank.CollisionInfo();
+                                col.Init(CreateFraudCollision(50f));
+                                col.DealImpactDamage = false;
+                                ManSFX.inst.PlayTechImpactSFX(Singleton.playerTank, col);
+                            }
+                            if (GUILayout.Button("Ex"))
+                            {
+                                FetchSound = true;
+                                var col = new Tank.CollisionInfo();
+                                col.Init(CreateFraudCollision(125f));
+                                col.DealImpactDamage = false;
+                                ManSFX.inst.PlayTechImpactSFX(Singleton.playerTank, col);
+                            }
+                            GUILayout.EndHorizontal();
+
+                            GUICategoryDisp<ManSFX.WeaponImpactSfxType>(ref enabledTabs, "Weapon Impact", x =>
+                            {
+                                FetchSound = true;
+                                ManSFX.inst.PlayImpactSFX(Singleton.playerTank, x,
+                                    Singleton.playerTank.trans.GetComponentInChildren<Damageable>(true),
+                                    Singleton.playerPos, FirstPlayerCollider);
+                            });
+                            GUICategoryDisp<ManSFX.TransformOneshotSFXTypes>(ref enabledTabs, "Transform Anim", x =>
+                            {
+                                FetchSound = true;
+                                ManSFX.inst.PlayTransformOneshotSFX(x, Singleton.cameraTrans);
+                            });
+                            GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Scenery Damage", x =>
+                            {
+                                FetchSound = true;
+                                ManSFX.inst.PlaySceneryDebrisSFX(SpawnHelper.GetSceneryByType(x).Values.First().First().
+                                    GetComponent<ResourceDispenser>(), 1);
+                            });
+                            GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Scenery Death", x =>
+                            {
+                                FetchSound = true;
+                                ManSFX.inst.PlaySceneryDestroyedSFX(SpawnHelper.GetSceneryByType(x).Values.First().First().
+                                    GetComponent<ResourceDispenser>());
+                            });
+                            GUICategoryDisp<ManSFX.ExplosionSize>(ref enabledTabs, "Block hit", x =>
+                            {
+                                FetchSound = true;
+                                
+                                var fraubBlock = Singleton.playerTank.CentralBlock;
+                                var grabber = AccessTools.Field(typeof(TankBlock), "m_CurrentMass");
+                                float curMass = (float)grabber.GetValue(fraubBlock);
+                                switch (x)
+                                {
+                                    case ManSFX.ExplosionSize.Small:
+                                        grabber.SetValue(fraubBlock, 0.5f);
+                                        break;
+                                    case ManSFX.ExplosionSize.Medium:
+                                        grabber.SetValue(fraubBlock, 1f);
+                                        break;
+                                    case ManSFX.ExplosionSize.Large:
+                                    default:
+                                        grabber.SetValue(fraubBlock, 8f);
+                                        break;
+                                }
+                                ManSFX.inst.PlayBlockImpactSFX(fraubBlock, CreateFraudCollision(50));
+                                grabber.SetValue(fraubBlock, curMass);
+                            });
+                            GUICategoryDisp<ManSFX.ExplosionSize>(ref enabledTabs, "Chunk hit", x =>
+                            {
+                                FetchSound = true;
+
+                                float sped = 0;
+                                switch (x)
+                                {
+                                    case ManSFX.ExplosionSize.Small:
+                                        sped = 0.5f;
+                                        break;
+                                    case ManSFX.ExplosionSize.Medium:
+                                        sped = 5f;
+                                        break;
+                                    case ManSFX.ExplosionSize.Large:
+                                    default:
+                                        sped = 50f;
+                                        break;
+                                }
+                                ManSFX.inst.PlayChunkImpactSFX(ResourceManager.inst.resourceTable.
+                                    resources[0].basePrefab.GetComponent<ResourcePickup>(), sped);
+                            });
+                        }
+                        if (GUILayout.Button("Explosions"))
+                        {
+                            if (enabledTabs.Contains("Explosions"))
+                                enabledTabs.Remove("Explosions");
+                            else
+                                enabledTabs.Add("Explosions");
+                        }
+                        if (enabledTabs.Contains("Explosions"))
+                        {
+                            foreach (ManSFX.ExplosionSize size in Enum.GetValues(typeof(ManSFX.ExplosionSize)))
+                            {
+                                if (GUILayout.Button(" Type: " + size.ToString()))
+                                {
+                                    if (enabledTabs.Contains("Explosions" + size.ToString()))
+                                        enabledTabs.Remove("Explosions" + size.ToString());
+                                    else
+                                        enabledTabs.Add("Explosions" + size.ToString());
+                                }
+                                if (enabledTabs.Contains("Explosions" + size.ToString()))
+                                {
+                                    foreach (ManSFX.ExplosionType eType in Enum.GetValues(typeof(ManSFX.ExplosionType)))
+                                    {
+                                        foreach (FactionSubTypes fType in Enum.GetValues(typeof(FactionSubTypes)))
+                                        {
+                                            if (GUILayout.Button(fType + " | " + eType.ToString()))
+                                            {
+                                                FetchSound = true;
+                                                ManSFX.inst.PlayExplosionSFX(Singleton.playerPos, eType, size, fType);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                         GUICategoryDisp<ManSFX.UISfxType>(ref enabledTabs, "UI", x =>
                         {

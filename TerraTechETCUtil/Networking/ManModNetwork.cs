@@ -2,6 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
+
+
 
 #if !EDITOR
 using HarmonyLib;
@@ -10,11 +14,13 @@ using Newtonsoft.Json;
 #endif
 using UnityEngine;
 using UnityEngine.Networking;
+using static CompoundExpression;
 
 namespace TerraTechETCUtil
 {
     /// <summary>
     /// Handles mod network hooks
+    /// <para><b>INSURE YOU CALL <see cref="LegModExt.InsurePatches()"/> BEFORE USING</b></para>
     /// </summary>
     public class ManModNetwork
     {
@@ -26,8 +32,10 @@ namespace TerraTechETCUtil
         /// Our host exists
         /// </summary>
         public static bool HostExists = false;
+        public static bool subbed = false;
 
-        const int NetworkHooksStart = 6590;
+        const int NetworkHooksMaster = 6590;
+        const int NetworkHooksStart = 6591;
         /// <summary>
         /// The next network hook id
         /// </summary>
@@ -36,6 +44,100 @@ namespace TerraTechETCUtil
         /// All assigned <see cref="NetworkHook"/>s
         /// </summary>
         public static Dictionary<int, NetworkHook> hooks = new Dictionary<int, NetworkHook>();
+
+        internal static void OnStartClient(NetPlayer __instance)
+        {
+            ManNetwork.inst.SubscribeToClientMessage(__instance.netId, (TTMsgType)NetworkHooksMaster, 
+                new ManNetwork.MessageHandler(OnClientRecHookSetter));
+            Debug_TTExt.Log("Client Subscribed main to network under ID " + NetworkHooksMaster);
+            int counter = 0;
+            foreach (var item in hooks)
+            {
+                if (item.Value.ClientRecieves())
+                {
+                    ManNetwork.inst.SubscribeToClientMessage(__instance.netId, (TTMsgType)item.Key,
+                        item.Value.OnToClientReceive_Internal);
+                    Debug_TTExt.Log("Client Subscribed " + item.Value.ToString() + " to network under ID " + item.Key);
+                    counter++;
+                }
+            }
+            Debug_TTExt.Log("Client subscribed " + counter + " hooks.");
+        }
+        private static void OnClientRecHookSetter(NetworkMessage netM)
+        {
+            try
+            {
+                NetSyncMessage NSM = new NetSyncMessage();
+                NSM.Deserialize(netM.reader);
+                var hook = hooks.FirstOrDefault(x => x.Value.StringID == NSM.stringID);
+                if (hook.Value != null)
+                {
+                    if (hook.Key != NSM.hookID)
+                    {
+                        Debug_TTExt.Log("Client changed net hook \"" + NSM.stringID + "\" to match server [" +
+                            hook.Key + " => " + NSM.hookID + "].");
+                        hooks.Remove(hook.Key);
+                        for (int i = 0; i < ManNetwork.inst.GetNumPlayers(); i++)
+                        {
+                            var play = ManNetwork.inst.GetPlayer(i);
+                            if (play != null)
+                            {
+                                ManNetwork.inst.UnsubscribeFromClientMessage(play.netId, (TTMsgType)hook.Key,
+                                    hook.Value.OnToClientReceive_Internal);
+                                ManNetwork.inst.SubscribeToClientMessage(play.netId, (TTMsgType)NSM.hookID,
+                                    hook.Value.OnToClientReceive_Internal);
+                            }
+                        }
+                        hooks.Add(NSM.hookID, hook.Value);
+                        hook.Value.AssignedID = NSM.hookID;
+                    }
+                    else
+                        Debug_TTExt.Info("Client net hook \"" + NSM.stringID + "\" is synced.");
+                }
+                else
+                    Debug_TTExt.FatalError("Client failed to find matching network hook of name \"" + NSM.stringID + "\"!!!");
+            }
+            catch (Exception e)
+            {
+                Debug_TTExt.FatalError("Client failed to recieve nethook update!!! - " + e);
+            }
+        }
+        private static void OnPlayerAddedSentHooksSanityCheck(NetPlayer __instance)
+        {
+            if (ManNetwork.IsHostOrWillBe)
+            {
+                foreach (var item in hooks)
+                    ManNetwork.inst.SendToAllExceptHost((TTMsgType)NetworkHooksMaster,
+                        new NetSyncMessage(item.Value.StringID, item.Key));
+            }
+        }
+        internal static void OnStartServer(NetPlayer __instance)
+        {
+            if (!HostExists)
+            {
+                Debug_TTExt.Log("Host started, hooked ManModNetwork update broadcasting to " + __instance.netId.ToString());
+                Host = __instance.netId;
+                HostExists = true;
+                if (!subbed)
+                {
+                    subbed = true;
+                    ManNetwork.inst.OnPlayerAdded.Subscribe(OnPlayerAddedSentHooksSanityCheck);
+                }
+
+                int counter = 0;
+                foreach (var item in hooks)
+                {
+                    if (item.Value.ServerRecieves())
+                    {
+                        ManNetwork.inst.SubscribeToServerMessage(__instance.netId, (TTMsgType)item.Key, 
+                            new ManNetwork.MessageHandler(item.Value.OnToServerReceive_Internal));
+                        Debug_TTExt.Log("Server Subscribed " + item.Value.ToString() + " to network under ID " + item.Key);
+                        counter++;
+                    }
+                }
+                Debug_TTExt.Log("Server subscribed " + counter + " hooks.");
+            }
+        }
 
         internal static int GetAssignVal(string ID)
         {
@@ -120,19 +222,19 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Sanity check for servers to see if their clients' hooks match
         /// </summary>
-        public class PlayerRequestServerCallbackBase : MessageBase
+        public class NetSyncMessage : MessageBase
         {
             /// <summary> </summary>
-            public PlayerRequestServerCallbackBase() { }
+            public NetSyncMessage() { }
             /// <summary> </summary>
-            public PlayerRequestServerCallbackBase(int senderID, int hookID)
+            public NetSyncMessage(string stringID, int hookID)
             {
-                this.senderID = senderID;
+                this.stringID = stringID;
                 this.hookID = hookID;
             }
 
             /// <summary> </summary>
-            public int senderID;
+            public string stringID;
             /// <summary> </summary>
             public int hookID;
         }
@@ -151,7 +253,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// The assigned ID that <see cref="ManModNetwork"/> gives when the <see cref="NetworkHook"/> is created
         /// </summary>
-        public readonly int AssignedID;
+        public int AssignedID { get; internal set; }
         /// <summary>
         /// The way this is handled when <see cref="TryBroadcast(MessageBase)"/> or any of it's 
         /// like-named counterparts is called
