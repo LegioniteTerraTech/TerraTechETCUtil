@@ -59,7 +59,7 @@ namespace TerraTechETCUtil
         }
 
         /// <inheritdoc />
-        public override bool HasInst() => _inst != BlockTypes.GSOAIController_111;
+        public override bool HasInst() => _inst != RawTechUtil.DefaultBT;
         /// <inheritdoc />
         protected override void OnBeforeDataRequested(bool getFullData)
         {

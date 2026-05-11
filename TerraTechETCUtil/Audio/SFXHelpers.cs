@@ -517,14 +517,14 @@ namespace TerraTechETCUtil
                             GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Scenery Damage", x =>
                             {
                                 FetchSound = true;
-                                ManSFX.inst.PlaySceneryDebrisSFX(SpawnHelper.GetSceneryByType(x).Values.First().First().
-                                    GetComponent<ResourceDispenser>(), 1);
+                                ManSFX.inst.PlaySceneryDebrisSFX(SpawnHelper.IterateSceneryByType(x).
+                                    FirstOrDefault()?.GetComponent<ResourceDispenser>(), 1);
                             });
                             GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Scenery Death", x =>
                             {
                                 FetchSound = true;
-                                ManSFX.inst.PlaySceneryDestroyedSFX(SpawnHelper.GetSceneryByType(x).Values.First().First().
-                                    GetComponent<ResourceDispenser>());
+                                ManSFX.inst.PlaySceneryDestroyedSFX(SpawnHelper.IterateSceneryByType(x).
+                                    FirstOrDefault()?.GetComponent<ResourceDispenser>());
                             });
                             GUICategoryDisp<ManSFX.ExplosionSize>(ref enabledTabs, "Block hit", x =>
                             {

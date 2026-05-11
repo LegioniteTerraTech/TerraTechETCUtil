@@ -1445,9 +1445,9 @@ namespace TerraTechETCUtil
                         color.b, output.GetPixel(x, y).a));
                 }
             }
-            temp.Release();
             output.Apply();
             RenderTexture.active = act;
+            temp.Release();
         }
         /// <summary>
         /// Flood color-changes the given <see cref="Texture2D"/> to <see cref="ColorDefaultGrey"/> based on alpha.
@@ -1482,9 +1482,9 @@ namespace TerraTechETCUtil
                         ColorDefaultGrey.b, output.GetPixel(x, y).a * 0.25f));
                 }
             }
-            temp.Release();
             output.Apply();
             RenderTexture.active = act;
+            temp.Release();
         }
         private static void FlipX(Texture2D target, ref Texture2D output)
         {
@@ -1503,9 +1503,9 @@ namespace TerraTechETCUtil
                     output.SetPixel(x, y, output.GetPixel(output.width - x, y));
                 }
             }
-            temp.Release();
             output.Apply();
             RenderTexture.active = act;
+            temp.Release();
         }
 
         private static void GatherTextures()
@@ -2050,7 +2050,7 @@ namespace TerraTechETCUtil
         // SFX adders
         /// <summary>
         /// Create a UI window complete with SFX and vanilla-like styling.
-        /// <para>Automatically manages it by</para>
+        /// <para>Automatically does an <seealso cref="StartUISharp()"/> call within.</para>
         /// <para> Also keeps track of the cursor hovering over it so that other UI functions don't conflict with it</para>
         /// </summary>
         /// <param name="id">Unique window ID</param>
@@ -2071,10 +2071,12 @@ namespace TerraTechETCUtil
             if (ManModGUI.HideGUICompletelyWhenDragging && ManModGUI.UIFadeState)
                 return screenRect;
             alpha *= UIAlphaAuto;
+            float rescaleValue = ManModGUI.GUIRescale / ManModGUI.GUIScale;
             StartUISharp(alpha, alpha);
             try
             {
-                float rescaleValue = ManModGUI.GUIRescale / ManModGUI.GUIScale;
+                screenRect.x /= ManModGUI.GUIScale;
+                screenRect.y /= ManModGUI.GUIScale;
                 screenRect.width *= rescaleValue;
                 screenRect.height *= rescaleValue;
                 screenRect = GUILayout.Window(id, screenRect, x => {
@@ -2099,14 +2101,30 @@ namespace TerraTechETCUtil
                 }, string.Empty, options);
                 screenRect.width /= rescaleValue;
                 screenRect.height /= rescaleValue;
+                screenRect.x *= ManModGUI.GUIScale;
+                screenRect.y *= ManModGUI.GUIScale;
             }
             finally
             {
                 EndUI();
             }
-            if (blockCursorControl && UIHelpersExt.MouseIsOverGUIMenu(screenRect))
-                ManModGUI.IsMouseOverAnyModGUI = 4;
-            UIHelpersExt.ClampGUIToScreenNonStrictHeader(ref screenRect);
+            if (blockCursorControl)
+            {
+                Vector3 Mous = Input.mousePosition;
+                Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
+                float xMenuMin = screenRect.x;
+                float xMenuMax = screenRect.x + screenRect.width * ManModGUI.GUIRescale;
+                float yMenuMin = screenRect.y;
+                float yMenuMax = screenRect.y + screenRect.height * ManModGUI.GUIRescale;
+                //Debug_TTExt.Log(Mous + " | " + xMenuMin + " | " + xMenuMax + " | " + yMenuMin + " | " + yMenuMax);
+                if (Mous.x > xMenuMin && Mous.x < xMenuMax && Mous.y > yMenuMin && Mous.y < yMenuMax)
+                    ManModGUI.IsMouseOverAnyModGUI = 4;
+            }
+
+            float widthAdj = screenRect.width * ManModGUI.GUIRescale;
+            float heightAdj = HeaderBarHeight * rescaleValue;
+            screenRect.x = Mathf.Clamp(screenRect.x, 10 - widthAdj, ManModGUI.GameWindowScaledWidth - 10);
+            screenRect.y = Mathf.Clamp(screenRect.y, 10 - heightAdj, ManModGUI.GameWindowScaledHeight - 10);
 
             return screenRect;
         }

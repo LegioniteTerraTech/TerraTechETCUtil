@@ -17,6 +17,26 @@ namespace TerraTechETCUtil
         /// </summary>
         public const int FrameImpactingTechBlockCount = 256;
 #if !EDITOR
+        /// <summary>
+        /// <b><see cref="BlockTypes.GSOAIController_111"/></b>, the default null state for <see cref="BlockTypes"/>
+        /// </summary>
+        /// <returns><b><see cref="BlockTypes.GSOAIController_111"/></b>, the default null state for <see cref="BlockTypes"/></returns>
+        public const BlockTypes DefaultBT = BlockTypes.GSOAIController_111;
+        /// <summary>
+        /// Check if the <seealso cref="BlockTypes"/> is <inheritdoc cref="DefaultBT"/>
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public static bool IsDefault(this BlockTypes type) => type == DefaultBT;
+
+        public static string GetFactionShortName(FactionSubTypes FST)
+        {
+            if (ManMods.inst.IsModdedCorp(FST))
+                return ManMods.inst.FindCorpShortName(FST);
+            else
+                return Enum.GetName(typeof(FactionSubTypes), FST);
+        }
+
 
         /// <summary>
         /// get the CORRECT <see cref="OrthoRotation.r"/>
@@ -202,21 +222,21 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Get the first block in the given <see cref="List{RawBlockMem}"/>
         /// </summary>
-        /// <returns>The first block if found, otherwise fallback invalid <see cref="BlockTypes.GSOAIController_111"/></returns>
+        /// <returns>The first block if found, otherwise fallback invalid <inheritdoc cref="DefaultBT"/></returns>
         public static BlockTypes GetFirstBlock(this List<RawBlockMem> tank)
         {
             if (tank == null || !tank.Any())
-                return BlockTypes.GSOAIController_111;
+                return DefaultBT;
             return tank.First().typeSlow;
         }
         /// <summary>
         /// Get the first block in the given <see cref="List{RawBlock}"/>
         /// </summary>
-        /// <returns>The first block if found, otherwise fallback invalid <see cref="BlockTypes.GSOAIController_111"/></returns>
+        /// <returns>The first block if found, otherwise fallback invalid <inheritdoc cref="DefaultBT"/></returns>
         public static BlockTypes GetFirstBlock(this List<RawBlock> tank)
         {
             if (tank == null || !tank.Any())
-                return BlockTypes.GSOAIController_111;
+                return DefaultBT;
             return tank.First().typeSlow;
         }
 
@@ -232,14 +252,15 @@ namespace TerraTechETCUtil
         /// <param name="throwOnFail">Make this throw an <see cref="Exception"/> if it fails</param>
         /// <returns></returns>
         /// <exception cref="Exception">If <paramref name="throwOnFail"/> is true, this will throw an exception for you to catch later</exception>
-        public static bool ValidateBlocksInTech(this RawTechTemplate templateToCheck, 
+        public static Status ValidateBlocksInTech(this RawTechTemplate templateToCheck, 
             bool removeInvalid, bool throwOnFail)
         {
+            Status valid = Status.Invalid;
             try
             {
                 RawTechBase.JSONToMemoryExternal(nonAlloc, templateToCheck.savedTech);
 
-                bool valid = ValidateBlocksInTech_Internal(nonAlloc, templateToCheck, removeInvalid, throwOnFail);
+                valid = ValidateBlocksInTech_Internal(nonAlloc, templateToCheck, removeInvalid, throwOnFail);
 
                 // Rebuild in workable format
                 templateToCheck.savedTech = RawTechBase.MemoryToJSONExternal(nonAlloc);
@@ -249,7 +270,7 @@ namespace TerraTechETCUtil
             catch (Exception e)
             {
                 ThrowOnFail_Internal(templateToCheck, e, throwOnFail);
-                return false;
+                return valid;
             }
             finally
             {
@@ -283,19 +304,62 @@ namespace TerraTechETCUtil
                 }
             }
         }
-        internal static bool ValidateBlocksInTech_Internal(List<RawBlockMem> nonAlloc, RawTechBase templateToCheck, 
+
+
+
+
+        /// <summary> Status of the checked RawTech </summary>
+        [Flags]
+        public enum Status
+        {
+            /// <summary> unknown state, presumed not available </summary>
+            Invalid = 0,
+            /// <summary> Has modded blocks </summary>
+            HasModded = 32,
+            /// <summary> Has missing blocks </summary>
+            MissingBlocks = 64,
+            /// <summary> Good To Go </summary>
+            HasAnyBlocks = 128,
+            /// <summary> Good To Go </summary>
+            BypassedCheck = 256,
+        }
+        /// <summary> Check to see if the RawTech is has any modded blocks </summary>
+        public static bool HasModded(this Status inst) => (inst &= Status.HasModded) > 0;
+        /// <summary> Check to see if the RawTech is missing any blocks </summary>
+        public static bool MissingBlocks(this Status inst) => (inst &= Status.MissingBlocks) > 0;
+        /// <summary> Check to see if the RawTech is safe to load in our current session.
+        /// <para>DOES NOT MEAN THE TECH CAN LOAD IN ENTIRELY</para></summary>
+        public static bool CanLoadAnyBlocks(this Status inst) => inst >= Status.HasAnyBlocks;
+        /// <summary> Check to see if the <b>ENTIRE</b> RawTech is safe to load in our current session. </summary>
+        public static bool CanLoadEntirely(this Status inst) => inst.CanLoadAnyBlocks() && !inst.MissingBlocks();
+
+        /// <summary> Check to see if the RawTech bypassed the safety check. </summary>
+        public static bool BypassedCheck(this Status inst) => (inst &= Status.BypassedCheck) > 0;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="nonAlloc"></param>
+        /// <param name="templateToCheck"></param>
+        /// <param name="removeInvalid">Set this to true to remove invalid blocks, 
+        /// otherwise it will stop loading the tech as soon as an invalid block is encountered</param>
+        /// <param name="throwOnFail">Make this throw an <see cref="Exception"/> if it fails</param>
+        /// <exception cref="Exception">If <paramref name="throwOnFail"/> is true, this will throw an exception for you to catch later</exception>
+        /// <returns></returns>
+        internal static Status ValidateBlocksInTech_Internal(List<RawBlockMem> nonAlloc, RawTechBase templateToCheck, 
             bool removeInvalid, bool throwOnFail)
         {
+            BlockIndexer.SanityCheckThrowIfFail();
             ManMods MM = Singleton.Manager<ManMods>.inst;
             RecipeManager RM = Singleton.Manager<RecipeManager>.inst;
             ManSpawn MS = Singleton.Manager<ManSpawn>.inst;
-            bool valid = true;
             FactionLevel greatestFaction = FactionLevel.GSO;
             if (!nonAlloc.Any())
             {
                 Debug_TTExt.Log("RawTech: ValidateBlocksInTech - FAILED as no blocks were present!");
-                return false;
+                return Status.Invalid;
             }
+            Status valid = Status.Invalid;
             int basePrice = 0;
             for (int step = 0; step < nonAlloc.Count;)
             {
@@ -305,8 +369,10 @@ namespace TerraTechETCUtil
                     if (!BlockIndexer.StringToBlockType(bloc.t, out BlockTypes type))
                         throw new NullReferenceException("Block does not exists - \nBlockName: " +
                             (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
-                    if (!MM.IsModdedBlock(type) && !MS.IsTankBlockLoaded(type))
-                        throw new NullReferenceException("Block is not loaded - \nBlockName: " +
+                    if (MM.IsModdedBlock(type, true))
+                        valid |= Status.HasModded;
+                    if (!MS.IsTankBlockLoaded(type))
+                        throw new NullReferenceException("Vanilla block is not loaded - \nBlockName: " +
                             (bloc.t.NullOrEmpty() ? "<NULL>" : bloc.t));
 
                     FactionSubTypes FST = MS.GetCorporation(type);
@@ -340,13 +406,17 @@ namespace TerraTechETCUtil
                     basePrice += RM.GetBlockBuyPrice(type);
                     bloc.t = MS.GetBlockPrefab(type).name;
                     step++;
+                    valid |= Status.HasAnyBlocks;
                 }
                 catch (Exception e)
                 {
+                    valid |= Status.MissingBlocks;
                     if (removeInvalid)
                         nonAlloc.RemoveAt(step);
-                    else
+                    else if (throwOnFail)
                         throw e;
+                    else
+                        break;// ABORT LOADING
                 }
             }
             templateToCheck.baseCost = basePrice;
@@ -428,14 +498,14 @@ namespace TerraTechETCUtil
 #pragma warning disable CS0618 // Type or member is obsolete
         public static readonly RawBlockMem empty = new RawBlockMem()
         {
-            t = BlockTypes.GSOAIController_111.ToString(),
+            t = RawTechUtil.DefaultBT.ToString(),
             p = Vector3.zero,
             r = OrthoRotation.r.u000,
         };
 #pragma warning restore CS0618 // Type or member is obsolete
 
         /// <inheritdoc cref="tg"/>
-        public string t = BlockTypes.GSOAIController_111.ToString(); //blocktype
+        public string t = RawTechUtil.DefaultBT.ToString(); //blocktype
         /// <inheritdoc cref="pg"/>
         public Vector3 p = Vector3.zero;
         /// <inheritdoc cref="rg"/>
@@ -583,7 +653,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Get an empty variant of this quickly
         /// </summary>
-        public static RawBlock empty => new RawBlock(BlockTypes.GSOAIController_111,
+        public static RawBlock empty => new RawBlock(RawTechUtil.DefaultBT,
             Vector3.zero, OrthoRotation.r.u000);
 
         /// <inheritdoc cref="tg"/>

@@ -45,7 +45,7 @@ namespace TerraTechETCUtil
             {
                 TankPreset.BlockSpec spec = TD.m_BlockSpecs[i];
                 BlockTypes BT = BlockIndexer.StringToBlockType(spec.block);
-                if (BT != BlockTypes.GSOAIController_111)
+                if (BT != RawTechUtil.DefaultBT)
                 {
                     specs2.Add(new TankPreset.BlockSpec()
                     {
@@ -1019,6 +1019,28 @@ namespace TerraTechETCUtil
             Debug_TTExt.Log("-------------------------------------------");
         }
 
+        /// <summary>
+        /// Force <see cref="LookRot(Vector3, Vector3)"/> to complain when <c>forward</c> is zero in all axis.  ONLY ENABLE IF YOU NEED TO DEBUG
+        /// </summary>
+        public static bool ForceQuaternionComplaining = false;
+        /// <summary>
+        /// A quiet version of <see cref="Quaternion.LookRotation(Vector3, Vector3)"/> that doesn't spam the log if <paramref name="forward"/> is zero in all axi
+        /// </summary>
+        /// <param name="forward">The forwards direction this should rotate to look at</param>
+        /// <param name="up">the upwards bias it should have.  This only affects the roll <b>AFTER</b> forward looks at the target</param>
+        /// <returns>A <see cref="Quaternion"/> looking at the given target in scene space</returns>
+        public static Quaternion LookRot(Vector3 forward, Vector3 up)
+        {
+            if (forward.ApproxZero())
+            {
+                if (ForceQuaternionComplaining)
+                    Debug_TTExt.Assert("Quaternion: Utilities.LookRot() is zero. We shouldn't be getting a zero-vector in LookRot! Returning Quaternion.identity.");
+                return Quaternion.identity;
+            }
+            return Quaternion.LookRotation(forward, up);
+        }
+        /// <inheritdoc cref="LookRot(Vector3, Vector3)"/>
+        public static Quaternion LookRot(Vector3 forward) => Quaternion.LookRotation(forward, Vector3.up);
 
         /// <summary>
         /// Add to a ICollection within a IDictionary.

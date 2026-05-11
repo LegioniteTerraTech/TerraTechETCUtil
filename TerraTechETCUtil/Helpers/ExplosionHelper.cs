@@ -313,7 +313,7 @@ namespace TerraTechETCUtil
                             Projectile proj = FD.m_BulletPrefab.GetComponent<Projectile>();
                             if (proj)
                             {
-                                Transform transCase = (Transform)ManExtProj.explodeProj.GetValue(proj);
+                                Transform transCase = (Transform)ManExtProj.ExplosionInst.GetValue(proj);
                                 if (transCase)
                                 {
                                     Debug_TTExt.Info("Making proj explosion prefab for " + BT.ToString() +

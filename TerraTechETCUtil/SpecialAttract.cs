@@ -417,7 +417,7 @@ namespace TerraTechETCUtil
                 instCam.ManualZoom(FollowTech.blockBounds.size.magnitude * 1.5f);
                 //instCam.SetFollowSpringStrength(0.05f);
                 instCam.SetFollowTech(FollowTech);
-                Quaternion look = Quaternion.LookRotation(FollowTech.trans.forward);
+                Quaternion look = Utilities.LookRot(FollowTech.trans.forward);
                 CameraManager.inst.ResetCamera(FollowTech.trans.position + (look * new Vector3(-12, 5, 0)), look);
             }
         }

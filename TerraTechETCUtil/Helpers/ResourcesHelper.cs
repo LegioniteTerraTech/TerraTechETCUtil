@@ -13,7 +13,6 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 
 
-
 #if EDITOR
 using UnityEditor;
 using UnityEditorInternal;
@@ -25,153 +24,6 @@ using FMOD;
 namespace TerraTechETCUtil
 {
 #if !EDITOR
-    /// <summary>
-    /// Keeps track of mod data for easy comperisons and access
-    /// </summary>
-    public struct ModDataHandle
-    {
-        /// <summary>
-        /// The ModID of the ModDataHandle
-        /// </summary>
-        public readonly string ModID;
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            if (ModID == null)
-                return 0;
-            return ModID.GetHashCode();
-        }
-        /// <inheritdoc/>
-        public static bool operator ==(ModDataHandle script1, ModDataHandle script2)
-        {
-            return script1.ModID == script2.ModID;
-        }
-        /// <inheritdoc/>
-        public static bool operator !=(ModDataHandle script1, ModDataHandle script2)
-        {
-            return script1.ModID != script2.ModID;
-        }
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            return obj is ModDataHandle MDH && (MDH == this);
-        }
-        /// <summary>
-        /// Creates a ModDataHandle for the given mod
-        /// </summary>
-        /// <param name="modID">The actual ModID for the mod, usually not the display name of the mod</param>
-        /// <exception cref="NullReferenceException">The mod does not exist now</exception>
-        public ModDataHandle(string modID)
-        {
-            if (!ManMods.inst.ModExists(modID))
-                throw new NullReferenceException("ModResourceHandle - ModID " + modID + " does not exists");
-            ModID = modID;
-        }
-
-        /// <summary>
-        /// Get the ModContainer
-        /// </summary>
-        /// <returns>The mod</returns>
-        public ModContainer GetModContainer()
-        {
-            return ResourcesHelper.GetModContainerFromScript(this);
-        }
-
-        /// <summary>
-        /// Subscribe an event to BEFORE all mods load
-        /// </summary>
-        /// <param name="preEvent"></param>
-        public void SubToModsPreLoad(Action preEvent)
-        {
-            ResourcesHelper.ModsPreLoadEvent.Subscribe(preEvent);
-        }
-        /// <summary>
-        /// Subscribe an event to AFTER all mods are loaded
-        /// </summary>
-        /// <param name="postEvent"></param>
-        public void SubToModsPostLoad(Action postEvent)
-        {
-            ResourcesHelper.ModsPostLoadEvent.Subscribe(postEvent);
-        }
-        /// <summary>
-        /// Subscribe an event to AFTER all blocks are loaded
-        /// </summary>
-        /// <param name="postEvent"></param>
-        public void SubToBlocksPostChange(Action postEvent)
-        {
-            ResourcesHelper.BlocksPostChangeEvent.Subscribe(postEvent);
-        }
-
-        /// <summary>
-        /// Return the ModID
-        /// </summary>
-        public string GetModName()
-        {
-            return ModID;
-        }
-        /// <summary>
-        /// Log this mod's contents in the game's output_log.txt
-        /// </summary>
-        /// <inheritdoc cref="ResourcesHelper.LookIntoModContents(ModContainer)"/>
-        public void DebugLogModContents()
-        {
-            ResourcesHelper.LookIntoModContents(GetModContainer());
-        }
-        /// <summary>
-        /// Try get a resource from this mod's container
-        /// </summary>
-        /// <inheritdoc cref="ResourcesHelper.GetTextureFromModAssetBundle(ModContainer, string, bool, bool)"/>
-        public Texture2D GetModTexture(string nameNoExt)
-        {
-            return ResourcesHelper.GetTextureFromModAssetBundle(GetModContainer(), nameNoExt);
-        }
-        /// <summary>
-        /// Try get a resource from this mod's container
-        /// </summary>
-        /// <inheritdoc cref="ResourcesHelper.GetObjectFromModContainer(ModContainer, string)"/>
-        public T GetModObject<T>(string nameNoExt) where T : UnityEngine.Object
-        {
-            return ResourcesHelper.GetObjectFromModContainer<T>(GetModContainer(), nameNoExt);
-        }
-        /// <summary>
-        /// Try iterate resources in this mod's container
-        /// </summary>
-        /// <inheritdoc cref="ResourcesHelper.IterateAssetsInModContainer(ModContainer)"/>
-        public IEnumerable<T> GetModObjects<T>() where T : UnityEngine.Object
-        {
-            return ResourcesHelper.IterateAssetsInModContainer<T>(GetModContainer());
-        }
-        /// <summary>
-        /// Try iterate resources in this mod's container
-        /// </summary>
-        /// <param name="nameNoExt">The start of the <see cref="UnityEngine.Object.name"/> to look for</param>
-        /// <inheritdoc cref="ResourcesHelper.IterateAssetsInModContainer(ModContainer, string)"/>
-        public IEnumerable<T> GetModObjects<T>(string nameNoExt) where T : UnityEngine.Object
-        {
-            return ResourcesHelper.IterateAssetsInModContainer<T>(GetModContainer(), nameNoExt);
-        }
-    }
-    internal static class HelperHooks
-    {
-        internal class ManModsPatches
-        {
-            internal static Type target = typeof(ManMods);
-
-            internal static void RequestReloadAllMods_Prefix()
-            {
-                ResourcesHelper.ModsPreLoadEvent.Send();
-            }
-            internal static void RequestReparseAllJsons_Prefix()
-            {
-                ResourcesHelper.ModsPreLoadEvent.Send();
-            }
-            internal static void UpdateModScripts_Postfix()
-            {
-                //Debug_TTExt.Log("UpdateModScripts_Postfix");
-                ResourcesHelper.ModsUpdateEvent.Send();
-            }
-        }
-    }
 #endif
     /// <summary>
     /// Use this to get resources from both modded and the base game
@@ -185,76 +37,9 @@ namespace TerraTechETCUtil
         /// <summary>Add as a post or prefix to flag it as an additional asset item</summary>
         public const string BlockFolderJsonFlag = "%";
 #if !EDITOR
-        /// <summary>
-        /// Special event for <see cref="TerraTechETCUtil"/>, similar to <see cref="Event"/>
-        /// </summary>
-        public class RelayEvent
-        {
-            private EventNoParams eventHook = new EventNoParams();
-            /// <summary>
-            /// Send it to all recipients
-            /// </summary>
-            public void Send()
-            {
-                if (startupHook)
-                {
-                    startupHook = false;
-                    InitHooks();
-                }
-                eventHook.Send();
-            }
-            /// <summary>
-            /// Add a recipient
-            /// </summary>
-            public void Subscribe(Action act)
-            {
-                if (startupHook)
-                {
-                    startupHook = false;
-                    InitHooks();
-                }
-                eventHook.Subscribe(act);
-            }
-            /// <summary>
-            /// Remove a recipient
-            /// </summary>
-            public void Unsubscribe(Action act)
-            {
-                if (startupHook)
-                {
-                    startupHook = false;
-                    InitHooks();
-                }
-                eventHook.Unsubscribe(act);
-            }
-        }
 
         private static Dictionary<string, ModContainer> modsEmpty = new Dictionary<string, ModContainer>();
         private static Dictionary<string, ModContainer> modsDirect = null;
-        private static bool startupHook = true;
-        /// <summary>
-        /// Called before mods are loaded
-        /// </summary>
-        public static RelayEvent ModsPreLoadEvent = new RelayEvent();
-        /// <summary>
-        /// Called after blocks are loaded
-        /// </summary>
-        public static EventNoParams BlocksPostChangeEvent => ManMods.inst.BlocksModifiedEvent;
-        /// <summary>
-        /// Called after mods are loaded
-        /// </summary>
-        public static EventNoParams ModsPostLoadEvent => ManMods.inst.ModSessionLoadCompleteEvent;
-        /// <summary>
-        /// Called every time the <see cref="ModBase.Update"/> is called
-        /// </summary>
-        public static RelayEvent ModsUpdateEvent = new RelayEvent();
-
-        private static void InitHooks()
-        {
-            LegModExt.harmonyInstance.MassPatchAllWithin(typeof(HelperHooks), "TerraTechModExt", true);
-            Debug_TTExt.Log("Attached to mods updater");
-        }
-
         private static void OnModsChanged(Mode unused)
         {
             ManGameMode.inst.ModeCleanUpEvent.Unsubscribe(OnModsChanged);
@@ -1896,6 +1681,7 @@ namespace TerraTechETCUtil
         {
             Snapshotter.gameObject.SetActive(true);
             // Give the camera a render texture of fixed size
+            var temp = RenderTexture.active;
             RenderTexture rendTex = RenderTexture.GetTemporary(1024, 1024, 24, RenderTextureFormat.ARGB32);
             RenderTexture.active = rendTex;
 
@@ -1909,7 +1695,7 @@ namespace TerraTechETCUtil
             preview.Apply();
 
             // Clean up
-            RenderTexture.active = null;
+            RenderTexture.active = temp;
             RenderTexture.ReleaseTemporary(rendTex);
             Snapshotter.targetTexture = Singleton.camera.targetTexture;
 
@@ -1930,7 +1716,7 @@ namespace TerraTechETCUtil
             SyncLayers(permittedlayers);
 
             Snapshotter.transform.position = offsetCamPos + trans.position;
-            Snapshotter.transform.rotation = Quaternion.LookRotation(posOffsetTarget - Snapshotter.transform.position, Vector3.up);
+            Snapshotter.transform.rotation = Utilities.LookRot(posOffsetTarget - Snapshotter.transform.position, Vector3.up);
             //DebugExtUtilities.DrawDirIndicatorCircle(Snapshotter.transform.position, Snapshotter.transform.rotation * Vector3.forward, Snapshotter.transform.up, 1, Color.gray, 1);
             //DebugExtUtilities.DrawDirIndicator(Snapshotter.transform.position, Snapshotter.transform.position + (Snapshotter.transform.rotation * Vector3.forward * 2), Color.gray, 1);
 

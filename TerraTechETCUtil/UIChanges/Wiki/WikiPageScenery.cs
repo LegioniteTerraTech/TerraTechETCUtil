@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using UnityEngine;
 using static LocalisationEnums;
@@ -39,12 +38,11 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Get the prefab
         /// </summary>
-        public Dictionary<string, List<TerrainObject>> prefabBase => 
-            SpawnHelper.GetSceneryByType(ID);
+        public IEnumerable<TerrainObject> prefabBase => SpawnHelper.IterateSceneryByType(ID);
         /// <summary>
         /// Get the main prefab component
         /// </summary>
-        public TerrainObject prefabMain => prefabBase?.Values?.First()?.First();
+        public TerrainObject prefabMain => prefabBase?.FirstOrDefault();
         /// <summary>
         /// Get the resource spawner component
         /// </summary>
@@ -97,7 +95,7 @@ namespace TerraTechETCUtil
                                     {
                                         foreach (var item2 in group.NestedPages)
                                         {
-                                            if (item2 is WikiPageBiome biome && biome.inst.name == itemL.Key)
+                                            if (item2 is WikiPageBiome biome && biome.inst.name == itemL.name)
                                                 typesLocations.Add(new ManIngameWiki.WikiLink(biome));
                                         }
                                     }

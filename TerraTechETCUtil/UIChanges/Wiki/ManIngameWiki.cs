@@ -920,8 +920,9 @@ namespace TerraTechETCUtil
         {
             /// <summary>
             /// The main identification ID the game uses for this page.
+            /// <para><b>AVOID CHANGING THIS PLEASE UNLESS ABSOLUTELY NEEDED</b></para>
             /// </summary>
-            public readonly T ID;
+            public T ID;
             /// <summary>
             /// The main identification the game uses for this page.
             /// <para>Use <see cref="inst"/> to access this externally, otherwise use <see cref="_inst"/> 
@@ -2168,6 +2169,38 @@ namespace TerraTechETCUtil
             }
         }
         /// <summary>
+        /// Find a WikiPageScenery by the name
+        /// </summary>
+        /// <param name="sceneryName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
+        public static WikiPageScenery GetSceneryPage(string sceneryName)
+        {
+            try
+            {
+                return (WikiPageScenery)Wikis.Values.FirstOrDefault(x => x.ALLPages.ContainsKey(sceneryName))?.ALLPages[sceneryName];
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        /// <summary>
+        /// Find a WikiPageBiome by the name
+        /// </summary>
+        /// <param name="biomeName">The ENGLISH name of the page</param>
+        /// <returns>The page if found, otherwise null</returns>
+        public static WikiPageBiome GetBiomePage(string biomeName)
+        {
+            try
+            {
+                return (WikiPageBiome)Wikis.Values.FirstOrDefault(x => x.ALLPages.ContainsKey(biomeName))?.ALLPages[biomeName];
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        /// <summary>
         /// Get the global WikiPageDamageStats page
         /// </summary>
         /// <returns>The page, should not be null</returns>
@@ -2330,7 +2363,7 @@ namespace TerraTechETCUtil
                     if (_WikiWindowOpen)
                     {
                         guiWindow = ManModGUI.ModWikiGUIScaler.Window(ExtWikiID, guiWindow, GUILayouter, 
-                            LOC_WikiTopName.ToString(), CloseGUI, ExtraGUITopBar, true, true);
+                            LOC_WikiTopName.ToString(), CloseWiki, ExtraGUITopBar, true, true);
                     }
                 }
                 catch (ExitGUIException e)
@@ -2428,7 +2461,7 @@ namespace TerraTechETCUtil
             InitWiki();
             instGUI.SetGUI(state);
         }
-        private static void CloseGUI() => instGUI.SetGUI(false);
+        public static void CloseWiki() => instGUI.SetGUI(false);
         private static void ExtraGUITopBar()
         {
             WikiTopBarEvent.Send(CurrentWikiPage?.wiki);

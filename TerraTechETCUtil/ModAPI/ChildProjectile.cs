@@ -52,7 +52,7 @@ namespace TerraTechETCUtil
 
 
         /// <inheritdoc/>
-        public override void Fire(FireData fireData)
+        public override void Fire(FireData fireData, Tank shooter, ModuleWeapon firingPiece)
         {
             Enable(PB.launcher?.block);
         }

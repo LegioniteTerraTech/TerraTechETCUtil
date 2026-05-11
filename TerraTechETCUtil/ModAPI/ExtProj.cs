@@ -14,13 +14,15 @@ namespace TerraTechETCUtil
     public static class ManExtProj
     {
         /// <summary> Projectile getter </summary>
-        public static readonly FieldInfo deathTimerProj = typeof(Projectile).GetField("m_LifeTime", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static readonly FieldInfo ProjCollider = typeof(Projectile).GetField("m_Collider", BindingFlags.NonPublic | BindingFlags.Instance);
         /// <summary> Projectile getter </summary>
-        public static readonly FieldInfo gravityAffectProj = typeof(Projectile).GetField("m_CanHaveGravity", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static readonly FieldInfo LifeTime = typeof(Projectile).GetField("m_LifeTime", BindingFlags.NonPublic | BindingFlags.Instance);
         /// <summary> Projectile getter </summary>
-        public static readonly FieldInfo stickyProj = typeof(Projectile).GetField("m_StickOnContact", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static readonly FieldInfo CanHaveGravity = typeof(Projectile).GetField("m_CanHaveGravity", BindingFlags.NonPublic | BindingFlags.Instance);
         /// <summary> Projectile getter </summary>
-        public static readonly FieldInfo explodeProj = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);
+        public static readonly FieldInfo StickOnContact = typeof(Projectile).GetField("m_StickOnContact", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary> Projectile getter </summary>
+        public static readonly FieldInfo ExplosionInst = typeof(Projectile).GetField("m_Explosion", BindingFlags.NonPublic | BindingFlags.Instance);
 
 
         internal static bool instExist;
@@ -67,6 +69,16 @@ namespace TerraTechETCUtil
                 }
                 Debug_TTExt.Assert(errorBreak != null, "A projectile errored out - " + errorBreak);
             }
+        }
+
+        /// <summary>
+        /// Get the <see cref="ProjBase"/> quickly to navigate to other <see cref="ExtProj"/>s
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <returns></returns>
+        public static ProjBase GetPB(this Projectile inst)
+        {
+            return inst.GetComponent<ProjBase>();
         }
     }
 
@@ -126,17 +138,22 @@ namespace TerraTechETCUtil
         public virtual void Pool() { }
         /// <summary>
         /// Called when it's respective <see cref="Projectile"/> is fired
+        /// <para>Called with more detail than <see cref="Projectile.m_FiredEvent"/></para>
         /// </summary>
-        /// <param name="fireData"></param>
-        public virtual void Fire(FireData fireData) { }
+        /// <param name="fireData">The data the <see cref="Projectile"/> was spawned from</param>
+        /// <param name="shooter">The <see cref="Tank"/> that shot this <see cref="Projectile"/></param>
+        /// <param name="firingPiece">The <see cref="ModuleWeapon"/> responsible for firing this <see cref="Projectile"/></param>
+        public virtual void Fire(FireData fireData, Tank shooter, ModuleWeapon firingPiece) { }
 
 
         /// <summary>
-        /// Called when the <see cref="Projectile"/> is removed from the world for any reason
+        /// Called when the <see cref="Projectile"/> is removed from the world for any reason.
+        /// <para>Called BEFORE <see cref="Projectile.m_RecycledEvent"/></para>
         /// </summary>
         public virtual void WorldRemoval() { }
         /// <summary>
         /// Called when the <see cref="Projectile"/> impacts anything
+        /// <para>Called with more detail than <see cref="Projectile.m_CollisionEvent"/></para>
         /// </summary>
         /// <param name="other"></param>
         /// <param name="damageable">Can be <b>null</b></param>
@@ -145,6 +162,7 @@ namespace TerraTechETCUtil
         public virtual void Impact(Collider other, Damageable damageable, Vector3 hitPoint, ref bool ForceDestroy) { }
         /// <summary>
         /// Called when the <see cref="Projectile"/> impacts a non-<see cref="Damageable"/>
+        /// <para>Called with more detail than <see cref="Projectile.m_CollisionEvent"/></para>
         /// </summary>
         /// <param name="other"></param>
         /// <param name="hitPoint">In scene space</param>
@@ -152,6 +170,7 @@ namespace TerraTechETCUtil
         public virtual void ImpactOther(Collider other, Vector3 hitPoint, ref bool ForceDestroy) { }
         /// <summary>
         /// Called when the <see cref="Projectile"/> impacts a <see cref="Damageable"/>
+        /// <para>Called with more detail than <see cref="Projectile.m_CollisionEvent"/></para>
         /// </summary>
         /// <param name="other"></param>
         /// <param name="damageable">Never <b>null</b></param>
@@ -197,6 +216,8 @@ namespace TerraTechETCUtil
         /// <param name="inst"></param>
         public static bool PrePoolTryApplyThis(Projectile inst)
         {
+            if (inst == null)
+                BlockDebug.ThrowWarning(true, "ProjBase was called in a non-projectile. This module should not be called in any JSON.");
             ExtProj[] projTemp = inst.GetComponents<ExtProj>();
             if (projTemp != null)
             {
@@ -204,13 +225,8 @@ namespace TerraTechETCUtil
                 if (!PB)
                 {
                     PB = inst.gameObject.AddComponent<ProjBase>();
-                    var proj = PB.GetComponent<Projectile>();
-                    if (!proj)
-                    {
-                        BlockDebug.ThrowWarning(true, "ProjBase was called in a non-projectile. This module should not be called in any JSON.");
-                    }
                     foreach (var item in projTemp)
-                        item.PrePool(proj);
+                        item.PrePool(inst);
                 }
                 return true;
             }
@@ -263,6 +279,17 @@ namespace TerraTechETCUtil
             return this;
         }
 
+        /// <summary>
+        /// Gets a <see cref="ExtProj"/> component on this the fast way
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public T GetProjComponent<T>() where T : ExtProj
+        {
+            if (projTypes.FirstOrDefault(t => t.GetType() == typeof(T)) is T got)
+                return got;
+            return null;
+        }
 
         internal void Fire(FireData fireData, Tank shooter, ModuleWeapon firingPiece)
         {
@@ -273,11 +300,14 @@ namespace TerraTechETCUtil
             Debug_TTExt.Assert(!shooter, "TerraTechModExt: ProjBase was given NO SHOOTER, this may cause issues!");
             //Debug_TTExt.Log("Projectile " + gameObject.name + " fired with");
             foreach (var item in projTypes)
-                item.Fire(fireData);
+                item.Fire(fireData, shooter, firingPiece);
 
             ManExtProj.projPool.Add(this);
         }
 
+        /// <summary>
+        /// Called BEFORE <see cref="Projectile.m_RecycledEvent"/>
+        /// </summary>
         internal void OnWorldRemoval()
         {
             foreach (var item in projTypes)
@@ -313,7 +343,7 @@ namespace TerraTechETCUtil
         /// </summary>
         public void ExplodeNoRecycle()
         {
-            Transform explodo = (Transform)ManExtProj.explodeProj.GetValue(project);
+            Transform explodo = (Transform)ManExtProj.ExplosionInst.GetValue(project);
             if ((bool)explodo)
             {
                 if ((bool)explodo.GetComponent<Explosion>())
@@ -339,7 +369,7 @@ namespace TerraTechETCUtil
         /// <param name="inst"></param>
         public static void ExplodeNoDamage(Projectile inst)
         {
-            Transform explodo = (Transform)ManExtProj.explodeProj.GetValue(inst);
+            Transform explodo = (Transform)ManExtProj.ExplosionInst.GetValue(inst);
             if ((bool)explodo)
             {
                 if ((bool)explodo.GetComponent<Explosion>())

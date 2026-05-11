@@ -21,6 +21,7 @@ namespace TerraTechETCUtil
 
         [HarmonyPatch(typeof(UIHUDWorldMap))]
         [HarmonyPatch("OnPointerUpHandler")]//
+        [HarmonyPriority(-9001)]
         internal static class StopWaypointPlacement
         {
             internal static bool Prefix(UIHUDWorldMap __instance, PointerEventData eventData)
@@ -35,6 +36,7 @@ namespace TerraTechETCUtil
         }
         [HarmonyPatch(typeof(ManRadar))]
         [HarmonyPatch("IconTypeCount", MethodType.Getter)]//
+        [HarmonyPriority(-9001)]
         internal static class ExtendRadarIconsCount
         {
             internal static bool Prefix(TooltipComponent __instance, ref int __result)
@@ -49,6 +51,7 @@ namespace TerraTechETCUtil
         }
         [HarmonyPatch(typeof(TooltipComponent))]
         [HarmonyPatch("OnPointerEnter")]//
+        [HarmonyPriority(9001)]
         internal static class CatchHoverInMapUI
         {
             internal static void Prefix(TooltipComponent __instance)
@@ -59,6 +62,7 @@ namespace TerraTechETCUtil
         }
         [HarmonyPatch(typeof(TooltipComponent))]
         [HarmonyPatch("OnPointerExit")]//
+        [HarmonyPriority(9001)]
         internal static class CatchHoverInMapUI2
         {
             internal static void Prefix(TooltipComponent __instance)
@@ -71,6 +75,7 @@ namespace TerraTechETCUtil
         /*
         [HarmonyPatch(typeof(UIHUDWorldMap))]
         [HarmonyPatch("TryGetWaypoint")]//
+        [HarmonyPriority(9001)]
         internal static class LaunchModalOnMap
         {
             internal static void Prefix(GameObject cursorGO)
@@ -106,13 +111,14 @@ namespace TerraTechETCUtil
         }//*/
         [HarmonyPatch(typeof(ManSpawn))]
         [HarmonyPatch("SpawnTankFromTechData")]//
-        [HarmonyPriority(151)]
         internal static class MakeSureWeArentNestingOperations
         {
+            [HarmonyPriority(15100)]
             internal static void Prefix()
             {
                 RawTechBase.IsSpawningTech = true;
             }
+            [HarmonyPriority(-15100)]
             internal static void Postfix()
             {
                 RawTechBase.IsSpawningTech = false;
@@ -125,6 +131,7 @@ namespace TerraTechETCUtil
         // -------------------------------------
         [HarmonyPatch(typeof(ModuleBlockAttributes))]
         [HarmonyPatch("InitBlockAttributes")]//
+        [HarmonyPriority(9001)]
         internal static class InsureModdedIsRight
         {
             internal static FieldInfo generator = typeof(ModuleEnergy).GetField(
@@ -242,6 +249,7 @@ namespace TerraTechETCUtil
 
         [HarmonyPatch(typeof(Localisation))]
         [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(string), typeof(string), typeof(Localisation.GlyphInfo[]) })]//
+        [HarmonyPriority(-9001)]
         private class ShoehornText
         {
             internal static bool Prefix(Localisation __instance, ref string bank, ref string id, ref string __result)
@@ -268,6 +276,7 @@ namespace TerraTechETCUtil
 
         [HarmonyPatch(typeof(Localisation))]
         [HarmonyPatch("GetLocalisedString", new Type[3] { typeof(LocalisationEnums.StringBanks), typeof(int), typeof(Localisation.GlyphInfo[]) })]//
+        [HarmonyPriority(-9001)]
         private class ShoehornText2
         {
             internal static bool Prefix(Localisation __instance, ref LocalisationEnums.StringBanks bankName, ref int stringID, ref string __result)
@@ -283,6 +292,7 @@ namespace TerraTechETCUtil
         }
         [HarmonyPatch(typeof(UILoadingScreenHints))]
         [HarmonyPatch("GetNextHint")]//
+        [HarmonyPriority(-9001)]
         private class TryLeverNextHint
         {
             internal static bool Prefix(UILoadingScreenHints __instance, ref string __result)
@@ -308,6 +318,7 @@ namespace TerraTechETCUtil
         }
         [HarmonyPatch(typeof(ManProfile.Profile))]
         [HarmonyPatch("SetHintSeen")]//
+        [HarmonyPriority(-9001)]
         private class DontSaveModdedHint
         {
             private static bool Prefix(ref GameHints.HintID hintId)
@@ -323,6 +334,7 @@ namespace TerraTechETCUtil
         // -------------------------------------
         [HarmonyPatch(typeof(FMODEventInstance))]
         [HarmonyPatch("start")]//
+        [HarmonyPriority(-9001)]
         internal static class GetDatas
         {
             internal static void Prefix(ref FMODEventInstance __instance)
@@ -352,6 +364,7 @@ namespace TerraTechETCUtil
         // -------------------------------------
         [HarmonyPatch(typeof(ManWorld))]
         [HarmonyPatch("IsTileUsableForNewSetPiece")]//
+        [HarmonyPriority(-9001)]
         private class BypassSetPieceChecks
         {
             internal static bool Prefix(ManWorld __instance, ref bool __result)
@@ -368,6 +381,7 @@ namespace TerraTechETCUtil
         [HarmonyPatch(typeof(ManWorld), "TryProjectToGround",
             new Type[] { typeof(Vector3), typeof(Vector3), typeof(bool) },
             new ArgumentType[] { ArgumentType.Ref, ArgumentType.Out, ArgumentType.Normal, })]//
+        [HarmonyPriority(-9001)]
         private static class InsureGroundHit
         {
             private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> collection)
@@ -399,6 +413,7 @@ namespace TerraTechETCUtil
         }
 
         [HarmonyPatch(typeof(ManTimeOfDay), "UpdateBiomeColours")]
+        [HarmonyPriority(-9001)]
         private static class MaintainEffects
         {
             internal static void Postfix(ref DayNightColours dayColours, ref DayNightColours nightColours)

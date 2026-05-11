@@ -22,7 +22,7 @@ namespace TerraTechETCUtil
     /// </summary>
     public class LegModExt
     {
-        internal static string modID = "TerraTechModExt";
+        internal const string modID = "TerraTechModExt";
         internal static Harmony harmonyInstance = new Harmony("legionite." + modID.ToLower());
 
         private static bool patched = false;
@@ -165,7 +165,8 @@ namespace TerraTechETCUtil
                 //InvokeHelper.Invoke(ExtractOnce, 3f);
                 UIHelpersExt.InsureNetHooks();
 
-                ResourcesHelper.ModsPostLoadEvent.Subscribe(ManAudioExt.RegisterAllSounds);
+                InvokeHelper.InsureInit();
+                InvokeHelper.ModsPostLoadEvent.Subscribe(ManAudioExt.RegisterAllSounds);
 
                 //new ManAbilities.AbilityButton("DebugPower", ManIngameWiki.BlocksSprite, DoUIAbilityTestCall, 1.5f);
                 //ManAbilities.InitAbilityBar();
@@ -225,10 +226,10 @@ namespace TerraTechETCUtil
                     Debug_TTExt.Log(e);
                 }
                 UIHelpersExt.Init();
-                ResourcesHelper.ModsPreLoadEvent.Send();
-                ResourcesHelper.ModsPreLoadEvent.Subscribe(WikiPageDamageStats.ResetAllCustomDamageables);
+                InvokeHelper.ModsPreLoadEvent.Send();
+                InvokeHelper.ModsPreLoadEvent.Subscribe(WikiPageDamageStats.ResetAllCustomDamageables);
 
-                ResourcesHelper.ModsPostLoadEvent.Subscribe(ManIngameWiki.InitWiki);
+                InvokeHelper.ModsPostLoadEvent.Subscribe(ManIngameWiki.InitWiki);
             }
             catch (Exception e)
             {
@@ -245,7 +246,7 @@ namespace TerraTechETCUtil
         {
             if (!patched)
                 return;
-            ResourcesHelper.ModsPostLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
+            InvokeHelper.ModsPostLoadEvent.Unsubscribe(ManIngameWiki.InitWiki);
             ManWorldGeneratorExt.DeInit();
 
             harmonyInstance.MassUnPatchAllWithin(typeof(UnityUIPatches), modID);

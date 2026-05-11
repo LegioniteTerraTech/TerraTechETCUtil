@@ -1682,7 +1682,7 @@ namespace TerraTechETCUtil
                     Vector3 vec4 = end - start;
                     vec4.x *= Rescaler;
                     vec4.z *= Rescaler;
-                    Vector3 vec4Side = Quaternion.LookRotation(Vector3.left, Vector3.up) * vec4.SetY(0).normalized;
+                    Vector3 vec4Side = Utilities.LookRot(Vector3.left, Vector3.up) * vec4.SetY(0).normalized;
                     vecNormal = Vector3.Cross(vec4Side, vec4.normalized);
                     gotTarget = true;
                     //Debug_TTExt.Log("VecNormal: " + vecNormal.ToString());

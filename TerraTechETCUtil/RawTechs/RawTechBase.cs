@@ -1400,7 +1400,7 @@ namespace TerraTechETCUtil
             {
                 BlockTypes BT = BlockIndexer.StringToBlockType(blocS.block);
                 TankBlock bloc = ManSpawn.inst.GetBlockPrefab(BT);
-                if (bloc == null || BT == BlockTypes.GSOAIController_111 || !Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(BT))
+                if (bloc == null || BT == RawTechUtil.DefaultBT || !Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(BT))
                 {
                     if (ExceptionIfFail)
                         throw new NullReferenceException("TechToMemoryExternal - Block " +
@@ -1458,7 +1458,7 @@ namespace TerraTechETCUtil
             {
                 BlockTypes BT = BlockIndexer.StringToBlockType(blocS.block);
                 TankBlock bloc = ManSpawn.inst.GetBlockPrefab(BT);
-                if (bloc == null || BT == BlockTypes.GSOAIController_111 || 
+                if (bloc == null || BT == RawTechUtil.DefaultBT || 
                     !Singleton.Manager<ManSpawn>.inst.IsTankBlockLoaded(BT))
                 {
                     if (ExceptionIfFail)
@@ -1808,7 +1808,7 @@ namespace TerraTechETCUtil
             {
                 if (exceptionOnFail)
                     throw new NullReferenceException("JSONToFirstBlock could not find the first block from the following json: \n" + toLoad);
-                return BlockTypes.GSOAIController_111;
+                return RawTechUtil.DefaultBT;
             }
 
             return BlockIndexer.StringToBlockType(mem.t);
@@ -2010,7 +2010,7 @@ namespace TerraTechETCUtil
                 }
                 TrackedVisible TV = ManSpawn.inst.SpawnNetworkedTechRef(data, BS, Team,
                     WorldPosition.FromScenePosition(pos).ScenePosition,
-                    Quaternion.LookRotation(forward, Vector3.up), null, grounded, population);
+                    Utilities.LookRot(forward, Vector3.up), null, grounded, population);
                 if (TV == null)
                 {
                     Debug_TTExt.FatalError("TTExtUtil: InstantTech(TrackedVisible)[MP] - error on SpawnTank");
@@ -2038,7 +2038,7 @@ namespace TerraTechETCUtil
                     blockIDs = null,
                     teamID = Team,
                     position = pos,
-                    rotation = Quaternion.LookRotation(forward, Vector3.up),//Singleton.cameraTrans.position - pos
+                    rotation = Utilities.LookRot(forward, Vector3.up),//Singleton.cameraTrans.position - pos
                     ignoreSceneryOnSpawnProjection = false,
                     forceSpawn = true,
                     isPopulation = population

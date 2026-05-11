@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using HarmonyLib;
 using UnityEngine;
 
 namespace TerraTechETCUtil
@@ -19,6 +20,7 @@ namespace TerraTechETCUtil
             /// <summary>
             /// PatchProjectile
             /// </summary>
+            [HarmonyPriority(-9001)]
             private static void OnPool_Postfix(Projectile __instance)
             {
                 //Debug_TTExt.Log("TTExtUtil: Patched Projectile OnPool(WeightedProjectile)");
@@ -29,6 +31,7 @@ namespace TerraTechETCUtil
             /// <summary>
             /// PatchProjectileRemove
             /// </summary>
+            [HarmonyPriority(9001)]
             private static void OnRecycle_Prefix(Projectile __instance)
             {
                 __instance.GetComponent<ProjBase>()?.OnWorldRemoval();
@@ -37,7 +40,9 @@ namespace TerraTechETCUtil
             /// <summary>
             /// PatchProjectileCollision
             /// </summary>
-            private static void HandleCollision_Prefix(Projectile __instance, ref Damageable damageable, ref Vector3 hitPoint, ref Collider otherCollider, ref bool ForceDestroy)//
+            [HarmonyPriority(9001)]
+            private static void HandleCollision_Prefix(Projectile __instance, ref Damageable damageable, 
+                ref Vector3 hitPoint, ref Collider otherCollider, ref bool ForceDestroy)//
             {
                 //Debug_TTExt.Log("TTExtUtil: Patched Projectile HandleCollision(KeepSeekingProjectile & OHKOProjectile)");
                 __instance.GetComponent<ProjBase>()?.OnImpact(otherCollider, damageable, hitPoint, ref ForceDestroy);
@@ -46,7 +51,9 @@ namespace TerraTechETCUtil
             /// <summary>
             /// PatchProjectileFire
             /// </summary>
-            private static void Fire_Postfix(Projectile __instance, ref FireData fireData, ref ModuleWeapon weapon, ref Tank shooter)
+            [HarmonyPriority(-9001)]
+            private static void Fire_Postfix(Projectile __instance, ref FireData fireData,
+                ref ModuleWeapon weapon, ref Tank shooter)
             {
                 ProjBase.Insure(__instance).Fire(fireData, shooter, weapon);
             }

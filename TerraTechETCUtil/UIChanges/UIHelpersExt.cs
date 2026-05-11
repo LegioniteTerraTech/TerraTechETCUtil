@@ -435,7 +435,7 @@ namespace TerraTechETCUtil
         /// <returns>If the mouse is DIRECTLY within the specified rect on the screen</returns>
         public static bool MouseIsOverGUIMenu(Rect pos)
         {
-            Vector3 Mous = Input.mousePosition * ManModGUI.CurrentGUIScale;
+            Vector3 Mous = Input.mousePosition * ManModGUI.CurrentGUIScaleInv;
             Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
             float xMenuMin = pos.x;
             float xMenuMax = pos.x + pos.width * ManModGUI.CurrentGUIWindowScale;

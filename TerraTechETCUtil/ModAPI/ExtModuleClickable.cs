@@ -70,7 +70,7 @@ namespace TerraTechETCUtil
             {
                 PoolStart = true;
                 InvokeHelper.InsureInit();
-                ResourcesHelper.ModsUpdateEvent.Subscribe(UpdateThis);
+                InvokeHelper.ModsUpdateEvent.Subscribe(UpdateThis);
                 InvokeHelper.ClickEventSimple.Subscribe(OnClick);
             }
             Pooled = true;

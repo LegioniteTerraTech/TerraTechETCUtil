@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using HarmonyLib;
+using TerraTechETCUtil.PatchBatch;
 using UnityEngine;
 using UnityEngine.Experimental.UIElements;
 
@@ -37,7 +39,8 @@ namespace TerraTechETCUtil
             var logMan = new GameObject("invokeHelper");
             inst = logMan.AddComponent<InvokeHelper>();
             logMan.SetActive(true);
-            ResourcesHelper.ModsUpdateEvent.Subscribe(inst.UpdateModSync);
+            MassPatcher.MassPatchAllWithin(LegModExt.harmonyInstance, typeof(HelperHookPatches), LegModExt.modID);
+            ModsUpdateEvent.Subscribe(inst.UpdateModSync);
         }
         /// <summary>
         /// Start invoking a coroutine
@@ -618,6 +621,119 @@ namespace TerraTechETCUtil
                 AltUI.Window(IDErrorWindow, WarningPopupRect, WindowDisp, WarningIsError ? "Errors" : "Warnings",
                     HideErrorPopup, true, true);
             ManModGUI.UpdateThisRemote();
+        }
+
+
+        /// <summary>
+        /// Special event for <see cref="TerraTechETCUtil"/>, similar to <see cref="Event"/>
+        /// </summary>
+        public class RelayEvent
+        {
+            private EventNoParams eventHook = new EventNoParams();
+            /// <summary>
+            /// Send it to all recipients
+            /// </summary>
+            internal void Send()
+            {
+                if (!inst)
+                    InsureInit();
+                eventHook.Send();
+            }
+            /// <summary>
+            /// Add a recipient
+            /// </summary>
+            public void Subscribe(Action act)
+            {
+                if (!inst)
+                    InsureInit();
+                eventHook.Subscribe(act);
+            }
+            /// <summary>
+            /// Remove a recipient
+            /// </summary>
+            public void Unsubscribe(Action act)
+            {
+                if (!inst)
+                    InsureInit();
+                eventHook.Unsubscribe(act);
+            }
+        }
+
+        /// <summary>
+        /// Called before mods are loaded
+        /// </summary>
+        public static RelayEvent ModsPreLoadEvent = new RelayEvent();
+        /// <summary>
+        /// Called after blocks are loaded
+        /// </summary>
+        public static EventNoParams BlocksPostChangeEvent => ManMods.inst.BlocksModifiedEvent;
+        /// <summary>
+        /// Called after mods are loaded
+        /// </summary>
+        public static EventNoParams ModsPostLoadEvent => ManMods.inst.ModSessionLoadCompleteEvent;
+        /// <summary>
+        /// Called every time the <see cref="ModBase.Update"/> is called
+        /// </summary>
+        public static RelayEvent ModsUpdateEvent = new RelayEvent();
+
+
+
+
+        /// <summary>
+        /// Add a mod to be showcased while loading at startup
+        /// </summary>
+        /// <param name="iterator"></param>
+        public static void PreloadThis(IModPreloadable iterator)
+        {
+            //Debug_TTExt.Log("PreloadThis - ");
+            InsureInit();
+            QueueToLoad.Enqueue(iterator);
+        }
+        internal static IModPreloadable CurrentlyLoading = null;
+        internal static IEnumerator CurrentlyLoadingEnu = null;
+        internal static Queue<IModPreloadable> QueueToLoad = new Queue<IModPreloadable>();
+        internal static bool GetNextToLoadIfAny()
+        {
+            try
+            {
+                //if (QueueToLoad.Count > 0) Debug_TTExt.Log("GetNextToLoadIfAny() - " + QueueToLoad.Count);
+                if (CurrentlyLoadingEnu != null && CurrentlyLoadingEnu.MoveNext())
+                {
+                    //Debug_TTExt.Log("GetNextToLoadIfAny() - ITERATING");
+                    return false;
+                }
+                else
+                {
+                    CurrentlyLoading = null;
+                    CurrentlyLoadingEnu = null;
+                }
+                if (QueueToLoad.Any())
+                {
+                    CurrentlyLoading = QueueToLoad.Dequeue();
+                    Debug_TTExt.Log("Started loading for - " + CurrentlyLoading.GetType());
+                    CurrentlyLoadingEnu = CurrentlyLoading.GetEnumerator();
+                    if (CurrentlyLoadingEnu.MoveNext())
+                        return false;
+                }
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    if (CurrentlyLoading != null)
+                        ModStatusChecker.PushErrorToClient(CurrentlyLoading.ChainFail, CurrentlyLoading.ModHandle.ModID, e,
+                            CurrentlyLoading.GetType().Assembly, CurrentlyLoading.OnFail);
+                    else
+                        ManModGUI.ShowErrorPopup("ENTIRE (UNKNOWN) MOD FAILED TO BOOT - " + e);
+                }
+                catch (Exception e2)
+                {
+                    ManModGUI.ShowErrorPopup("ENTIRE (UNKNOWN) MOD FAILED TO BOOT - Error on push screen: - " + e2 + "\nCause: - " + e);
+                }
+                CurrentlyLoading = null;
+                CurrentlyLoadingEnu = null;
+            }
+            return true;
         }
 
 

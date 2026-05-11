@@ -200,6 +200,13 @@ namespace TerraTechETCUtil
             serialDataBlock = EncodeSerialData(tech);
             //matrix = new RawTechCollisionMatrix(this);
             InsureValid(!MustBeExact, MustBeExact);
+#pragma warning disable CS0612 // Type or member is obsolete
+            faction = tech.GetMainCorpExt();
+            if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
+                factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
+            else
+                factionName = faction.ToString();
+#pragma warning restore CS0612 // Type or member is obsolete
         }
         /// <summary>
         /// Create from <see cref="RawBlockMem"/> list
@@ -219,6 +226,13 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("RawTech created with empty mems parameter");
             //matrix = new RawTechCollisionMatrix(this);
             InsureValid(!MustBeExact, MustBeExact);
+#pragma warning disable CS0612 // Type or member is obsolete
+            faction = mems.GetMainCorpExt();
+            if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
+                factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
+            else
+                factionName = faction.ToString();
+#pragma warning restore CS0612 // Type or member is obsolete
         }
 
         /// <summary>
@@ -235,6 +249,13 @@ namespace TerraTechETCUtil
             //matrix = new RawTechCollisionMatrix(this);
 
             InsureValid(!MustBeExact, MustBeExact);
+#pragma warning disable CS0612 // Type or member is obsolete
+            faction = _savedTech.GetMainCorpExt();
+            if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
+                factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
+            else
+                factionName = faction.ToString();
+#pragma warning restore CS0612 // Type or member is obsolete
         }
         /// <summary>
         /// Create from <see cref="RawTechTemplate"/>
@@ -243,7 +264,18 @@ namespace TerraTechETCUtil
         public RawTech(RawTechTemplate tech) : base(tech)
         {
             techName = tech.techName;
-            //faction = tech.faction;
+#pragma warning disable CS0612 // Type or member is obsolete
+            if (tech.factionName.NullOrEmpty())
+            {
+                faction = tech.faction;
+                factionName = RawTechUtil.GetFactionShortName(RawTechUtil.CorpExtToCorp(tech.faction));
+            }
+            else
+            {
+                factionName = tech.factionName;
+                faction = RawTechUtil.GetCorpExtendedFromVanilla(ManMods.inst.GetCorpIndex(tech.factionName));
+            }
+#pragma warning restore CS0612 // Type or member is obsolete
             factionName = tech.FactionActual;
             baseCost = tech.baseCost;
             blockCount = tech.blockCount;
@@ -271,7 +303,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Get the first block on this
         /// </summary>
-        /// <returns>The first block if found, otherwise fallback invalid <see cref="BlockTypes.GSOAIController_111"/></returns>
+        /// <returns>The first block if found, otherwise fallback invalid <inheritdoc cref="RawTechUtil.DefaultBT"/></returns>
         public BlockTypes GetFirstBlock() => RawTechUtil.GetFirstBlock(savedTech);
         /// <summary>
         /// Replace a type with another
@@ -399,16 +431,19 @@ namespace TerraTechETCUtil
         }
 
         /// <summary>
-        /// 
+        /// Insures that the RawTech is <b>loadable</b>, without ensuring that it is complete.
         /// </summary>
         /// <param name="removeInvalid"></param>
         /// <param name="throwOnFail"></param>
+        /// <param name="ensureComplete"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        public void InsureValid(bool removeInvalid, bool throwOnFail)
+        public void InsureValid(bool removeInvalid, bool throwOnFail, bool ensureComplete = false)
         {
             if (dirty)
             {
-                if (!ValidateBlocksInTech(removeInvalid, throwOnFail))
+                if (ensureComplete && ValidateBlocksInTech(removeInvalid, throwOnFail).CanLoadEntirely())
+                    throw new InvalidOperationException("SpawnRawTech failed because tech was invalid!");
+                else if (ValidateBlocksInTech(removeInvalid, throwOnFail).CanLoadAnyBlocks())
                     throw new InvalidOperationException("SpawnRawTech failed because tech was invalid!");
             }
         }
@@ -421,29 +456,30 @@ namespace TerraTechETCUtil
         /// <param name="throwOnFail">Make this throw an <see cref="Exception"/> if it fails</param>
         /// <returns></returns>
         /// <exception cref="Exception">If <paramref name="throwOnFail"/> is true, this will throw an exception for you to catch later</exception>
-        public bool ValidateBlocksInTech(bool removeInvalid, bool throwOnFail)
+        public RawTechUtil.Status ValidateBlocksInTech(bool removeInvalid, bool throwOnFail)
         {
+            RawTechUtil.Status valid = RawTechUtil.Status.Invalid;
             try
             {
                 dirty = false;
                 if (IgnoreChecks)
-                    return true;
+                    return RawTechUtil.Status.BypassedCheck;
 
-                RawTechUtil.ValidateBlocksInTech_Internal(_savedTech, this, removeInvalid, throwOnFail);
+                valid = RawTechUtil.ValidateBlocksInTech_Internal(_savedTech, this, removeInvalid, throwOnFail);
 
                 if (!_savedTech.Any())
                 {
                     Debug_TTExt.Log("RawTech: ValidateBlocksInTech - FAILED as no blocks were present afterwards!");
-                    return false;
+                    return RawTechUtil.Status.Invalid;
                 }
                 matrix?.RegenerateCollisionOverlay();
             }
             catch (Exception e)
             {
                 RawTechUtil.ThrowOnFail_Internal(this, e, throwOnFail);
-                return false;
+                return valid;
             }
-            return true;
+            return valid;
         }
 #endif
     }

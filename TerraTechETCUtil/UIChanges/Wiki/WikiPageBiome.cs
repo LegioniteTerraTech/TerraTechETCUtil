@@ -132,7 +132,7 @@ namespace TerraTechETCUtil
                                 {
                                     foreach (var item3 in prefabBase)
                                     {
-                                        if (item3.Key == inst.name && !links.Exists(x => x.linked.title == nameCached))
+                                        if (item3.name == inst.name && !links.Exists(x => x.linked.title == nameCached))
                                             links.Add(new ManIngameWiki.WikiLink(item2));
                                     }
                                 }

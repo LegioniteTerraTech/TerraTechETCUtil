@@ -7,7 +7,7 @@ namespace TerraTechETCUtil
 {
     /// <summary>
     /// <inheritdoc/>
-    /// <para>This is the ACTIVE <see cref="RawTechBase"/>. For the serialized version see <see cref="RawTechTemplate"/></para>
+    /// <para>This is the SERIALIZED <see cref="RawTechBase"/>. For the active version see <see cref="RawTech"/></para>
     /// </summary>
     public class RawTechTemplate : RawTechBase
     {
@@ -70,6 +70,10 @@ namespace TerraTechETCUtil
             List<RawBlockMem> mem = mems;
 #pragma warning disable CS0612 // Type or member is obsolete
             faction = GetTopCorp(mem);
+            if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
+                factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
+            else
+                factionName = faction.ToString();
             savedTech = MemoryToJSONExternal(mems);
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
 #pragma warning restore CS0612 // Type or member is obsolete
@@ -91,6 +95,10 @@ namespace TerraTechETCUtil
             List<RawBlock> mem = JSONToMemoryExternalNonAlloc(rawTech);
 #pragma warning disable CS0612 // Type or member is obsolete
             faction = GetTopCorp(mem);
+            if (ManMods.inst.IsModdedCorp((FactionSubTypes)faction))
+                factionName = ManMods.inst.FindCorpShortName((FactionSubTypes)faction);
+            else
+                factionName = faction.ToString();
             savedTech = rawTech;
             purposes = GetHandler(mem, faction, anchored, out terrain, out IntendedGrade);
 #pragma warning restore CS0612 // Type or member is obsolete
@@ -106,8 +114,18 @@ namespace TerraTechETCUtil
         public RawTechTemplate(RawTech tech) : base(tech)
         {
             techName = tech.techName;
-            //faction = tech.faction;
-            factionName = tech.FactionActual;
+#pragma warning disable CS0612 // Type or member is obsolete
+            if (tech.factionName.NullOrEmpty())
+            {
+                faction = tech.faction;
+                factionName = RawTechUtil.GetFactionShortName(RawTechUtil.CorpExtToCorp(tech.faction));
+            }
+            else
+            {
+                factionName = tech.factionName;
+                faction = RawTechUtil.GetCorpExtendedFromVanilla(ManMods.inst.GetCorpIndex(tech.factionName));
+            }
+#pragma warning restore CS0612 // Type or member is obsolete
             baseCost = tech.baseCost;
             blockCount = tech.blockCount;
             deployBoltsASAP = tech.deployBoltsASAP;

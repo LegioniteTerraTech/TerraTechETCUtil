@@ -40,13 +40,19 @@ namespace TerraTechETCUtil
         /// </summary>
         public float UIWindowScale => _UIScale;
 
+        /// <summary>
+        /// <b>DITRECT VALUE</b> multiplier for the scale of the UI's elements relative to the screen when this is applied
+        /// <para>The lower this is, the smaller the buttons on the UI will appear</para>
+        /// </summary>
         private float _UIScale = 1f;
         /// <summary>
         /// Multiplier for the scale of the UI's elements relative to the screen when this is applied
+        /// <para>The lower this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public float UIScale => _UIScale;
         /// <summary>
         /// Inverted multiplier for the scale of the UI relative to the screen when this is applied
+        /// <para>The <b>higher</b> this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public float UIScaleInv => 1f / _UIScale;
         /// <summary>
@@ -148,18 +154,24 @@ namespace TerraTechETCUtil
         public void FinishGUIMenuAndManageHovering(Rect pos)
         {
             if (MouseIsOverGUIMenu(pos))
-                ManModGUI.IsMouseOverAnyModGUI = 2;
+                ManModGUI.IsMouseOverAnyModGUI = 4;
         }
 
+        /// <summary>
+        /// Check if the mouse is over the given GUI.Window Rect
+        /// <para>Scale is relative to this <b><see cref="UIScale"/></b></para>
+        /// </summary>
         /// <inheritdoc cref="UIHelpersExt.MouseIsOverGUIMenu(Rect)"/>
+        /// <param name="pos"></param>
+        /// <returns></returns>
         public bool MouseIsOverGUIMenu(Rect pos)
         {
-            Vector3 vector = Input.mousePosition;
+            Vector3 vector = Input.mousePosition * UIScaleInv;
             vector.y = ScaledHeight - vector.y;
             float x = pos.x;
-            float num = pos.x + pos.width;
+            float num = pos.x + pos.width * _UIWindowScale;
             float y = pos.y;
-            float num2 = pos.y + pos.height;
+            float num2 = pos.y + pos.height * _UIWindowScale;
             return vector.x > x && vector.x < num && vector.y > y && vector.y < num2;
         }
         /// <summary>
@@ -246,13 +258,15 @@ namespace TerraTechETCUtil
                 return screenRect;
 
             alpha *= AltUI.UIAlphaAuto;
+            float rescaleValue = _UIWindowScale / _UIScale;
             AltUI.StartUISharp(alpha, alpha);
             try
             {
                 ApplyScaling();
                 try
                 {
-                    float rescaleValue = _UIWindowScale / _UIScale;
+                    screenRect.x /= _UIScale;
+                    screenRect.y /= _UIScale;
                     screenRect.width *= rescaleValue;
                     screenRect.height *= rescaleValue;
                     screenRect = GUILayout.Window(id, screenRect, delegate
@@ -280,6 +294,8 @@ namespace TerraTechETCUtil
                     }, string.Empty, options);
                     screenRect.width /= rescaleValue;
                     screenRect.height /= rescaleValue;
+                    screenRect.x *= _UIScale;
+                    screenRect.y *= _UIScale;
                 }
                 finally
                 {
@@ -290,9 +306,23 @@ namespace TerraTechETCUtil
             {
                 AltUI.EndUI();
             }
-            if (blockCursorControl && MouseIsOverGUIMenu(screenRect))
-                ManModGUI.IsMouseOverAnyModGUI = 4;
-            ClampGUIToScreenNonStrictHeader(ref screenRect);
+            if (blockCursorControl)
+            {
+                Vector3 Mous = Input.mousePosition;
+                Mous.y = ManModGUI.GameWindowScaledHeight - Mous.y;
+                float xMenuMin = screenRect.x;
+                float xMenuMax = screenRect.x + screenRect.width * _UIWindowScale;
+                float yMenuMin = screenRect.y;
+                float yMenuMax = screenRect.y + screenRect.height * _UIWindowScale;
+                //Debug_TTExt.Log(Mous + " | " + xMenuMin + " | " + xMenuMax + " | " + yMenuMin + " | " + yMenuMax);
+                if (Mous.x > xMenuMin && Mous.x < xMenuMax && Mous.y > yMenuMin && Mous.y < yMenuMax)
+                    ManModGUI.IsMouseOverAnyModGUI = 4;
+            }
+
+            float widthAdj = screenRect.width * _UIWindowScale;
+            float heightAdj = AltUI.HeaderBarHeight * rescaleValue;
+            screenRect.x = Mathf.Clamp(screenRect.x, 10 - widthAdj, ManModGUI.GameWindowScaledWidth - 10);
+            screenRect.y = Mathf.Clamp(screenRect.y, 10 - heightAdj, ManModGUI.GameWindowScaledHeight - 10);
 
             return screenRect;
         }

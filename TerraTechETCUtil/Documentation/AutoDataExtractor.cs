@@ -163,22 +163,22 @@ namespace TerraTechETCUtil
                         GUILayout.BeginHorizontal();
                         GUILayout.Label("Lifespan", AltUI.LabelWhite);
                         GUILayout.FlexibleSpace();
-                        GUILayout.Label((string)DisplaySec((float)ManExtProj.deathTimerProj.GetValue(proj)), AltUI.LabelBlue);
+                        GUILayout.Label((string)DisplaySec((float)ManExtProj.LifeTime.GetValue(proj)), AltUI.LabelBlue);
                         GUILayout.EndHorizontal();
 
                         GUILayout.BeginHorizontal();
                         GUILayout.Label("Is Sticky", AltUI.LabelWhite);
                         GUILayout.FlexibleSpace();
-                        GUILayout.Label(((bool)ManExtProj.stickyProj.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
+                        GUILayout.Label(((bool)ManExtProj.StickOnContact.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
                         GUILayout.EndHorizontal();
 
                         GUILayout.BeginHorizontal();
                         GUILayout.Label("Is Affected By Gravity", AltUI.LabelWhite);
                         GUILayout.FlexibleSpace();
-                        GUILayout.Label(((bool)ManExtProj.gravityAffectProj.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
+                        GUILayout.Label(((bool)ManExtProj.CanHaveGravity.GetValue(proj)) ? trueString : falseString, AltUI.LabelBlue);
                         GUILayout.EndHorizontal();
 
-                        Explosion Explo = ((Transform)ManExtProj.explodeProj.GetValue(proj))?.GetComponent<Explosion>();
+                        Explosion Explo = ((Transform)ManExtProj.ExplosionInst.GetValue(proj))?.GetComponent<Explosion>();
                         DisplayInfoOnExplosion(Explo, openEntries, depth + 1);
                     }
                 }

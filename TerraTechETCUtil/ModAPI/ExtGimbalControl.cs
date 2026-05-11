@@ -136,28 +136,35 @@ namespace TerraTechETCUtil
                     break;
                 default:
                     float dot = Vector3.Dot(transform.localRotation * Vector3.forward, forwardsAim);
-                    if (EGC.Linear())
+                    if (forwardsAim.ApproxZero())
+                    {   // DO NOT ROTATE!  TARGET IS WITHIN!?!? 
+                        closeAim = true;
+                    }
+                    else
                     {
-                        if (dot >= 0)
+                        if (EGC.Linear())
                         {
-                            transform.localRotation =
-                                Quaternion.RotateTowards(transform.localRotation,
-                                Quaternion.LookRotation(forwardsAim, upAim), rotThisFrame);
+                            if (dot >= 0)
+                            {
+                                transform.localRotation =
+                                    Quaternion.RotateTowards(transform.localRotation,
+                                    Quaternion.LookRotation(forwardsAim, upAim), rotThisFrame);
+                            }
+                            else
+                            {
+                                transform.localRotation =
+                                    Quaternion.RotateTowards(transform.localRotation,
+                                    Quaternion.LookRotation(-forwardsAim, upAim), rotThisFrame);
+                            }
+                            closeAim = 0.85f < Mathf.Abs(dot);
                         }
                         else
                         {
                             transform.localRotation =
                                 Quaternion.RotateTowards(transform.localRotation,
-                                Quaternion.LookRotation(-forwardsAim, upAim), rotThisFrame);
+                                Quaternion.LookRotation(forwardsAim, upAim), rotThisFrame);
+                            closeAim = 0.85f < dot;
                         }
-                        closeAim = 0.85f < Mathf.Abs(dot);
-                    }
-                    else
-                    {
-                        transform.localRotation =
-                            Quaternion.RotateTowards(transform.localRotation,
-                            Quaternion.LookRotation(forwardsAim, upAim), rotThisFrame);
-                        closeAim = 0.85f < dot;
                     }
                     break;
             }

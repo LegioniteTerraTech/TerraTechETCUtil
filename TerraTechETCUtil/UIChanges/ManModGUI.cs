@@ -126,6 +126,7 @@ namespace TerraTechETCUtil
         public static float ModWikiGUIRescale = ModWikiGUIWidthDefault;
         /// <summary>
         /// The window of the managed Mod Wiki UI
+        /// <para>The lower this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public static float ModWikiGUIScale = 1f;
         /// <summary>
@@ -140,10 +141,12 @@ namespace TerraTechETCUtil
         public static float CurrentGUIWindowScale { get; internal set; } = 1f;
         /// <summary>
         /// Current GUI scale of the managed UI systems relative to their contents resolution
+        /// <para>The lower this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public static float CurrentGUIScale { get; internal set; } = 1f;
         /// <summary>
         /// Current GUI scale of the managed UI systems relative to their contents resolution
+        /// <para>The <b>higher</b> this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public static float CurrentGUIScaleInv => 1f / CurrentGUIScale;
         /// <summary>
@@ -157,7 +160,8 @@ namespace TerraTechETCUtil
 
 
         /// <summary>
-        /// The scale of the managed UI systems relative to their contents resolution
+        /// The scale of the managed UI systems relative to their contents resolution.
+        /// <para>The lower this is, the smaller the buttons on the UI will appear</para>
         /// </summary>
         public static float GUIScale = 1f;
 

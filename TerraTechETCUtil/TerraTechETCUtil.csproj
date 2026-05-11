@@ -261,6 +261,9 @@
     <Compile Include="Debug_TTExt.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)'=='Steam'">
+    <Compile Include="Helpers\IModPreloadable.cs" />
+    <Compile Include="Helpers\ModDataHandle.cs" />
+    <Compile Include="PatchBatch\HelperHookPatches.cs" />
     <Compile Include="Helpers\LocHelper.cs" />
     <Compile Include="ModAPI\ExtModuleClickable.cs" />
     <Compile Include="ModAPI\MinimapExt.cs" />

@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
-using UnityEngine;
+using System.Text;
 using HarmonyLib;
+using UnityEngine;
+using static LocalisationEnums;
 
 #if !EDITOR
 namespace TerraTechETCUtil
@@ -20,88 +21,107 @@ namespace TerraTechETCUtil
         private FieldInfo deathSound = typeof(ManSFX).GetField("m_SceneryDebrisEvents", BindingFlags.NonPublic | BindingFlags.Instance);
         private MethodInfo deathSoundGet = typeof(ManSFX).GetMethod("GetScenerySFXType", BindingFlags.NonPublic | BindingFlags.Instance);
 
-
-        private static SpawnHelper inst;
         /// <summary>
-        /// Lookup for biomes based on their names
+        /// Instance of <see cref="SpawnHelper"/>
+        /// </summary>
+        public static SpawnHelper inst { get; private set; }
+        /// <summary>
+        /// Lookup for <see cref="BiomeTypes"/> based on their <see cref="UnityEngine.Object.name"/>
         /// </summary>
         public static Dictionary<string, Biome> BiomesByName = new Dictionary<string, Biome>();
+
+        /// <summary> SceneryTypes, SceneryName </summary>
+        public static Dictionary<SceneryTypes, string> SceneryTypeToFirstSceneryName = new Dictionary<SceneryTypes, string>();
+
+        /// <summary> SceneryName, TerrainObject prefab </summary>
+        public Dictionary<string, TerrainObject> SceneryByName = new Dictionary<string, TerrainObject>();
+        /// <summary> BiomeName, SceneryName list </summary>
+        public Dictionary<string, List<string>> BiomeNameToSceneryNames = new Dictionary<string, List<string>>();
+
         /// <summary>
-        /// Lookup for biomes based on their <see cref="BiomeTypes"/>.  
-        /// Not advised as <see cref="BiomeTypes"/> appears obsolete.
-        /// <para>Use <see cref="BiomesByName"/> instead.</para>
+        /// Find the <see cref="TerrainObject"/> based on the given <see cref="UnityEngine.Object.name"/>.
+        /// <para><seealso cref="TerrainObject"/>s <b>are not guaranteed to have <see cref="Visible"/> or <see cref="ResourceDispenser"/></b></para>
         /// </summary>
-        public static Dictionary<BiomeTypes, Biome> FirstBiomesByType = new Dictionary<BiomeTypes, Biome>();
-
-        private Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>> objs = new Dictionary<SceneryTypes, Dictionary<string, List<TerrainObject>>>();
-        private Dictionary<string, TerrainObject> objsNonRes = new Dictionary<string, TerrainObject>();
-
-        private static HashSet<int> captured = new HashSet<int>();
+        /// <param name="sceneryName">The <see cref="UnityEngine.Object.name"/> of the <see cref="TerrainObject"/> filter by</param>
+        /// <returns>Lookup of <see cref="SceneryTypes"/> and variants of them based on naming</returns>
+        public static TerrainObject GetSceneryPrefabByName(string sceneryName)
+        {
+            GrabInitList();
+            inst.SceneryByName.TryGetValue(sceneryName, out var outcome);
+            return outcome;
+        }
+        /// <returns>True if found</returns>
+        /// <inheritdoc cref=" GetSceneryPrefabByName(string)"/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sceneryName">The <see cref="UnityEngine.Object.name"/> of the <see cref="TerrainObject"/> filter by</param>
+        /// <param name="result">The found <see cref="TerrainObject"/> if return true</param>
+        public static bool TryGetSceneryPrefabByName(string sceneryName, out TerrainObject result)
+        {
+            result = GetSceneryPrefabByName(sceneryName);
+            return result != null;
+        }
         /// <summary>
         /// Iterate <see cref="SceneryTypes"/> based on their ingredient <see cref="ChunkTypes"/>
+        /// <para><seealso cref="TerrainObject"/>s <b>are not guaranteed to have <see cref="Visible"/> or <see cref="ResourceDispenser"/></b></para>
         /// </summary>
         /// <param name="type">To filter by</param>
         /// <returns>Iterator for <see cref="SceneryTypes"/></returns>
         public static IEnumerable<SceneryTypes> IterateSceneryTypesByIngredient(ChunkTypes type)
         {
             GrabInitList();
-            captured.Clear();
-            foreach (var item in inst.objs.Values)
+            foreach (var item in inst.SceneryByName.Values)
             {
-                foreach (var item2 in item)
-                {
-                    foreach (var item3 in item2.Value)
-                    {
-                        ResourceDispenser RD = item3.GetComponent<ResourceDispenser>();
-                        Visible vis = item3.GetComponent<Visible>();
-                        if (RD != null && captured.Contains(vis.ItemType) && RD.AllDispensableItems().Any(x => x == type))
-                        {
-                            captured.Add(vis.ItemType);
-                            yield return (SceneryTypes)vis.ItemType;
-                        }
-                    }
-                }
+                if (item == null)
+                    continue;
+                ResourceDispenser RD = item.GetComponent<ResourceDispenser>();
+                Visible vis = item.GetComponent<Visible>();
+                if (RD != null && vis != null && RD.AllDispensableItems().Any(x => x == type))
+                    yield return (SceneryTypes)vis.ItemType;
             }
         }
         /// <summary>
         /// Find the <see cref="TerrainObject"/> based on the given <see cref="SceneryTypes"/>.
+        /// <para><seealso cref="TerrainObject"/>s <b>are not guaranteed to have <see cref="Visible"/> or <see cref="ResourceDispenser"/></b></para>
         /// </summary>
         /// <param name="type">To filter by</param>
         /// <returns>Lookup of <see cref="SceneryTypes"/> and variants of them based on naming</returns>
-        public static Dictionary<string, List<TerrainObject>> GetSceneryByType(SceneryTypes type)
+        public static IEnumerable<TerrainObject> IterateSceneryByType(SceneryTypes type)
         {
             GrabInitList();
-            inst.objs.TryGetValue(type, out var outcome);
-            return outcome;
+            int castSearch = (int)type;
+            foreach (var item in inst.SceneryByName.Values)
+            {
+                Visible vis = item?.GetComponent<Visible>();
+                if (vis?.m_ItemType != null && vis.m_ItemType.ItemType == castSearch)
+                    yield return item;
+            }
         }
         /// <summary>
         /// Iterate all <see cref="TerrainObject"/>s based on <see cref="Biome"/> type name
         /// </summary>
-        /// <param name="type">The name of the <see cref="Biome"/> to search</param>
+        /// <param name="biomeName">The name of the <see cref="Biome"/> to search. 
+        /// <para><b>Not <see cref="BiomeTypes"/>.ToString()</b>, the <u><see cref="UnityEngine.Object.name"/>!</u></para></param>
         /// <returns>Iterator for <see cref="TerrainObject"/>s found</returns>
-        public static IEnumerable<TerrainObject> IterateSceneryByBiome(string type)
+        public static IEnumerable<TerrainObject> IterateSceneryByBiome(string biomeName)
         {
             GrabInitList();
-            foreach (var item in inst.objs.Values)
+            foreach (var item in inst.BiomeNameToSceneryNames)
             {
-                if (item.TryGetValue(type, out var TOs))
-                {
-                    foreach (var item2 in TOs)
-                        yield return item2;
-                }
+                if (item.Key == biomeName && TryGetSceneryPrefabByName(item.Key, out TerrainObject res))
+                    yield return res;
             }
         }
         /// <summary>
         /// Iterate all <see cref="TerrainObject"/>s in the game
         /// </summary>
         /// <returns>Iterator of all scenery</returns>
-        public static IEnumerable<Dictionary<string, List<TerrainObject>>> IterateSceneryTypes()
+        public static IEnumerable<KeyValuePair<string, TerrainObject>> IterateAllScenery()
         {
             GrabInitList();
-            foreach (var item in inst.objs)
-            {
-                yield return item.Value;
-            }
+            foreach (var item in inst.SceneryByName)
+                yield return new KeyValuePair<string, TerrainObject>(item.Key, item.Value);
         }
 
         /// <summary>
@@ -159,270 +179,7 @@ namespace TerraTechETCUtil
                 return BiomeTypes.Ice;
             return BiomeTypes.Grassland;
         }
-        /// <summary>
-        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
-        /// </summary>
-        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
-        public static void RefetchResources(BiomeMap ToMap = null) => inst.RefreshResources(ToMap);
-        /// <summary>
-        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
-        /// </summary>
-        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
-        public void RefreshBiomeResources(BiomeMap ToMap = null)
-        {
-            //Debug_TTExt.Log("RefreshBiomeResources attempt");
-            objs.Clear();
-            BiomesByName.Clear();
-            FirstBiomesByType.Clear();
-            if (ToMap == null)
-                ToMap = ModeMain.inst.m_BiomeMaps.MapStack.SelectCompatibleBiomeMap();
-            foreach (var item in ToMap.IterateBiomes())
-            {
-                var BT = item.BiomeType;
-                //Debug_TTExt.Log("- " + item.name + " | " + BT);
-                BiomesByName.Add(item.name, item);
-                if (FirstBiomesByType.ContainsKey(BT))
-                    FirstBiomesByType.Add(BT, item);
-                if (item.DetailLayers != null)
-                {
-                    foreach (var item2 in item.DetailLayers)
-                    {
-                        if (item2.distributor.basic != null)
-                        {
-                            foreach (var item4 in item2.distributor.basic.terrainObject)
-                            {
-                                if (item4 == null) break;
-                                var scenery = item4.GetComponent<ResourceDispenser>();
-                                if (scenery == null)
-                                    break;
-                                SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
-                               // Debug_TTExt.Log("1- " + item.name + " | " + BT + " | " + ST);
-                                List<TerrainObject> objRand;
-                                Dictionary<string, List<TerrainObject>> objBiome;
-                                if (objs.TryGetValue(ST, out objBiome))
-                                {
-                                    if (objBiome.TryGetValue(item.name, out objRand))
-                                        objRand.Add(item4);
-                                    else
-                                    {
-                                        objRand = new List<TerrainObject> { item4 };
-                                        objBiome.Add(item.name, objRand);
-                                    }
-                                }
-                                else
-                                {
-                                    objRand = new List<TerrainObject> { item4 };
-                                    objBiome = new Dictionary<string, List<TerrainObject>>()
-                                    {
-                                        { item.name, objRand }
-                                    };
-                                    objs.Add(ST, objBiome);
-                                }
-                            }
-                        }
-                        if (item2.distributor.decoration != null)
-                        {
-                            foreach (var item4 in item2.distributor.decoration.terrainObject)
-                            {
-                                if (item4 == null) break;
-                                var scenery = item4.GetComponent<ResourceDispenser>();
-                                if (scenery == null)
-                                    break;
-                                SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
-                                // Debug_TTExt.Log("2- " + item.name + " | " + BT + " | " + ST);
-                                List<TerrainObject> objRand;
-                                Dictionary<string, List<TerrainObject>> objBiome;
-                                if (objs.TryGetValue(ST, out objBiome))
-                                {
-                                    if (objBiome.TryGetValue(item.name, out objRand))
-                                        objRand.Add(item4);
-                                    else
-                                    {
-                                        objRand = new List<TerrainObject> { item4 };
-                                        objBiome.Add(item.name, objRand);
-                                    }
-                                }
-                                else
-                                {
-                                    objRand = new List<TerrainObject> { item4 };
-                                    objBiome = new Dictionary<string, List<TerrainObject>>()
-                                    {
-                                        { item.name, objRand }
-                                    };
-                                    objs.Add(ST, objBiome);
-                                }
-                            }
-                        }
-                        if (item2.distributor.variants != null)
-                        {
-                            foreach (var item3 in item2.distributor.variants)
-                            {
-                                if (item3.terrainObject != null)
-                                {
-                                    foreach (var item4 in item3.terrainObject)
-                                    {
-                                        if (item4 == null) break;
-                                        var scenery = item4.GetComponent<ResourceDispenser>();
-                                        if (scenery == null)
-                                            break;
-                                        SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
-                                       // Debug_TTExt.Log("3- " + item.name + " | " + BT + " | " + ST);
-                                        List<TerrainObject> objRand;
-                                        Dictionary<string, List<TerrainObject>> objBiome;
-                                        if (objs.TryGetValue(ST, out objBiome))
-                                        {
-                                            if (objBiome.TryGetValue(item.name, out objRand))
-                                                objRand.Add(item4);
-                                            else
-                                            {
-                                                objRand = new List<TerrainObject> { item4 };
-                                                objBiome.Add(item.name, objRand);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            objRand = new List<TerrainObject> { item4 };
-                                            objBiome = new Dictionary<string, List<TerrainObject>>()
-                                            {
-                                                { item.name, objRand }
-                                            };
-                                            objs.Add(ST, objBiome);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (item2.distributor.upgradeRules != null)
-                        {
-                            foreach (var item3 in item2.distributor.upgradeRules)
-                            {
-                                if (item3.upgrade?.terrainObject != null)
-                                {
-                                    foreach (var item4 in item3.upgrade.terrainObject)
-                                    {
-                                        if (item4 == null) break;
-                                        var scenery = item4.GetComponent<ResourceDispenser>();
-                                        if (scenery == null)
-                                            break;
-                                        SceneryTypes ST = (SceneryTypes)scenery.GetComponent<Visible>().ItemType;
-                                        // Debug_TTExt.Log("4- " + item.name + " | " + BT + " | " + ST);
-                                        List<TerrainObject> objRand;
-                                        Dictionary<string, List<TerrainObject>> objBiome;
-                                        if (objs.TryGetValue(ST, out objBiome))
-                                        {
-                                            if (objBiome.TryGetValue(item.name, out objRand))
-                                                objRand.Add(item4);
-                                            else
-                                            {
-                                                objRand = new List<TerrainObject> { item4 };
-                                                objBiome.Add(item.name, objRand);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            objRand = new List<TerrainObject> { item4 };
-                                            objBiome = new Dictionary<string, List<TerrainObject>>()
-                                            {
-                                                { item.name, objRand }
-                                            };
-                                            objs.Add(ST, objBiome);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (!objs.Any())
-                Debug_TTExt.Log("RefreshBiomeResources NOTHING");
-        }
-        /// <summary>
-        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
-        /// </summary>
-        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the whole game</param>
-        public void RefreshResources(BiomeMap ToMap = null)
-        {
-            try
-            {
-                objsNonRes.Clear();
-                if (ManWorld.inst.CurrentBiomeMap.GetNumBiomes() == 0)
-                {
-                    Debug_TTExt.Log("No biomes?");
-                    objs.Clear();
-                }
 
-                Dictionary<string, TerrainObject> objsRaw = GetAllTerrainObjectPrefabList();
-
-                RefreshBiomeResources(ToMap);
-                bool gatherResTemp = !objs.Any();
-                foreach (var itemPair in objsRaw)
-                {
-                    TerrainObject item = itemPair.Value;
-                    Visible scenery = item?.GetComponent<Visible>();
-                    try
-                    {
-                        if (item == null)
-                            return;
-                        if (item.GetComponent<ResourceDispenser>())
-                        {
-                            // Do it in the previous loop
-                            if (!gatherResTemp)
-                                continue;
-                            SceneryTypes ST = (SceneryTypes)scenery.ItemType;
-                            BiomeTypes BT = GetBiomeFromName(item.name);
-                            //Debug_TTExt.Log("- " + item.name + " | " + BT + " | " + ST);
-                            List<TerrainObject> objRand;
-                            Dictionary<string, List<TerrainObject>> objBiome;
-                            if (objs.TryGetValue(ST, out objBiome))
-                            {
-                                if (objBiome.TryGetValue(BT.ToString(), out objRand))
-                                    objRand.Add(item.GetComponent<TerrainObject>());
-                                else
-                                {
-                                    objRand = new List<TerrainObject> { item.GetComponent<TerrainObject>() };
-                                    objBiome.Add(BT.ToString(), objRand);
-                                }
-                            }
-                            else
-                            {
-                                objRand = new List<TerrainObject> { item.GetComponent<TerrainObject>() };
-                                objBiome = new Dictionary<string, List<TerrainObject>>
-                                {
-                                    { BT.ToString(), objRand }
-                                };
-                                objs.Add(ST, objBiome);
-                            }
-                        }
-                        else
-                        {
-                            try
-                            {
-                                objsNonRes.Add(item.name, item.GetComponent<TerrainObject>());
-                            }
-                            catch
-                            {
-                                Debug_TTExt.Log("Item of name " + item.name + " already exists in objsNonRes, but there's more than one of them!");
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug_TTExt.Log("SpawnHelper: FAILED TO FETCH article - " + (item == null ? "NULL_OBJ" : (item.name == null ? "NULL_NAME" : item.name)) + " - " + e);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                throw new Exception("SpawnHelper: Critical failiure on indexing Scenery - " + e);
-            }
-            if (objs.Count == 0)
-                Debug_TTExt.Assert("SpawnHelper grabbed no resource nodes.  Did we init too early or are there none in this game mode?");
-        }
-        private SpawnHelper()
-        {
-            RefreshResources();
-        }
 
         /// <summary>
         /// Index all entries to be used in <see cref="SpawnHelper"/>
@@ -434,7 +191,239 @@ namespace TerraTechETCUtil
                 return;
             inst = new SpawnHelper();
         }
+        private SpawnHelper()
+        {
+            RefreshOnlyScenery();
+            RefreshBiomeResources(null);
+        }
 
+
+        /// <summary>
+        /// Refresh the <see cref="TerrainObject"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        public static void RefetchScenery()
+        {
+            GrabInitList();
+            inst.RefreshOnlyScenery();
+        }
+        /// <summary>
+        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the <see cref="ModeMain"/>'s biomes</param>
+        public static void RefetchBiomes(BiomeMap ToMap = null)
+        {
+            GrabInitList(); 
+            inst.RefreshBiomeResources(ToMap);
+        }
+
+
+        /// <summary>
+        /// Add Scenery to the <see cref="SpawnHelper"/> lookup.
+        /// </summary>
+        /// <param name="sceneryInst">Must be properly named and not null</param>
+        /// <param name="biomeName">Biome name by <see cref="UnityEngine.Object.name"/></param>
+        public void AddSceneryToBiomeLookup(TerrainObject sceneryInst, string biomeName)
+        {
+            var sceneryName = sceneryInst.name;
+            if (!BiomeNameToSceneryNames.TryGetValue(biomeName, out var biomeList))
+            {
+                biomeList = new List<string>();
+                BiomeNameToSceneryNames.Add(biomeName, biomeList);
+            }
+            if (biomeList.Contains(sceneryName))
+            {
+                /*
+                if (SceneryByName.TryGetValue(sceneryName, out TerrainObject TO) && TO != sceneryInst)
+                    Debug_TTExt.Assert("Duplicate scenery of name " + sceneryName + " when we already have one");
+                //*/
+            }
+            else
+                biomeList.Add(sceneryName);
+        }
+        /// <summary>
+        /// Remove Scenery from the <see cref="SpawnHelper"/> lookup.
+        /// </summary>
+        /// <param name="sceneryInst">Must be properly named and not null</param>
+        /// <param name="biomeName">Biome name by <see cref="UnityEngine.Object.name"/></param>
+        public void RemoveSceneryFromBiomeLookup(TerrainObject sceneryInst, string biomeName)
+        {
+            var sceneryName = sceneryInst.name;
+            if (BiomeNameToSceneryNames.TryGetValue(biomeName, out var biomeList))
+                biomeList.Remove(sceneryName);
+        }
+
+        /// <summary>
+        /// Refresh the <see cref="BiomeMap"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        /// <param name="ToMap">The <see cref="BiomeMap"/> to refetch for, leave null to do the <see cref="ModeMain"/>'s biomes</param>
+        private void RefreshBiomeResources(BiomeMap ToMap = null)
+        {
+            //Debug_TTExt.Log("RefreshBiomeResources attempt");
+            BiomesByName.Clear();
+            BiomeNameToSceneryNames.Clear();
+            if (ToMap == null)
+                ToMap = ModeMain.inst.m_BiomeMaps.MapStack.SelectCompatibleBiomeMap();
+            foreach (var item in ToMap.IterateBiomes())
+            {
+                //var BT = item.BiomeType; // OBSOLETE
+                string biomeName = item?.name;
+                if (biomeName == null)
+                    continue;
+                //Debug_TTExt.Log("- " + item.name + " | " + BT);
+                if (!BiomesByName.ContainsKey(biomeName))
+                    BiomesByName.Add(item.name, item);
+                else
+                    Debug_TTExt.Log("Duplicate biome of name " + biomeName + " when we already have one");
+                if (item.DetailLayers != null)
+                {
+                    foreach (var item2 in item.DetailLayers)
+                    {
+                        var distrib = item2?.distributor;
+                        if (distrib == null)
+                            continue;
+                        if (distrib.basic?.terrainObject != null)
+                        {
+                            foreach (var item4 in distrib.basic.terrainObject)
+                            {
+                                if (item4?.name == null)
+                                    continue;
+                                AddSceneryToBiomeLookup(item4, biomeName);
+                            }
+                        }
+                        if (distrib.decoration?.terrainObject != null)
+                        {
+                            foreach (var item4 in distrib.decoration.terrainObject)
+                            {
+                                if (item4?.name == null)
+                                    continue;
+                                AddSceneryToBiomeLookup(item4, biomeName);
+                            }
+                        }
+                        if (distrib.variants != null)
+                        {
+                            foreach (var item3 in distrib.variants)
+                            {
+                                if (item3?.terrainObject != null)
+                                {
+                                    foreach (var item4 in item3.terrainObject)
+                                    {
+                                        if (item4?.name == null)
+                                            continue;
+                                        AddSceneryToBiomeLookup(item4, biomeName);
+                                    }
+                                }
+                            }
+                        }
+                        if (distrib.upgradeRules != null)
+                        {
+                            foreach (var item3 in distrib.upgradeRules)
+                            {
+                                if (item3.upgrade?.terrainObject != null)
+                                {
+                                    foreach (var item4 in item3.upgrade.terrainObject)
+                                    {
+                                        if (item4?.name == null)
+                                            continue;
+                                        AddSceneryToBiomeLookup(item4, biomeName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!BiomeNameToSceneryNames.Any())
+                Debug_TTExt.Log(nameof(RefreshBiomeResources) + " NOTHING");
+        }
+
+
+
+        /// <summary>
+        /// Add Scenery by <see cref="UnityEngine.Object.name"/> to our lookup.
+        /// </summary>
+        /// <param name="sceneryInst">Must be properly named and not null</param>
+        /// <param name="log">to log if this failed with a duplicate instance that has the same name but different</param>
+        /// <returns>True if we just added</returns>
+        public bool AddSceneryToLookup(TerrainObject sceneryInst, bool log = false)
+        {
+            var sceneryName = sceneryInst?.name;
+            if (sceneryName.NullOrEmpty())
+                throw new ArgumentNullException(nameof(sceneryInst));
+            var OT = sceneryInst.GetComponent<Visible>()?.m_ItemType;
+            if (SceneryByName.TryGetValue(sceneryName, out TerrainObject TO))
+            {
+                /*
+                if (TO != sceneryInst && log)
+                    Debug_TTExt.Assert("Duplicate scenery of name " + sceneryName + " when we already have one");
+                //*/
+                return false;
+            }
+            else
+            {
+                SceneryByName.Add(sceneryName, sceneryInst);
+                if (OT != null && !SceneryTypeToFirstSceneryName.ContainsKey((SceneryTypes)OT.ItemType))
+                    SceneryTypeToFirstSceneryName.Add((SceneryTypes)OT.ItemType, sceneryName);
+                return true;
+            }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sceneryInst">Must be properly named and not null</param>
+        /// <returns>True if we just removed</returns>
+        public bool RemoveSceneryFromLookup(TerrainObject sceneryInst)
+        {
+            var sceneryName = sceneryInst.name;
+            if (sceneryName.NullOrEmpty())
+                throw new ArgumentNullException(nameof(sceneryInst));
+            bool success = SceneryByName.Remove(sceneryName);
+            if (success)
+            {
+                var OT = sceneryInst.GetComponent<Visible>()?.m_ItemType;
+                if (OT != null && SceneryTypeToFirstSceneryName.TryGetValue((SceneryTypes)OT.ItemType, out string TOName) && TOName == sceneryName)
+                    SceneryTypeToFirstSceneryName.Remove((SceneryTypes)OT.ItemType);
+            }
+            return success;
+        }
+
+        /// <summary>
+        /// Refresh the <see cref="TerrainObject"/>s gathered by <see cref="SpawnHelper"/> incase it was changed
+        /// </summary>
+        private void RefreshOnlyScenery()
+        {
+            try
+            {
+                SceneryByName.Clear();
+                SceneryTypeToFirstSceneryName.Clear();
+
+                Dictionary<string, TerrainObject> objsRaw = GetAllTerrainObjectPrefabList();
+                foreach (var itemPair in objsRaw)
+                {
+                    if (itemPair.Value?.name == null)
+                        continue;
+                    AddSceneryToLookup(itemPair.Value, true);
+                }
+            }
+            catch (Exception e)
+            {
+                throw new Exception("SpawnHelper: Critical failiure on indexing Scenery - " + e);
+            }
+            if (SceneryByName.Count == 0)
+                Debug_TTExt.Assert("SpawnHelper grabbed no resource nodes.  Did we init too early or are there none in this game mode?");
+        }
+
+
+
+        /// <summary>
+        /// Logs all indexed <see cref="TerrainObject"/>s in <see cref="SpawnHelper"/> by name in Debug.Log()
+        /// </summary>
+        public static void LogAllRegisteredTerrainObjects()
+        {
+            GrabInitList();
+            foreach (var item in inst.SceneryByName)
+                if (item.Key != null)
+                    Debug_TTExt.Log(item.Key);
+        }
         /// <summary>
         /// Logs all indexed <see cref="TerrainObject"/>s in <see cref="SpawnHelper"/>
         /// </summary>
@@ -443,200 +432,147 @@ namespace TerraTechETCUtil
         {
             GrabInitList();
             SB.AppendLine("Resources:");
-            foreach (var item in inst.objs)
+            foreach (var item in inst.SceneryByName)
             {
-                SB.AppendLine("  Type: " + item.Key);
-                foreach (var item2 in item.Value)
-                {
-                    SB.AppendLine("   Biome: " + item2.Key);
-                    foreach (var item3 in item2.Value)
-                    {
-                        SB.AppendLine("     Name: " + (item3.name.NullOrEmpty() ? "<NULL>" : item3.name));
-                    }
-                }
-            }
-            SB.AppendLine("END");
-        }
-        /// <summary>
-        /// Logs all indexed <b>non-</b><see cref="TerrainObject"/>s in <see cref="SpawnHelper"/>
-        /// </summary>
-        /// <param name="SB">The <see cref="StringBuilder"/> to write it all to</param>
-        public static void PrintAllRegisteredNonResourceObjects(StringBuilder SB)
-        {
-            GrabInitList();
-            SB.AppendLine("TerrainObject:");
-            foreach (var item in inst.objsNonRes)
-            {
-                SB.AppendLine("  Name: " + (item.Value.name.NullOrEmpty() ? "<NULL>" : item.Value.name));
-            }
-            SB.AppendLine("END");
-        }
-
-
-        /// <summary>
-        /// Find a prefab using given data
-        /// </summary>
-        /// <param name="Name">The <see cref="UnityEngine.Object.name"/> to search by</param>
-        /// <returns>Found object, otherwise null</returns>
-        public static TerrainObject GetNonResourcePrefab(string Name)
-        {
-            GrabInitList();
-            try
-            {
-                if (inst.objsNonRes.TryGetValue(Name, out var TO))
-                    return TO;
-            }
-            catch (Exception)
-            {
-            }
-            throw new NullReferenceException("GetNonResourcePrefab entry for " + Name + " has no match!");
-        }
-
-        /// <summary>
-        /// Find a prefab using given data
-        /// </summary>
-        /// <param name="type">The <see cref="SceneryTypes"/> to search by. 
-        /// <see cref="SceneryTypes"/> are partially obsolete, vague and not recommended</param>
-        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by. </param>
-        /// <returns>Found object, otherwise null</returns>
-        public static TerrainObject GetResourceNodePrefab(SceneryTypes type, string biomeName)
-        {
-            GrabInitList();
-            try
-            {
-                TerrainObject TO = null;
-                if (inst.objs.TryGetValue(type, out var objBiome))
-                {
-                    if (objBiome.TryGetValue(biomeName, out var objRand))
-                    {
-                        TO = objRand.GetRandomEntry();
-                    }
-                    else
-                        TO = objBiome[BiomeTypes.Grassland.ToString()].GetRandomEntry();
-                    if (TO == null)
-                        throw new NullReferenceException("GetResourceNodePrefab entry for Biome " + biomeName + " has NO entries!");
-                }
+                string sceneryName = item.Value?.name;
+                if (sceneryName == null)
+                    continue;
+                var vis = item.Value?.GetComponent<Visible>();
+                if (vis == null)
+                    SB.AppendLine("  Type: No Visible!");
                 else
-                    throw new NullReferenceException("GetResourceNodePrefab entry for Scenery " + type.ToString() + " has NO entries!");
-                return TO;
+                    SB.AppendLine("  Type: " + item.Key);
+                SB.AppendLine("  Biomes: ");
+                foreach (var item2 in inst.BiomeNameToSceneryNames.Where(x => x.Value.Contains(sceneryName)))
+                    SB.AppendLine("    " + item2.Key);
             }
-            catch (Exception)
-            {
-                throw new NullReferenceException("GetResourceNodePrefab entry for " + type.ToString() + " | " + biomeName + " has NO entries!");
-            }
+            SB.AppendLine("END");
         }
+
+
+
         /// <summary>
-        /// Find a prefab using given data
+        /// Get a <see cref="ResourceDispenser"/> Scenery <b>explosion</b> <i>instance</i> using given data
         /// </summary>
-        /// <param name="name">The <see cref="UnityEngine.Object.name"/> to search by</param>
-        /// <returns>Found object, otherwise null</returns>
-        public static TerrainObject GetResourceNodePrefab(string name)
-        {
-            if (name.NullOrEmpty())
-                throw new ArgumentNullException("name null or empty");
-            GrabInitList();
-            try
-            {
-                foreach (var item in inst.objs)
-                {
-                    foreach (var item2 in item.Value)
-                    {
-                        if (item2.Value != null)
-                        {
-                            foreach (var item3 in item2.Value)
-                            {
-                                if (item3.name == name)
-                                    return item3;
-                            }
-                        }
-                    }
-                }
-                throw new NullReferenceException("GetResourceNodePrefab entry for Scenery " + name + " has NO entries!");
-            }
-            catch (Exception)
-            {
-                throw new NullReferenceException("GetResourceNodePrefab entry for " + name + " has NO entries!");
-            }
-        }
-        /// <summary>
-        /// Spawn a <see cref="ResourceDispenser"/> Scenery <b>explosion</b> using given data
-        /// </summary>
+        /// <param name="sceneryName">The name of the <see cref="TerrainObject"/> to search by. </param>
         /// <param name="scenePos">The scene positioning of the explosion.</param>
-        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
-        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by. </param>
-        public static void SpawnResourceNodeExplosion(Vector3 scenePos, SceneryTypes type, string biomeName)
+        public static void SpawnResourceNodeExplosion(string sceneryName, Vector3 scenePos)
         {
             GrabInitList();
-            var resDisp = GetResourceNodePrefab(type, biomeName).GetComponent<ResourceDispenser>();
-            ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
-            ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
+            var resDisp = GetSceneryPrefabByName(sceneryName)?.GetComponent<ResourceDispenser>();
+            if (resDisp == null)
+            {
+                if (GetSceneryPrefabByName(sceneryName) == null)
+                    Debug_TTExt.Log("Scenery of name " + (sceneryName.NullOrEmpty() ? "<NULL>" : sceneryName) + " does not exist");
+                else
+                    Debug_TTExt.Log("Scenery node of name " + (sceneryName.NullOrEmpty() ? "<NULL>" : sceneryName) + " does not have " + nameof(ResourceDispenser));
+            }
+            else
+                SpawnResourceNodeExplosion(resDisp, scenePos);
+        }
+        /// <summary>
+        /// <para><b>Not advised to use <see cref="SceneryTypes"/> as it appears obsolete</b></para>
+        /// <inheritdoc cref=" SpawnResourceNodeExplosion(string, Vector3)"/>
+        /// </summary>
+        /// <inheritdoc cref=" SpawnResourceNodeExplosion(string, Vector3)"/>
+        /// <param name="scenePos"></param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        public static void SpawnResourceNodeExplosion(SceneryTypes type, Vector3 scenePos)
+        {
+            if (SceneryTypeToFirstSceneryName.TryGetValue(type, out string sceneryName))
+                SpawnResourceNodeExplosion(sceneryName, scenePos);
         }
         /// <summary>
         /// Spawn a <see cref="ResourceDispenser"/> Scenery <b>explosion</b> using given data
         /// </summary>
         /// <param name="scenePos">The scene positioning of the explosion.</param>
         /// <param name="resDisp">The direct reference to the <see cref="ResourceDispenser"/> to use.</param>
-        public static void SpawnResourceNodeExplosion(Vector3 scenePos, ResourceDispenser resDisp)
+        public static void SpawnResourceNodeExplosion(ResourceDispenser resDisp, Vector3 scenePos)
         {
             GrabInitList();
-            var type = resDisp.GetSceneryType();
-            ((Transform)inst.deathParticles.GetValue(resDisp)).Spawn(null, scenePos, Quaternion.LookRotation(Vector3.up, Vector3.back));
-            ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
+            if (resDisp == null)
+                throw new ArgumentNullException(nameof(resDisp));
+            var type = (SceneryTypes)resDisp.GetComponent<Visible>().m_ItemType.ItemType;
+            ((Transform)inst.deathParticles.GetValue(resDisp))?.Spawn(null, scenePos, Utilities.LookRot(Vector3.up, Vector3.back));
+            ((FMODEvent[])inst.deathSound.GetValue(ManSFX.inst))?[(int)inst.deathSoundGet.Invoke(ManSFX.inst, new object[1] { type })].PlayOneShot(scenePos);
         }
         /// <summary>
         /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data
         /// </summary>
+        /// <param name="sceneryName">The <see cref="UnityEngine.Object.name"/> of the <see cref="TerrainObject"/> filter by</param>
         /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
-        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
-        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
+        /// <param name="rotation">The scene rotation of the spawned resource node.
+        /// <para>Leave at <b>default</b> to use random rotation.</para></param>
+        /// <param name="snapTerrain">Snap this to the terrain below it</param>
         /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
-        public static ResourceDispenser SpawnResourceNodeSnapTerrain(Vector3 scenePos, SceneryTypes type, string biomeName)
-        {
-            GrabInitList();
-            Vector3 pos = scenePos;
-            ManWorld.inst.GetTerrainHeight(pos, out pos.y);
-            Quaternion flatRot = Quaternion.LookRotation((UnityEngine.Random.rotation * Vector3.forward).SetY(0).normalized, Vector3.up);
-            return SpawnResourceNode(pos, flatRot, type, biomeName);
-        }
-        /// <summary>
-        /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data
-        /// </summary>
-        /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
-        /// <param name="rotation">The scene rotation of the spawned resource node.</param>
-        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
-        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
-        /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
-        public static ResourceDispenser SpawnResourceNode(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
+        public static ResourceDispenser SpawnResourceNode(string sceneryName, Vector3 scenePos, Quaternion rotation = default, bool snapTerrain = true)
         {
             GrabInitList();
             try
             {
-                TerrainObject TO = GetResourceNodePrefab(type, biomeName);
-                TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
-                ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
-                return RD;
+                if (snapTerrain)
+                    ManWorld.inst.GetTerrainHeight(scenePos, out scenePos.y);
+                if (rotation == default)
+                    rotation = Utilities.LookRot((UnityEngine.Random.rotation * Vector3.forward).SetY(0).normalized, Vector3.up);
+                var TO = GetSceneryPrefabByName(sceneryName);
+                if (TO == null)
+                {
+                    if (GetSceneryPrefabByName(sceneryName) == null)
+                        Debug_TTExt.Log("Scenery of name " + (sceneryName.NullOrEmpty() ? "<NULL>" : sceneryName) + " does not exist");
+                }
+                else
+                {
+                    var resDisp = TO.GetComponent<ResourceDispenser>();
+                    if (resDisp == null)
+                    {
+                        Debug_TTExt.Log("Scenery node of name " + (sceneryName.NullOrEmpty() ? "<NULL>" : sceneryName) + " does not have " + nameof(ResourceDispenser));
+                        return null;
+                    }
+                    TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
+                    return resDisp;
+                }
             }
             catch (Exception e)
             {
-                throw new NullReferenceException("TTExtUtil: SpawnResourceNode encountered an error - " + e.Message, e);
+                throw new NullReferenceException("TTExtUtil: SpawnResourceNode() encountered an error", e);
             }
+            return null;
+        }
+
+        /// <summary>
+        /// <para><b>Not advised to use <see cref="SceneryTypes"/> as it appears obsolete</b></para>
+        /// <inheritdoc cref="SpawnResourceNode(string, Vector3, Quaternion, bool)"/>
+        /// </summary>
+        /// <inheritdoc cref="SpawnResourceNode(string, Vector3, Quaternion, bool)"/>
+        /// <param name="scenePos"></param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="rotation"></param>
+        /// <param name="snapTerrain"></param>
+        /// <returns></returns>
+        public static ResourceDispenser SpawnResourceNode(SceneryTypes type, Vector3 scenePos, Quaternion rotation = default, bool snapTerrain = true)
+        {
+            if (SceneryTypeToFirstSceneryName.TryGetValue(type, out string sceneryName))
+                return SpawnResourceNode(sceneryName, scenePos, rotation, snapTerrain);
+            return null;
         }
         /// <summary>
-        /// Spawn a <see cref="ResourceDispenser"/> Scenery using given data, playing the <c>Regrow()</c> animation
+        /// <inheritdoc cref="SpawnResourceNode"/>
+        /// <para>Plays the <see cref="ResourceDispenser"/><c>.Regrow()</c> animation</para>
         /// </summary>
-        /// <param name="scenePos">The scene positioning of the spawned resource node.</param>
-        /// <param name="rotation">The scene rotation of the spawned resource node.</param>
-        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
-        /// <param name="biomeName">The name of the <see cref="Biome"/> to search by.</param>
-        /// <returns>a <see cref="ResourceDispenser"/> if found, otherwise null</returns>
-        public static ResourceDispenser SpawnResourceNodeAnimated(Vector3 scenePos, Quaternion rotation, SceneryTypes type, string biomeName)
+        /// <inheritdoc cref="SpawnResourceNode"/>
+        /// <param name="sceneryName"></param>
+        /// <param name="scenePos"></param>
+        /// <param name="rotation"></param>
+        /// <param name="snapTerrain"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public static ResourceDispenser SpawnResourceNodeAnimated(string sceneryName, Vector3 scenePos, Quaternion rotation = default, bool snapTerrain = true)
         {
-            GrabInitList();
+            ResourceDispenser RD = SpawnResourceNode(sceneryName, scenePos, rotation, snapTerrain);
             try
             {
-                TerrainObject TO = GetResourceNodePrefab(type, biomeName);
-                TrackableObject track = TO.SpawnFromPrefabAndAddToSaveData(scenePos, rotation).TerrainObject;
-                ResourceDispenser RD = track.GetComponent<ResourceDispenser>();
+                if (RD == null)
+                    return null;
                 RD.RemoveFromWorld(false, false, true, false);
                 RD.SetRegrowOverrideTime(0.1f); // Check later - spawns too quickly after first spawn
                 return RD;
@@ -646,6 +582,25 @@ namespace TerraTechETCUtil
                 throw new NullReferenceException("TTExtUtil: SpawnResourceNodeAnimated encountered an error - " + e.Message, e);
             }
         }
+
+        /// <summary>
+        /// <para><b>Not advised to use <see cref="SceneryTypes"/> as it appears obsolete</b></para>
+        /// <inheritdoc cref="SpawnResourceNodeAnimated(string, Vector3, Quaternion, bool)"/>
+        /// </summary>
+        /// <inheritdoc cref="SpawnResourceNodeAnimated(string, Vector3, Quaternion, bool)"/>
+        /// <param name="scenePos"></param>
+        /// <param name="type">The <see cref="SceneryTypes"/> to search by.</param>
+        /// <param name="rotation"></param>
+        /// <param name="snapTerrain"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException"></exception>
+        public static ResourceDispenser SpawnResourceNodeAnimated(SceneryTypes type, Vector3 scenePos, Quaternion rotation = default, bool snapTerrain = true)
+        {
+            if (SceneryTypeToFirstSceneryName.TryGetValue(type, out string sceneryName))
+                return SpawnResourceNodeAnimated(sceneryName, scenePos, rotation, snapTerrain);
+            return null;
+        }
+
         /// <summary>
         /// Destroy the target <see cref="ResourceDispenser"/> immedeately
         /// </summary>
@@ -954,7 +909,7 @@ namespace TerraTechETCUtil
                         enabled = false;
                         return;
                     }
-                    var aiming = Quaternion.LookRotation(bomb.target.centrePosition - rbody.position, rbody.rotation * Vector3.up).normalized;
+                    var aiming = Utilities.LookRot(bomb.target.centrePosition - rbody.position, rbody.rotation * Vector3.up).normalized;
                     rbody.MoveRotation(Quaternion.RotateTowards(rbody.rotation, aiming, turnSped * Time.fixedDeltaTime));
                     /*
                     if (rbody.useGravity)
@@ -1012,8 +967,8 @@ namespace TerraTechETCUtil
                         curBiome = BiomesByName.Values.ToList().FindIndex(x => x == biomeThis);
                     }
                     snapTerrain = AltUI.Toggle(snapTerrain, "Snap To Terrain");
-                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Explosions", x => SpawnResourceNodeExplosion(spawnPos, x, BiomesByName.Keys.ToArray()[curBiome]));
-                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Nodes", x => SpawnResourceNode(spawnPos, Quaternion.identity, x, BiomesByName.Keys.ToArray()[curBiome])); 
+                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Explosions", x => SpawnResourceNodeExplosion(x, spawnPos));
+                    GUICategoryDisp<SceneryTypes>(ref enabledTabs, "Nodes", x => SpawnResourceNode(x, spawnPos)); 
                     if (GUILayout.Button("Destroy Close Resource Node"))
                     {
                         var iterate = ManVisible.inst.VisiblesTouchingRadius(spawnPos, 64, new Bitfield<ObjectTypes>(new ObjectTypes[1] { ObjectTypes.Scenery }));

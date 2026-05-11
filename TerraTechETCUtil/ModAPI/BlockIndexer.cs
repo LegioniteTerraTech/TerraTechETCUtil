@@ -6,6 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using Newtonsoft.Json;
 using System.IO;
+using HarmonyLib;
 
 #if !STEAM
 using Nuterra.BlockInjector;
@@ -27,47 +28,75 @@ namespace TerraTechETCUtil
 
         private static bool spamLog = false;
         private static BlockIndexer inst;
-        private static bool Compiled = false;
+        private static bool _IsIndexed = false;
         /// <summary>
         /// True if all blocks in the current session were indexed.
         /// <para>Rebuilds every time <see cref="ManGameMode"/> switches game modes</para>
         /// <para><b>Does not account for new blocks created in the session itself</b></para>
         /// </summary>
-        public static bool IsIndexed => Compiled;
-        private static int types = Enum.GetValues(typeof(BlockTypes)).Length;
+        public static bool IsIndexed => _IsIndexed;
+        private static int vanillaTypes = Enum.GetValues(typeof(BlockTypes)).Length;
+        private static Dictionary<BlockTypes, BlockTypes> cached_BlockAliasing = new Dictionary<BlockTypes, BlockTypes>();
 
 
         /// <summary>
+        /// Check and throw if <see cref="IsIndexed"/> is not true.
+        /// <para>This is not checked in every method call in <see cref="BlockIndexer"/> to save on performance.</para>
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void SanityCheckThrowIfFail()
+        {
+            if (!IsIndexed)
+            {
+                if (Assembly.GetCallingAssembly() == Assembly.GetExecutingAssembly())
+                    throw new InvalidOperationException("BlockIndexer is not ready yet.");
+                else
+                    throw new InvalidOperationException("BlockIndexer is not ready yet.  To check for this please check " + nameof(IsIndexed));
+            }
+        }
+
+        /// <summary>
         /// Searches ENTIRE GAME for the block based on root GameObject name.
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <returns>The Block Type to use if it found it, otherwise returns BlockTypes.GSOCockpit_111</returns>
         public static BlockTypes StringToBlockType(string mem)
         {
-            if (!Enum.TryParse(mem, out BlockTypes type) && (int)type < types)
+            if (!Enum.TryParse(mem, out BlockTypes type) && (int)type < vanillaTypes)
                 if (!TryGetMismatchNames(mem, ref type))
                     if (!StringToBIBlockType(mem, out type))
                         type = GetBlockIDLogFree(mem);
+            if (cached_BlockAliasing.TryGetValue(type, out var type2))
+                type = type2;
             return type;
         }
         /// <summary>
         /// Searches the ENTIRE GAME for the block based on root GameObject name.
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <param name="BT">The Block Type to use if it found it</param>
         /// <returns>True if it found it in Block Injector</returns>
-        public static bool StringToBlockType(string mem, out BlockTypes BT) =>
-            (Enum.TryParse(mem, out BT) && (int)BT < types) || TryGetMismatchNames(mem, ref BT) ||
-            StringToBIBlockType(mem, out BT) || GetBlockIDLogFree(mem, out BT);
+        public static bool StringToBlockType(string mem, out BlockTypes BT)
+        {
+            bool state = (Enum.TryParse(mem, out BT) && (int)BT < vanillaTypes) || TryGetMismatchNames(mem, ref BT) ||
+                StringToBIBlockType(mem, out BT) || GetBlockIDLogFree(mem, out BT);
+            if (cached_BlockAliasing.TryGetValue(BT, out var type2))
+                BT = type2;
+            return state;
+        }
+           
         /// <summary>
         /// Searches <b>ONLY Block Injector</b> for the block based on root GameObject name.
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="mem">The name of the block's root GameObject.  This is also set in the Official Mod Tool by the Name ID (filename of the .json), not the name you give it.</param>
         /// <param name="BT">The Block Type to use if it found it</param>
         /// <returns>True if it found it in Block Injector</returns>
         public static bool StringToBIBlockType(string mem, out BlockTypes BT) // BLOCK INJECTOR
         {
-            BT = BlockTypes.GSOAIController_111;
+            BT = RawTechUtil.DefaultBT;
 
 #if !STEAM
             if (!isBlockInjectorPresent)
@@ -85,9 +114,10 @@ namespace TerraTechETCUtil
         /// <summary>
         /// <para><b>ONLY CHECKS MODDED BLOCKS</b></para>
         /// Silent replacement for <see cref="ManMods.GetBlockID(string)"/>
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="name"></param>
-        /// <returns></returns>
+        /// <returns>The blocktype if found, otherwise the invalid block null state <inheritdoc cref="RawTechUtil.DefaultBT"/></returns>
         public static BlockTypes GetBlockIDLogFree(string name)
         {
             PrepareModdedBlocksFetch();
@@ -95,12 +125,13 @@ namespace TerraTechETCUtil
                 return (BlockTypes)blockType;
             else if (name == "GSO_Exploder_A1_111")
                 return (BlockTypes)622;
-            return BlockTypes.GSOCockpit_111;
+            return RawTechUtil.DefaultBT;
         }
 
         /// <summary>
         /// <para><b>ONLY CHECKS MODDED BLOCKS</b></para>
         /// Silent replacement for <see cref="ManMods.GetBlockID(string)"/>
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="name"></param>
         /// <param name="BT"></param>
@@ -127,6 +158,7 @@ namespace TerraTechETCUtil
         private static readonly Dictionary<int, BlockDetails.Flags> moddedDetails = new Dictionary<int, BlockDetails.Flags>();
         /// <summary>
         /// Gets the <see cref="BlockDetails"/> for a given block, way faster than manually looking in the block for data
+        /// <para><u>Before calling this for the first time</u>, make sure to check <b><see cref="IsIndexed"/></b> or call <b><see cref="SanityCheckThrowIfFail"/></b></para>
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
@@ -142,37 +174,17 @@ namespace TerraTechETCUtil
 
 
         // Logless block loader
-        private static FieldInfo generator = typeof(ModuleEnergy).GetField("m_OutputConditions", BindingFlags.NonPublic | BindingFlags.Instance);
-
         private static Dictionary<string, int> ModdedBlocksGrabbed;
         private static readonly FieldInfo allModdedBlocks = typeof(ManMods).GetField("m_BlockIDReverseLookup", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly Dictionary<int, BlockTypes> errorNamesVanilla = new Dictionary<int, BlockTypes>();
         private static readonly Dictionary<int, BlockTypes> errorNames = new Dictionary<int, BlockTypes>();
         private static bool subbed = false;
         /// <summary>
-        /// Resets ALL the block lookup lists in <see cref="BlockIndexer"/>.
-        /// <para><b>DO NOT USE UNLESS ABSOLUTELY NECESSARY</b></para>
-        /// </summary>
-        public static void ResetBlockLookupList()
-        {
-            if (subbed)
-            {
-                ManGameMode.inst.ModeStartEvent.Unsubscribe(ConstructBlockLookupListTrigger);
-                subbed = false;
-            }
-            if (!Compiled)
-                return;
-            errorNames.Clear();
-            moddedDetails.Clear();
-            Compiled = false;
-            LegModExt.harmonyInstance.MassUnPatchAllWithin(typeof(SnapshotsPatchBatch), "TerraTechModExt", false);
-        }
-        /// <summary>
         /// Builds the lookup to use when using block names to find BlockTypes
         /// </summary>
         public static void ConstructBlockLookupListDelayed()
         {
-            if (Compiled)
+            if (_IsIndexed)
                 return;
             if (inst == null)
             {
@@ -268,17 +280,23 @@ namespace TerraTechETCUtil
                 }
             }
         }
+        private static bool FirstInit = true;
         /// <summary>
         /// Builds the lookup to use when using block names to find BlockTypes
         /// </summary>
         public static void ConstructBlockLookupList()
         {
-            if (Compiled)
+            if (_IsIndexed)
                 return;
             Debug.Log("TerraTechETCUtil: Rebuilding block lookup...");
             try
             {
-                LegModExt.harmonyInstance.MassPatchAllWithin(typeof(SnapshotsPatchBatch), "TerraTechModExt", true);
+                if (FirstInit)
+                {
+                    FirstInit = false;
+                    cached_BlockAliasing = (Dictionary<BlockTypes, BlockTypes>)AccessTools.Field(typeof(ManSpawn), "m_BlockAliasing").GetValue(ManSpawn.inst);
+                    LegModExt.harmonyInstance.MassPatchAllWithin(typeof(SnapshotsPatchBatch), "TerraTechModExt", true);
+                }
                 ConstructBlockLookupListVanilla();
                 int enumMax = Enum.GetValues(typeof(BlockTypes)).Length;
                 foreach (BlockTypes type in Singleton.Manager<ManSpawn>.inst.GetLoadedTankBlockNames())
@@ -298,8 +316,27 @@ namespace TerraTechETCUtil
             }
 
             Debug.Log("BlockUtils: ConstructErrorBlocksList - There are " + errorNames.Count + " blocks with names not equal to their type");
-            Compiled = true;
+            _IsIndexed = true;
         }
+        /// <summary>
+        /// Resets <b>ALL</b> the block lookup lists in <see cref="BlockIndexer"/>.
+        /// <para>Modded is already handled automatically</para>
+        /// <para><b>DO NOT USE UNLESS ABSOLUTELY NECESSARY</b></para>
+        /// </summary>
+        public static void ResetBlockLookupList()
+        {
+            if (subbed)
+            {
+                ManGameMode.inst.ModeStartEvent.Unsubscribe(ConstructBlockLookupListTrigger);
+                subbed = false;
+            }
+            if (!_IsIndexed)
+                return;
+            errorNames.Clear();
+            moddedDetails.Clear();
+            _IsIndexed = false;
+        }
+
 
         /// <summary>
         /// Delay this until AFTER Block Injector to setup the lookups
@@ -484,16 +521,19 @@ namespace TerraTechETCUtil
             {
                 int searchEnd = 0;
                 int searchLength = 0;
-                string output = "";
+                string output = string.Empty;
                 try
                 {
                     searchEnd = indexFind + searchBase.Length;
-                    searchLength = text.Substring(searchEnd).IndexOf(",");
+                    searchLength = text.Skip(searchEnd).TakeWhile(x => x != ',').Count();//.Substring(searchEnd).IndexOf(",");
                     if (searchLength != -1)
                     {
-                        output = text.Substring(searchEnd, searchLength).Replace(" ", "");
-                        intCase = (int)float.Parse(output);
-                        return true;
+                        output = text.Substring(searchEnd, searchLength).Replace(" ", string.Empty);
+                        if (float.TryParse(output, out float result))
+                        {
+                            intCase = (int)result;
+                            return true;
+                        }
                     }
                     //Debug_TTExt.Log(searchEnd + " | " + searchLength + " | " + output + " | ");
                 }
@@ -591,10 +631,8 @@ namespace TerraTechETCUtil
         /// <exception cref="NullReferenceException"></exception>
         public static TechData RawTechToTechData(string name, string blueprint, out int[] blockIDs)
         {
-            if (!Compiled)
-            {
+            if (!_IsIndexed)
                 ConstructBlockLookupList();
-            }
             TechData data = new TechData();
             data.Name = name;
             data.m_Bounds = new IntVector3(new Vector3(18, 18, 18));
@@ -771,7 +809,7 @@ namespace TerraTechETCUtil
             Vector3 foA = (changeRot * Vector3.forward).normalized;
             Vector3 upA = (changeRot * Vector3.up).normalized;
             //Debug.Log("Architech: SetCorrectRotation - Matching test " + foA + " | " + upA);
-            Quaternion qRot2 = Quaternion.LookRotation(foA, upA);
+            Quaternion qRot2 = Utilities.LookRot(foA, upA);
             OrthoRotation rot = new OrthoRotation(qRot2);
             if (rot != qRot2)
             {

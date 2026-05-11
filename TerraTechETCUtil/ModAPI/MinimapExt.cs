@@ -706,7 +706,7 @@ namespace TerraTechETCUtil
             if (init)
             {
                 init = false;
-                Recycle();
+                DoRecycle();
                 ext.disp.HideEvent.Unsubscribe(OnHide);
                 ext.disp.ShowEvent.Unsubscribe(OnShow);
             }
@@ -714,7 +714,7 @@ namespace TerraTechETCUtil
         /// <summary>
         /// Called when destroyed
         /// </summary>
-        protected virtual void Recycle() { }
+        protected virtual void DoRecycle() { }
 
         /// <summary>
         /// Called when layer is updated
@@ -817,7 +817,6 @@ namespace TerraTechETCUtil
                     var ele = elementsUsed.Pop();
                     ele.RectTrans.SetParent(null);
                     ele.gameObject.SetActive(false);
-                    ele.Recycle(false);
                 }
                 prefab.DeletePool();
                 if (destroyPrefabToo)

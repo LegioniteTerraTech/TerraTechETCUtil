@@ -183,9 +183,7 @@ namespace TerraTechETCUtil
             {
                 Color transColor = new Color(1f, 1f, 1f, 1f);
                 foreach (var item in applyCommand)
-                {
                     transColor = item.setTheSky(transColor);
-                }
             }
         }
         internal static void ReinforceStateActive(ref DayNightColours dayColours, ref DayNightColours nightColours)
@@ -193,9 +191,7 @@ namespace TerraTechETCUtil
             if (applyCommand.Any())
             {
                 foreach (var item in applyCommand)
-                {
                     item.keepTheSky(dayColours, nightColours);
-                }
             }
         }
     }

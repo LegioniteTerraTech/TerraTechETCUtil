@@ -4,6 +4,8 @@ using System.IO;
 using UnityEngine;
 using FMODUnity;
 using FMOD;
+using System.Collections;
+using System.Linq;
 
 namespace TerraTechETCUtil
 {
@@ -11,8 +13,24 @@ namespace TerraTechETCUtil
     /// <summary>
     /// The modded audio player manager for TerraTech
     /// </summary>
-    public class ManAudioExt : MonoBehaviour
+    public class ManAudioExt : MonoBehaviour, IModPreloadable
     {
+        ModDataHandle IModPreloadable.ModHandle { get; } = new ModDataHandle(LegModExt.modID);
+        bool IModPreloadable.ChainFail => false;
+        void IModPreloadable.OnFail() { }
+        string IModPreloadable.Subject => "Injecting modded audio - ";
+        string IModPreloadable.InProgress => InProgress;
+        float IModPreloadable.EstPercentDone => EstPercentDone;
+        int IModPreloadable.EstNumSteps => EstNumSteps;
+        int IModPreloadable.EstNumStepsIterator => EstNumStepsIterator;
+        IEnumerator IModPreloadable.GetEnumerator() => CreateAndRegisterAllSounds();
+
+        static string InProgress = null;
+        static float EstPercentDone = 1f;
+        static int EstNumSteps = 1;
+        static int EstNumStepsIterator = 0;
+
+
         private static ManAudioExt inst;
         /// <summary>
         /// The SFX volume of the game
@@ -58,7 +76,6 @@ namespace TerraTechETCUtil
             ClearAllSounds();
             GC.Collect();
             RegisterAllSounds();
-            OnRebuildSounds.Send();
         }
         internal static void ClearAllSounds()
         {
@@ -66,6 +83,38 @@ namespace TerraTechETCUtil
         }
         internal static void RegisterAllSounds()
         {
+            InsureInit();
+            if (ManGameMode.inst.GetModePhase() != ManGameMode.GameState.InGame)
+                InvokeHelper.PreloadThis(inst);
+            else
+                InvokeHelper.InvokeCoroutine(CreateAndRegisterAllSounds());
+        }
+        private static IEnumerator CreateAndRegisterAllSounds()
+        {
+            EstNumSteps = 0;
+            foreach (var item in ResourcesHelper.IterateAllMods())
+            {
+                if (item.Value != null && !AllSounds.ContainsKey(item.Value))
+                {
+                    string DIR = new DirectoryInfo(item.Value.AssetBundlePath).Parent.ToString();
+
+                    EstNumSteps += ResourcesHelper.IterateAssetsInModContainer<TextAsset>(
+                        item.Value, AudioInstFile.leadingFileName).Count(x =>
+                        {
+                            string nameNoExt = x?.name;
+                            return nameNoExt != null && !nameNoExt.EndsWith("_Start") && !nameNoExt.EndsWith("_Stop") && !nameNoExt.EndsWith("_Engage");
+                        });
+                    try
+                    {
+                        EstNumSteps += Directory.EnumerateFiles(DIR, "*.wav", SearchOption.AllDirectories).Count(x =>
+                            {
+                                string nameNoExt = Path.GetFileNameWithoutExtension(x);
+                                return !nameNoExt.EndsWith("_Start") && !nameNoExt.EndsWith("_Stop") && !nameNoExt.EndsWith("_Engage");
+                            });
+                    }
+                    catch { }
+                }
+            }
             List<AudioInst> soundsMain = new List<AudioInst>();
             foreach (var item in ResourcesHelper.IterateAllMods())
             {
@@ -77,19 +126,22 @@ namespace TerraTechETCUtil
                     AllSounds.Add(item.Value, audioLib);
                     string DIR = new DirectoryInfo(item.Value.AssetBundlePath).Parent.ToString();
 
-                    try
+                    foreach (var item2 in ResourcesHelper.IterateAssetsInModContainer<TextAsset>(item.Value, AudioInstFile.leadingFileName))
                     {
-                        foreach (var item2 in ResourcesHelper.IterateAssetsInModContainer<TextAsset>(item.Value, AudioInstFile.leadingFileName))
+                        string nameNoExt = item2?.name;
+                        if (nameNoExt == null || nameNoExt.EndsWith("_Start") || nameNoExt.EndsWith("_Stop") || nameNoExt.EndsWith("_Engage"))
+                            continue;
+                        string name = nameNoExt + ".wav";
+                        if (audioLib.ContainsKey(name))
                         {
-                            string nameNoExt = item2.name;
-                            if (nameNoExt.EndsWith("_Start") || nameNoExt.EndsWith("_Stop") || nameNoExt.EndsWith("_Engage"))
-                                continue;
-                            string name = nameNoExt + ".wav";
-                            if (audioLib.ContainsKey(name))
-                            {
-                                //Debug_TTExt.LogError("Internal Sound " + nameNoExt + " for " + item.Key + " could not be added as there is already a conflict!");
-                            }
-                            else
+                            //Debug_TTExt.LogError("Internal Sound " + nameNoExt + " for " + item.Key + " could not be added as there is already a conflict!");
+                        }
+                        else
+                        {
+                            InProgress = nameNoExt;
+                            EstPercentDone = EstNumStepsIterator / (float)EstNumSteps;
+                            yield return new WaitForEndOfFrame();
+                            try
                             {
                                 AudioInst sound = ResourcesHelper.GetAudioFromModAssetBundle(item.Value, nameNoExt, false);
                                 if (sound != null)
@@ -116,27 +168,32 @@ namespace TerraTechETCUtil
                                 else
                                     Debug_TTExt.LogError("AssetBundle Sound " + name + " for " + item.Key + " could not be added as it was corrupted!");
                             }
+                            catch (Exception e)
+                            {
+                                Debug_TTExt.Log("Error on ManSFXExt.RegisterAllSounds() while trying to collect sounds from AssetBundle for mod ID " + item.Key + " - " + e);
+                            }
+                            yield return null;
+                            EstNumStepsIterator++;
                         }
                     }
-                    catch (Exception e)
-                    {
-                        Debug_TTExt.Log("Error on ManSFXExt.RegisterAllSounds() while trying to collect sounds from AssetBundle for mod ID " + item.Key + " - " + e);
-                    }
 
-                    try
+                    foreach (var dir in Directory.EnumerateFiles(DIR, "*.wav", SearchOption.AllDirectories))
                     {
-                        foreach (var dir in Directory.EnumerateFiles(DIR, "*.wav", SearchOption.AllDirectories))
+                        string nameNoExt = Path.GetFileNameWithoutExtension(dir);
+                        if (nameNoExt.EndsWith("_Start") || nameNoExt.EndsWith("_Stop") || nameNoExt.EndsWith("_Engage"))
+                            continue;
+                        string name = Path.GetFileName(dir);
+
+                        if (audioLib.ContainsKey(name))
                         {
-                            string nameNoExt = Path.GetFileNameWithoutExtension(dir);
-                            if (nameNoExt.EndsWith("_Start") || nameNoExt.EndsWith("_Stop") || nameNoExt.EndsWith("_Engage"))
-                                continue;
-                            string name = Path.GetFileName(dir);
-
-                            if (audioLib.ContainsKey(name))
-                            {
-                                //Debug_TTExt.LogError("Sound " + name + " for " + item.Key + " could not be added as there is already a conflict!");
-                            }
-                            else
+                            //Debug_TTExt.LogError("Sound " + name + " for " + item.Key + " could not be added as there is already a conflict!");
+                        }
+                        else
+                        {
+                            InProgress = nameNoExt;
+                            EstPercentDone = EstNumStepsIterator / (float)EstNumSteps;
+                            yield return new WaitForEndOfFrame();
+                            try
                             {
                                 var sound = ResourcesHelper.FetchSoundDirect(name, DIR, item.Value);
                                 if (sound != null)
@@ -163,14 +220,21 @@ namespace TerraTechETCUtil
                                 else
                                     Debug_TTExt.LogError("External Sound " + name + " for " + item.Key + " could not be added as it was corrupted!");
                             }
+                            catch (Exception e)
+                            {
+                                Debug_TTExt.Log("Error on ManSFXExt.RegisterAllSounds() while trying to collect sounds from files for mod ID " + item.Key + " - " + e);
+                            }
+                            yield return null;
+                            EstNumStepsIterator++;
                         }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug_TTExt.Log("Error on ManSFXExt.RegisterAllSounds() while trying to collect sounds from files for mod ID " + item.Key + " - " + e);
                     }
                 }
             }
+            EstPercentDone = 1f;
+            EstNumSteps = 0;
+            yield return new WaitForEndOfFrame();
+            InProgress = null;
+            OnRebuildSounds.Send();
         }
 
 
@@ -183,7 +247,7 @@ namespace TerraTechETCUtil
             managed = new HashSet<AudioInst>();
             ManWorldTreadmill.inst.OnAfterWorldOriginMoved.Subscribe(OnWorldMove);
             ManProfile.inst.OnProfileSaved.Subscribe(OnProfileDelta);
-            ResourcesHelper.ModsPostLoadEvent.Subscribe(OnBlocksSet);
+            InvokeHelper.ModsPostLoadEvent.Subscribe(OnBlocksSet);
             ManPauseGame.inst.PauseEvent.Subscribe(OnPaused);
             sys.set3DSettings(1, 1, 1);
             sys.set3DNumListeners(1);

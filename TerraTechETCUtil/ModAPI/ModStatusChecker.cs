@@ -728,65 +728,70 @@ namespace TerraTechETCUtil
             }
             catch (Exception e)
             {
-                failed = true;
-                if (doChainFail)
-                    chainFailed = true;
-                selected = modStatuses[ModID];
-                string failReport;
-                Assembly problemAssembly = e.TargetSite?.DeclaringType?.Assembly;
-                if (problemAssembly == Assembly.GetExecutingAssembly())
-                {
-                    modStatuses[ModID].status = EModStatus.TTETCUtilException;
-                    failReport = "Initialization Failiure within TerraTechETCUtil, invoked by " + ModID + ": " + e;
-                }
-                else if (problemAssembly == CallerAssembly)
-                {
-                    modStatuses[ModID].status = EModStatus.Exception;
-                    failReport = "Initialization Failiure within " + ModID + ": " + e;
-                }
+                PushErrorToClient(doChainFail, ModID, e, CallerAssembly, onFail);
+            }
+        }
+        internal static void PushErrorToClient(bool doChainFail, string ModID, Exception e, 
+            Assembly CallerAssembly, Action onFail)
+        {
+            failed = true;
+            if (doChainFail)
+                chainFailed = true;
+            selected = modStatuses[ModID];
+            string failReport;
+            Assembly problemAssembly = e.TargetSite?.DeclaringType?.Assembly;
+            if (problemAssembly == Assembly.GetExecutingAssembly())
+            {
+                modStatuses[ModID].status = EModStatus.TTETCUtilException;
+                failReport = "Initialization Failiure within TerraTechETCUtil, invoked by " + ModID + ": " + e;
+            }
+            else if (problemAssembly == CallerAssembly)
+            {
+                modStatuses[ModID].status = EModStatus.Exception;
+                failReport = "Initialization Failiure within " + ModID + ": " + e;
+            }
+            else
+            {
+                modStatuses[ModID].status = EModStatus.Exception;
+                if (problemAssembly.FullName == "Assembly-CSharp")
+                    failReport = "Initialization Failiure within call to base game, invoked by " + ModID + ": " + e;
                 else
                 {
-                    modStatuses[ModID].status = EModStatus.Exception;
-                    if (problemAssembly.FullName == "Assembly-CSharp")
-                        failReport = "Initialization Failiure within call to base game, invoked by " + ModID + ": " + e;
-                    else
+                    failReport = null;
+                    foreach (var item in modStatuses)
                     {
-                        failReport = null;
-                        foreach (var item in modStatuses)
-                        {
-                            if (item.Value.assembly == problemAssembly)
-                                failReport = "Initialization Failiure within mod dll " + item.Key + ", invoked by " + ModID + ": " + e;
-                        }
-                        if (failReport == null)
-                            failReport = "Initialization Failiure within dll " + problemAssembly.FullName + ", invoked by " + ModID + ": " + e;
+                        if (item.Value.assembly == problemAssembly)
+                            failReport = "Initialization Failiure within mod dll " + item.Key + ", invoked by " + ModID + ": " + e;
                     }
+                    if (failReport == null)
+                        failReport = "Initialization Failiure within dll " + problemAssembly.FullName + ", invoked by " + ModID + ": " + e;
                 }
-                Debug_TTExt.Log(failReport);
-                try
-                {
-                    if (onFail != null)
-                        onFail.Invoke();
-                    modStatuses[ModID].exception = e.ToString();
-                }
-                catch (Exception e2)
-                {
-                    modStatuses[ModID].exception = e.ToString() + "\n\nFallback onFail Action failed to execute as well - " + e2.ToString();
-                }
-                if (IsRandomAdditionsAvail)
-                {
-                    // Delay the crash and deny loading of our other mods for now at least
-                    errorReport = failReport;
-                    InvokeHelper.InvokeSingleRepeat(ThrowDelayedErrorForRandAdd, 1);
-                }
-                modStatuses[ModID].site = e.TargetSite;
-                switch (inst.ShowSetting)
-                {
-                    case 0:
-                    case 1:
-                    case 2:
-                        ShowErrorLog(ModID + " - " + modStatuses[ModID].exception);
-                        break;
-                }
+            }
+            Debug_TTExt.Log(failReport);
+            try
+            {
+                if (onFail != null)
+                    onFail.Invoke();
+                modStatuses[ModID].exception = e.ToString();
+            }
+            catch (Exception e2)
+            {
+                modStatuses[ModID].exception = e.ToString() + "\n\nFallback onFail Action failed to execute as well - " + e2.ToString();
+            }
+            if (IsRandomAdditionsAvail)
+            {
+                // Delay the crash and deny loading of our other mods for now at least
+                errorReport = failReport;
+                InvokeHelper.InvokeSingleRepeat(ThrowDelayedErrorForRandAdd, 1);
+            }
+            modStatuses[ModID].site = e.TargetSite;
+            switch (inst.ShowSetting)
+            {
+                case 0:
+                case 1:
+                case 2:
+                    ShowErrorLog(ModID + " - " + modStatuses[ModID].exception);
+                    break;
             }
         }
         /// <summary>
